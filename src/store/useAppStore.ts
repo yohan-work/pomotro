@@ -188,6 +188,9 @@ export const useAppStore = create<AppState>()(
           return;
         }
         const partial = opts?.partialElapsedSec !== undefined;
+        const now = Date.now();
+        // 실제 종료 시각 — 앱이 닫혀 있거나 기기가 잠든 사이 끝났다면 "지금"이 아니라 그때로 기록한다
+        const endAt = partial ? now : Math.min(now, s.startedAt + s.pausedAccumMs + s.totalSec * 1000);
         const rec: RideRecord = {
           id: s.id,
           mode: s.mode,
@@ -195,21 +198,22 @@ export const useAppStore = create<AppState>()(
           toId: s.stationIds[s.stationIds.length - 1],
           stationCount: s.stationIds.length - 1,
           focusSec: Math.round(partial ? opts!.partialElapsedSec! : s.totalSec),
-          completedAt: Date.now(),
+          completedAt: endAt,
           task: s.task,
           partial,
           distanceKm: partial ? (opts!.partialDistanceKm ?? 0) : routeDistanceKm(s.stationIds.map(getStation)),
         };
-        const now = Date.now();
-        const counts = s.mode === "focus" && !partial;
-        const stale = now - get().lastFocusAt > POMODORO.staleCycleMs;
+        // 끝난 지 오래된 세션은 지금의 뽀모도로 흐름과 무관 → 회차에 넣지 않는다
+        const fresh = now - endAt < POMODORO.staleCycleMs;
+        const counts = s.mode === "focus" && !partial && fresh;
+        const stale = endAt - get().lastFocusAt > POMODORO.staleCycleMs;
         set({
           activeSession: null,
           records: [...get().records, rec].slice(-500),
           lastRecordId: s.id,
-          nextOriginId: counts ? rec.toId : get().nextOriginId,
+          nextOriginId: s.mode === "focus" && !partial ? rec.toId : get().nextOriginId,
           cycleCount: counts ? (stale ? 1 : get().cycleCount + 1) : get().cycleCount,
-          lastFocusAt: counts ? now : get().lastFocusAt,
+          lastFocusAt: counts ? endAt : get().lastFocusAt,
         });
       },
 
@@ -261,6 +265,9 @@ function safeDistance(fromId: string, toId: string): number {
 }
 
 /** 지금까지 회차로 다음 휴식 종류 결정 (완료 직후 cycleCount 기준) */
+/** 앱을 다시 열었을 때 이미 오래전에 끝나 있던 기록인지 (완료 화면 문구용) */
+export const LATE_COMPLETION_MS = 10 * 60 * 1000;
+
 export function nextBreakKind(cycleCount: number): BreakKind {
   return cycleCount >= POMODORO.longEvery ? "long" : "short";
 }

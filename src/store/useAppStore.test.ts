@@ -36,6 +36,18 @@ describe("session lifecycle", () => {
     expect(st().cycleCount).toBe(0);
   });
 
+  it("records an abandoned session at its real end time and keeps it out of the current cycle", () => {
+    const twoDaysAgo = Date.now() - 2 * 86400000;
+    useAppStore.setState({
+      activeSession: { id: "stale", mode: "focus", stationIds: ["dangsan", "hapjeong"], totalSec: 1500, task: "", startedAt: twoDaysAgo, pausedAccumMs: 0, pausedAt: null },
+    });
+    st().completeSession();
+    const r = st().records[0];
+    expect(r.completedAt).toBe(twoDaysAgo + 1500 * 1000);
+    expect(r.partial).toBe(false);
+    expect(st().cycleCount).toBe(0);
+  });
+
   it("does not record breaks and resumes from the break station", () => {
     st().startBreak("gangnam");
     st().completeSession();

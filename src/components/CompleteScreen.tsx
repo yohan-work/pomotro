@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getStation } from "@/data/line2";
-import { POMODORO, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
+import { LATE_COMPLETION_MS, POMODORO, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconDownload } from "./Icons";
 import styles from "./CompleteScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
@@ -26,7 +26,8 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
 
   if (!rec) return null;
   const to = getStation(rec.toId);
-  const canBreak = rec.mode === "focus" && !rec.partial;
+  const late = Date.now() - rec.completedAt > LATE_COMPLETION_MS;
+  const canBreak = rec.mode === "focus" && !rec.partial && !late;
   const breakKind = nextBreakKind(cycleCount);
   const breakMin = breakKind === "long" ? POMODORO.longBreakMin : POMODORO.shortBreakMin;
 
@@ -55,14 +56,18 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
   return (
     <main className={styles.done}>
       <div className={styles.inner}>
-        <h1 className={styles.title}>{rec.partial ? `${to.nameKo}까지 가는 길, 여기서 쉬어가요` : "목적지에 도착했어요!"}</h1>
+        <h1 className={styles.title}>
+          {rec.partial ? `${to.nameKo}까지 가는 길, 여기서 쉬어가요` : late ? "지난 여행이 끝나 있었어요" : "목적지에 도착했어요!"}
+        </h1>
         <p className={styles.sub}>
           {rec.partial
             ? `${Math.max(1, Math.round(rec.focusSec / 60))}분 동안 함께 달렸어요.`
-            : `${Math.round(rec.focusSec / 60) || 1}분 집중 여행이 완료되었습니다.`}
+            : late
+              ? `${new Date(rec.completedAt).toLocaleString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" })}에 ${to.nameKo}에 도착했어요. 그날 기록으로 남겼어요.`
+              : `${Math.round(rec.focusSec / 60) || 1}분 집중 여행이 완료되었습니다.`}
         </p>
         <canvas ref={ref} width={TICKET_W} height={TICKET_H} className={styles.ticket} role="img" aria-label="집중 완료 승차권" />
-        {rec.mode === "focus" && !rec.partial && (
+        {canBreak && (
           <div className={styles.cycle} aria-label={`뽀모도로 ${cycleCount}회차`}>
             {Array.from({ length: POMODORO.longEvery }, (_, i) => (
               <span key={i} className={i < cycleCount ? styles.cycleOn : styles.cycleDot} />
