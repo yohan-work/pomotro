@@ -4,13 +4,14 @@
  */
 import { LINE2, LINE2_META } from "./line2";
 import { LINE3 } from "./line3";
+import { LINE_GJ } from "./lineGJ";
 import type { LineDef, LineId, LineSegment, Station } from "./network";
 
 export * from "./network";
 export { LINE2_META };
 
-export const LINES: LineDef[] = [LINE2, LINE3];
-export const LINE_BY_ID: Record<LineId, LineDef> = { "2": LINE2, "3": LINE3 };
+export const LINES: LineDef[] = [LINE2, LINE3, LINE_GJ];
+export const LINE_BY_ID: Record<LineId, LineDef> = { "2": LINE2, "3": LINE3, GJ: LINE_GJ };
 
 const stationById = new Map<string, Station>();
 const indexInLine = new Map<string, number>();
