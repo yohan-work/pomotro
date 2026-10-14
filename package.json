@@ -26,7 +26,8 @@
     "test:sim": "tsx scripts/check-sim.ts",
     "data:import": "tsx scripts/import-official-data.ts",
     "verify:browser": "node scripts/verify-browser.mjs",
-    "verify:behavior": "node scripts/verify-behavior.mjs"
+    "verify:behavior": "node scripts/verify-behavior.mjs",
+    "visual:diff": "node scripts/visual-diff.mjs"
   },
   "dependencies": {
     "next": "16.4.0",

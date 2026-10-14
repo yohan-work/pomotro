@@ -41,7 +41,7 @@ npm run verify:browser -- http://localhost:3000          # 장면 스냅샷 → 
 npm run verify:behavior -- http://localhost:3000
 ```
 
-**시각적 변경은 PR에 전/후 스크린샷을 첨부해주세요.** `?autostart=demo&seek=45&tod=sunset` 처럼 URL 파라미터로 같은 장면을 재현할 수 있습니다.
+**시각적 변경은 PR에 전/후 스크린샷을 첨부해주세요.** PR 을 열면 CI 가 main 과 PR 의 장면 14개를 같은 머신에서 픽셀 비교해 요약표와 기준 | 변경 | 차이 이미지(아티팩트 `visual-diff`)를 남깁니다. `?autostart=demo&seek=45&tod=sunset` 처럼 URL 파라미터로 같은 장면을 재현할 수 있습니다.
 
 ## 지켜야 할 원칙
 
