@@ -8,7 +8,7 @@
 
 .river {
   fill: none;
-  stroke: #d5e8ee;
+  stroke: var(--c-map-river);
   stroke-width: 16;
   stroke-linecap: round;
 }
@@ -23,7 +23,7 @@
 
 .loop {
   fill: none;
-  stroke: #cfe3d9;
+  stroke: var(--c-map-loop);
   stroke-width: 6;
 }
 
@@ -55,7 +55,7 @@
 }
 
 .dot {
-  fill: #fff;
+  fill: var(--c-surface);
   stroke: var(--c-primary);
   stroke-width: 1.6;
   transition: r 0.15s;
@@ -63,18 +63,18 @@
 
 .dotVisited {
   fill: var(--c-primary);
-  stroke: #fff;
+  stroke: var(--c-surface);
   stroke-width: 1.2;
 }
 
 .origin,
 .dest {
-  stroke: #fff;
+  stroke: var(--c-surface);
   stroke-width: 2;
 }
 
 .origin {
-  fill: #252525;
+  fill: var(--c-text);
 }
 
 .dest {
@@ -89,17 +89,17 @@
 
 .label,
 .labelStrong {
-  fill: #6b6b6b;
+  fill: var(--c-text-3);
   font-size: 9px;
   font-weight: 600;
   pointer-events: none;
   paint-order: stroke;
-  stroke: rgba(255, 255, 255, 0.9);
+  stroke: var(--c-surface);
   stroke-width: 3px;
 }
 
 .labelStrong {
-  fill: #252525;
+  fill: var(--c-text);
   font-size: 10.5px;
   font-weight: 800;
 }

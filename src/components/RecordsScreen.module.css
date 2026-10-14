@@ -30,7 +30,7 @@
   height: 40px;
   border: 0;
   border-radius: 12px;
-  background: #fff;
+  background: var(--c-surface);
   box-shadow: var(--shadow-1);
 }
 
@@ -44,14 +44,14 @@
 .sub {
   margin: 4px 0 0;
   font-size: 14px;
-  color: #666;
+  color: var(--c-text-3);
 }
 
 .mapCard,
 .panel {
   padding: 16px;
   border-radius: var(--radius-l);
-  background: #fff;
+  background: var(--c-surface);
   box-shadow: var(--shadow-1);
 }
 
@@ -61,7 +61,7 @@
   justify-content: center;
   margin-top: 4px;
   font-size: 12.5px;
-  color: #666;
+  color: var(--c-text-3);
 }
 
 .legend span {
@@ -96,7 +96,7 @@
   gap: 4px;
   padding: 12px 14px;
   border-radius: var(--radius-m);
-  background: #fff;
+  background: var(--c-surface);
   box-shadow: var(--shadow-1);
 }
 
@@ -143,8 +143,9 @@
   transition: opacity 0.15s;
 }
 
+/* 단일 시리즈: 오늘은 색이 아니라 굵은 날짜 라벨과 값 표시로 구분 */
 .barToday {
-  fill: #1f6e4f;
+  fill: #2e946b;
   transition: opacity 0.15s;
 }
 
@@ -174,8 +175,8 @@
   transform: translateX(-50%);
   padding: 5px 9px;
   border-radius: 8px;
-  background: #252525;
-  color: #fff;
+  background: var(--c-btn);
+  color: var(--c-btn-ink);
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
@@ -215,7 +216,7 @@
 }
 
 .row:hover {
-  background: #faf9f6;
+  background: var(--c-surface-2);
 }
 
 .rowDate {
@@ -238,14 +239,14 @@
   font-style: normal;
   font-size: 11.5px;
   font-weight: 600;
-  color: #9a6a2e;
+  color: var(--c-warn);
 }
 
 .rowRoute small {
   flex-basis: 100%;
   font-size: 12px;
   font-weight: 500;
-  color: #777;
+  color: var(--c-text-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -253,7 +254,7 @@
 
 .rowMeta {
   font-size: 12.5px;
-  color: #555;
+  color: var(--c-text-3);
   white-space: nowrap;
 }
 
@@ -264,7 +265,7 @@
   gap: 10px;
   padding: 16px 0 6px;
   font-size: 14px;
-  color: #666;
+  color: var(--c-text-3);
 }
 
 .empty p {
@@ -284,13 +285,13 @@
 
 .primary {
   border: 0;
-  background: #252525;
-  color: #fff;
+  background: var(--c-btn);
+  color: var(--c-btn-ink);
 }
 
 .ghost {
   border: 1px solid var(--c-line);
-  background: #fff;
+  background: var(--c-surface);
 }
 
 /* 승차권 다이얼로그 */
@@ -344,7 +345,7 @@
   margin: 0 0 10px;
   font-size: 13px;
   line-height: 1.5;
-  color: #666;
+  color: var(--c-text-3);
 }
 
 .dataRow {

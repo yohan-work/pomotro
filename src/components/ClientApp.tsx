@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { TimeOfDay } from "@/render/palette";
+import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { stationsBetween } from "@/data/line2";
 import { DEMO_ROUTE } from "@/lib/recommend";
 import { minJourneySec } from "@/sim/journey";
@@ -27,6 +27,23 @@ export default function ClientApp() {
   const active = useAppStore((s) => s.activeSession);
   const lastRecordId = useAppStore((s) => s.lastRecordId);
   const view = useAppStore((s) => s.view);
+  const todPref = useAppStore((s) => s.timeOfDay);
+
+  // 밤(한국 시간 또는 직접 고른 밤 풍경)이거나 시스템이 다크 모드면 화면 전체를 어둡게
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const tod = debug.tod ?? (todPref === "auto" ? timeOfDayKST() : todPref);
+      document.documentElement.dataset.theme = mq.matches || tod === "night" ? "dark" : "light";
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    const id = setInterval(apply, 60_000);
+    return () => {
+      mq.removeEventListener("change", apply);
+      clearInterval(id);
+    };
+  }, [todPref, debug.tod]);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
