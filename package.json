@@ -9,6 +9,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:sim": "tsx scripts/check-sim.ts",
+    "data:import": "tsx scripts/import-official-data.ts",
     "verify:browser": "node scripts/verify-browser.mjs",
     "verify:behavior": "node scripts/verify-behavior.mjs"
   },
