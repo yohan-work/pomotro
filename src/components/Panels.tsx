@@ -89,6 +89,7 @@ export function ViewSettings({ onClose }: { onClose?: () => void }) {
   const weather = useAppStore((s) => s.weatherPref);
   const season = useAppStore((s) => s.seasonPref);
   const lang = useAppStore((s) => s.langPref);
+  const surprises = useAppStore((s) => s.surprises);
   const { setWeatherPref, setSeasonPref, setTimeOfDay, setReducedMotion, setQuality, setLangPref } = useAppStore.getState();
   return (
     <div>
@@ -157,6 +158,9 @@ export function ViewSettings({ onClose }: { onClose?: () => void }) {
           ["off", "opt.off"],
         ]}
       />
+      <label className={styles.check} style={{ marginTop: 12 }}>
+        <input type="checkbox" checked={surprises} onChange={(e) => useAppStore.getState().setSurprises(e.target.checked)} /> {t("panel.surprises")}
+      </label>
       <strong className={styles.panelSub}>{t("panel.language")}</strong>
       <div className={styles.segment}>
         {(

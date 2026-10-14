@@ -5,6 +5,7 @@ import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { stationsBetween } from "@/data/lines";
 import { DEMO_ROUTE } from "@/lib/recommend";
 import { minJourneySec } from "@/sim/journey";
+import { EVENT_KINDS } from "@/sim/rideEvents";
 import { tr, useLang } from "@/i18n";
 import { useAppStore } from "@/store/useAppStore";
 import CompleteScreen from "./CompleteScreen";
@@ -22,6 +23,7 @@ import SetupScreen from "./SetupScreen";
  *   ?tod=day|sunset|night  시간대 고정
  *   ?debug=1               FPS·시뮬레이션 상태 표시
  *   ?still=45              시뮬레이션·애니메이션 시간을 45초에 고정 (시각 비교 테스트용)
+ *   ?event=danso           깜짝 이벤트 하나를 강제 (URL 자동 시작 세션은 기본적으로 깜짝 이벤트 없음)
  */
 export default function ClientApp() {
   const [ready, setReady] = useState(false);
@@ -59,6 +61,8 @@ export default function ClientApp() {
       enabled: p.get("debug") === "1",
       tod: tod === "day" || tod === "sunset" || tod === "night" ? (tod as TimeOfDay) : null,
       still: p.get("still") !== null ? Number(p.get("still")) || 0 : undefined,
+      event: EVENT_KINDS.find((k) => k === p.get("event")) ?? null,
+      scripted: p.get("autostart") !== null,
     });
     const routeParam = p.get("route");
     if (p.get("autostart") === "route" && routeParam) {

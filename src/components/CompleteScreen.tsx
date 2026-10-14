@@ -5,6 +5,7 @@ import { getStation } from "@/data/lines";
 import { useT } from "@/i18n";
 import { LATE_COMPLETION_MS, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconDownload } from "./Icons";
+import { EncounterIcon } from "./Passengers";
 import styles from "./CompleteScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
 
@@ -87,6 +88,22 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
             ) : (
               <span>{t("done.taskLater", { task: rec.task })}</span>
             )}
+          </div>
+        )}
+        {rec.encounters && rec.encounters.length > 0 && (
+          <div className={styles.encounters}>
+            <span className={styles.encLabel}>{t("complete.encounters")}</span>
+            <ul>
+              {rec.encounters.map((k) => (
+                <li key={k}>
+                  <EncounterIcon kind={k} size={36} />
+                  <span>
+                    <b>{t(`event.name.${k}`)}</b>
+                    <small>{t(`event.desc.${k}`)}</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
         {canBreak && (

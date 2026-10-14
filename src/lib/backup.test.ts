@@ -30,4 +30,10 @@ describe("backup", () => {
     expect(added).toBe(1);
     expect(records.map((r) => r.id)).toEqual(["b", "a"]);
   });
+  it("keeps known encounters and drops unknown ones", () => {
+    const { records } = parseBackup(
+      JSON.stringify([{ id: "e", mode: "focus", fromId: "dangsan", toId: "hapjeong", stationCount: 1, focusSec: 60, completedAt: 1, encounters: ["danso", "ufo", "cat"] }]),
+    );
+    expect(records[0].encounters).toEqual(["danso", "cat"]);
+  });
 });

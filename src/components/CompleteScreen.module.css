@@ -166,3 +166,51 @@
     transform: none;
   }
 }
+
+/* 이번 여행에서 만난 깜짝 이벤트 */
+.encounters {
+  margin-top: 16px;
+  text-align: left;
+}
+
+.encLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  color: var(--c-text-3);
+  text-align: center;
+}
+
+.encounters ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.encounters li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-m);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-1);
+}
+
+.encounters li span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.encounters b {
+  font-size: 14px;
+}
+
+.encounters small {
+  font-size: 12.5px;
+  color: var(--c-text-3);
+}

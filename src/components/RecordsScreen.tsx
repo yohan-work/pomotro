@@ -8,6 +8,8 @@ import { tr, useT, type Lang } from "@/i18n";
 import { useAppStore, type RideRecord } from "@/store/useAppStore";
 import { IconArrow, IconClose, IconDownload } from "./Icons";
 import LineMap from "./LineMap";
+import { EncounterIcon } from "./Passengers";
+import { EVENT_KINDS, RARE_KINDS } from "@/sim/rideEvents";
 import styles from "./RecordsScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
 
@@ -15,6 +17,32 @@ function fmtDuration(sec: number, lang: Lang) {
   const m = Math.round(sec / 60);
   if (m < 60) return tr(lang, "common.min", { n: m });
   return m % 60 ? tr(lang, "rec.hours", { h: Math.floor(m / 60), m: m % 60 }) : tr(lang, "rec.hoursOnly", { h: Math.floor(m / 60) });
+}
+
+/** 만난 승객·풍경 도감 — 못 만난 것은 흐리게, 희귀한 것은 이름도 숨긴다 */
+function EncounterDex({ records }: { records: RideRecord[] }) {
+  const { t } = useT();
+  const seen = useMemo(() => new Set(records.flatMap((r) => r.encounters ?? [])), [records]);
+  return (
+    <section className={styles.panel} aria-label={t("records.dex")}>
+      <h2 className={styles.h2}>
+        {t("records.dex")} <span className={styles.dexCount}>{seen.size} / {EVENT_KINDS.length}</span>
+      </h2>
+      <p className={styles.dexHint}>{t("records.dexHint")}</p>
+      <ul className={styles.dex}>
+        {EVENT_KINDS.map((k) => {
+          const got = seen.has(k);
+          const hidden = !got && RARE_KINDS.includes(k);
+          return (
+            <li key={k} className={got ? "" : styles.dexLocked} title={got ? t(`event.desc.${k}`) : t("records.dexLocked")}>
+              {hidden ? <span className={styles.dexQ}>?</span> : <EncounterIcon kind={k} size={40} locked={!got} />}
+              <span>{hidden ? "???" : t(`event.name.${k}`)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 /** 최근 7일 집중 시간 — 단일 시리즈 막대 (범례 없음, 막대별 툴팁, 표 대체 제공) */
@@ -289,6 +317,8 @@ export default function RecordsScreen() {
         <section className={styles.panel}>
           <WeekChart data={week} />
         </section>
+
+        <EncounterDex records={records} />
 
         <section className={styles.panel}>
           <h2 className={styles.h2}>{t("rec.list")}</h2>
