@@ -1,6 +1,6 @@
 /**
  * 기능 검증 (실제 Chrome): 일시정지/재개 정확성, 새로고침 복구, 완료 기록 중복 방지, 출발 화면
- *   node scripts/verify-behavior.mjs [baseUrl]
+ *   node scripts/verify-behavior.mjs [baseUrl] [--pwa]
  */
 import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
@@ -88,6 +88,52 @@ await page.waitForTimeout(6000);
 const audioState = await page.evaluate(() => window.__metroAudio?.ctx?.state);
 check(audioState === "running", `audio context running after user click (${audioState})`);
 check((await page.getByRole("button", { name: "소리 켜기" }).count()) === 0, "audio prompt dismissed");
+
+// 5c) 뽀모도로 휴식 흐름: 집중 완료 → 역에서 휴식 → 휴식 끝 → 같은 역에서 이어 타기
+await page.evaluate(() => localStorage.clear());
+await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=110&mode=focus&seek=107`, { waitUntil: "networkidle" });
+await page.waitForSelector("canvas[aria-label='집중 완료 승차권']", { timeout: 10000 });
+check((await store()).cycleCount === 1, "focus completion increments pomodoro cycle");
+await page.getByRole("button", { name: /합정역에서 5분 쉬기/ }).click();
+await page.waitForSelector("[data-testid=timer]");
+await page.waitForTimeout(1200);
+const bt = await page.locator("[data-testid=timer]").textContent();
+check(/^0[45]:/.test(bt), `break session starts with 5-minute timer (${bt})`);
+check((await page.title()).includes("휴식 중"), `tab title shows break (${await page.title()})`);
+check((await page.locator("[data-testid=ride]").getAttribute("data-phase")) === "ARRIVED", "break: train stays at platform");
+await page.screenshot({ path: ".verify/break.png" });
+await page.getByRole("button", { name: /휴식 끝내기/ }).click();
+await page.waitForSelector("text=이어 타기");
+check(await page.getByRole("checkbox", { name: /이어 타기/ }).isChecked(), "after break: continue-from-station checked");
+check((await page.locator("button", { hasText: "합정 →" }).count()) >= 1, "after break: routes start from 합정");
+await page.screenshot({ path: ".verify/after-break.png" });
+
+// 5d) 노선도에서 출발/도착 직접 고르기
+await page.getByRole("tab", { name: "직접 고르기" }).click();
+await page.getByRole("button", { name: /^잠실역/ }).click();
+let hint = await page.locator("[aria-live=polite]").last().textContent();
+check(/합정 → 잠실/.test(hint) && /km/.test(hint), `continue ride: pick destination from 합정 (${hint.slice(0, 30)}…)`);
+await page.getByRole("checkbox", { name: /이어 타기/ }).uncheck();
+await page.getByRole("button", { name: /^당산역/ }).click();
+await page.getByRole("button", { name: /^잠실역/ }).click();
+hint = await page.locator("[aria-live=polite]").last().textContent();
+check(/당산 → 잠실/.test(hint) && /km/.test(hint), `line map pick origin+destination (${hint.slice(0, 30)}…)`);
+await page.screenshot({ path: ".verify/picker.png" });
+
+// 5e) 주행 중 탭 제목 = 남은 시간 · 다음 역
+await page.goto(`${base}/?autostart=demo&seek=30`, { waitUntil: "networkidle" });
+await page.waitForTimeout(1200);
+const timerTxt = await page.locator("[data-testid=timer]").textContent();
+const title = await page.title();
+check(title.startsWith(timerTxt) && title.includes("합정"), `tab title "${title}" mirrors timer`);
+
+// 5f) PWA (프로덕션 빌드에서만)
+if (process.argv.includes("--pwa")) {
+  const man = await page.evaluate(async () => (await fetch("/manifest.webmanifest")).json());
+  check(man.short_name === "METRO" && man.icons.length >= 3, "web app manifest served");
+  const sw = await page.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise((r) => setTimeout(() => r(false), 8000))]));
+  check(sw === true, "service worker active");
+}
 
 // 6) 시간대 렌더 스냅샷
 for (const tod of ["sunset", "night"]) {

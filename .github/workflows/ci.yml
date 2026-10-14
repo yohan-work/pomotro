@@ -40,7 +40,7 @@ jobs:
         run: |
           npm start -- -p 3123 &
           for i in $(seq 1 30); do curl -sf http://localhost:3123 > /dev/null && break; sleep 1; done
-      - run: npm run verify:behavior -- http://localhost:3123
+      - run: npm run verify:behavior -- http://localhost:3123 --pwa
       - run: npm run verify:browser -- http://localhost:3123
       - uses: actions/upload-artifact@v7
         if: always()
