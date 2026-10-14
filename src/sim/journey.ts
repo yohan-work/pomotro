@@ -123,7 +123,7 @@ export function buildJourney(config: JourneyConfig): Journey {
 
   const fixedSec = MOTION.boardingSec + MOTION.finalHoldSec + (n - 1) * MOTION.dwellSec;
   const moveSec = Math.max(1, config.totalSec - fixedSec);
-  const weightSum = raw.reduce((a, s) => a + s.estRunSec, 0);
+  const weightSum = raw.reduce((a, s) => a + s.runSec, 0);
 
   const segments: SegmentPlan[] = [];
   const sections: Section[] = [];
@@ -144,7 +144,7 @@ export function buildJourney(config: JourneyConfig): Journey {
     const seg = raw[i];
     const specs = middleSections(seg.id, stations[i], stations[i + 1]);
     const dMin = 2 * PLATFORM_HALF + specs.reduce((a, s) => a + s.length, 0);
-    const T = (moveSec * seg.estRunSec) / weightSum;
+    const T = (moveSec * seg.runSec) / weightSum;
 
     // 목표 순항속도로 T 를 채우는 거리. 최소 연출 길이보다 짧으면 속도를 조정한다.
     let v = MOTION.cruise;

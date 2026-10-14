@@ -5,7 +5,8 @@
  *  - 정차역 위치에서 속도 0, 역 순서 일치
  */
 import { buildJourney, sampleJourney, minJourneySec } from "../src/sim/journey";
-import { stationsBetween } from "../src/data/line2";
+import { SEGMENTS, STATIONS, routeDistanceKm, stationsBetween } from "../src/data/line2";
+import { LINE2_OFFICIAL_LOOP_KM } from "../src/data/line2.official";
 
 let failures = 0;
 const check = (cond: boolean, msg: string) => {
@@ -53,6 +54,16 @@ function run(label: string, ids: string[], totalSec: number) {
   });
 }
 
+// 노선 데이터 ↔ 공식 데이터 정합성
+console.log(`▶ data: ${STATIONS.length} stations, ${SEGMENTS.length} segments`);
+check(STATIONS.length === 43 && SEGMENTS.length === 43, "Line 2 loop should have 43 stations/segments");
+const loopKm = SEGMENTS.reduce((a, s) => a + s.distanceKm, 0);
+check(Math.abs(loopKm - LINE2_OFFICIAL_LOOP_KM) < 0.05, `loop km ${loopKm} != official ${LINE2_OFFICIAL_LOOP_KM}`);
+check(SEGMENTS.find((s) => s.id === "dangsan__hapjeong")?.runSec === 150, "당산→합정 공식 운행시간 2분30초");
+const wrap = stationsBetween("chungjeongno", "euljiro-1ga").map((s) => s.nameKo).join("→");
+check(wrap === "충정로→시청→을지로입구", `circular route wrap: ${wrap}`);
+check(routeDistanceKm(stationsBetween("dangsan", "hapjeong")) === 2, "당산→합정 2.0km");
+
 run("demo 당산→합정", ["dangsan", "hapjeong"], 100);
 run("demo 당산→합정 2분", ["dangsan", "hapjeong"], 120);
 run("15분", stationsBetween("dangsan", "city-hall").map((s) => s.id), 15 * 60);
@@ -60,6 +71,7 @@ run("25분", stationsBetween("dangsan", "ddp").map((s) => s.id), 25 * 60);
 run("잠실철교 단일 구간", ["gangbyeon", "jamsillaru"], 150);
 run("40분 왕십리→종합운동장", stationsBetween("wangsimni", "sports-complex").map((s) => s.id), 40 * 60);
 run("신림→당산 (지하→고가 진출)", stationsBetween("sillim", "dangsan").map((s) => s.id), 20 * 60);
+run("순환 경계 통과 (아현→을지로3가)", stationsBetween("ahyeon", "euljiro-3ga").map((s) => s.id), 10 * 60);
 run("60분 (짧은 노선 늘이기)", stationsBetween("dangsan", "sinchon").map((s) => s.id), 60 * 60);
 
 if (failures) {

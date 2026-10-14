@@ -5,20 +5,24 @@
  * `src/data/scenery.ts`에 따로 둔다.
  *
  * 검증 상태
- * - 역명·역번호·역 순서(내선순환 방향): 일반 공개 노선도 기준. 공식 데이터 대조 전이다.
- * - 지상/지하 구조: 일반 공개 정보 기준. 공식 데이터 대조 전이다.
- * - 역간 운행시간(`estRunSec`): **추정치**. 공식 시간표/최단경로 API로 검증되지 않았다.
- *   화면에는 반드시 "예상" 또는 "추정"으로 표시한다.
+ * - ✅ 역 순서·역명(국문)·역간 표준 운행시간·역간 거리: 서울교통공사 공식 데이터
+ *      (`line2.official.ts`, 「역간거리 및 소요시간」 2024-09-02 갱신, 공공누리 제1유형)
+ * - ⚠️ 역번호·영문 역명·지상/지하 구조·진행 방위·랜드마크: 공개 정보 기반, 공식 데이터 대조 전
+ * - ⚠️ 역 정차시간(`estDwellSec`): 추정치. 화면에는 "예상"으로 표시한다.
  */
+import { LINE2_OFFICIAL_SEGMENTS, OFFICIAL_SOURCE } from "./line2.official";
 
 export type StationStructure = "elevated" | "underground";
+export type Heading = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
 
 export interface Station {
   id: string;
-  /** 역번호 (2호선 내 표기) */
+  /** 역번호 (2호선 내 표기) — 미검증 */
   code: string;
   nameKo: string;
+  /** 미검증 */
   nameEn: string;
+  /** 미검증 */
   structure: StationStructure;
 }
 
@@ -26,11 +30,14 @@ export interface LineSegment {
   id: string;
   fromStationId: string;
   toStationId: string;
-  /** 역간 예상 주행시간(정차 제외, 초). 추정치 */
-  estRunSec: number;
+  /** 역간 표준 운행시간(정차 제외, 초) — 공식 */
+  runSec: number;
+  /** 역간 거리(km) — 공식 */
+  distanceKm: number;
+  /** 미검증 */
   landmarks: string[];
-  /** 열차 진행 방위 (대략) */
-  heading: "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
+  /** 열차 진행 방위 (대략, 미검증) */
+  heading: Heading;
 }
 
 export const LINE2_META = {
@@ -38,83 +45,75 @@ export const LINE2_META = {
   lineNameKo: "2호선",
   color: "#2E946B",
   direction: "내선순환",
-  source:
-    "공개 노선도 기반 초안. 서울교통공사 역 정보·최단경로 API 대조 필요 (docs/architecture.md §데이터 참고)",
-  asOf: "2026-10-14",
-  verified: false,
+  source: OFFICIAL_SOURCE,
   /** 역 정차시간 추정치 (초) */
   estDwellSec: 30,
 } as const;
 
-export const STATIONS: Station[] = [
-  { id: "sillim", code: "230", nameKo: "신림", nameEn: "Sillim", structure: "underground" },
-  { id: "sindaebang", code: "231", nameKo: "신대방", nameEn: "Sindaebang", structure: "elevated" },
-  { id: "guro-digital", code: "232", nameKo: "구로디지털단지", nameEn: "Guro Digital Complex", structure: "elevated" },
-  { id: "daerim", code: "233", nameKo: "대림", nameEn: "Daerim", structure: "elevated" },
-  { id: "sindorim", code: "234", nameKo: "신도림", nameEn: "Sindorim", structure: "elevated" },
-  { id: "mullae", code: "235", nameKo: "문래", nameEn: "Mullae", structure: "underground" },
-  { id: "yeongdeungpo-gu-office", code: "236", nameKo: "영등포구청", nameEn: "Yeongdeungpo-gu Office", structure: "underground" },
-  { id: "dangsan", code: "237", nameKo: "당산", nameEn: "Dangsan", structure: "elevated" },
-  { id: "hapjeong", code: "238", nameKo: "합정", nameEn: "Hapjeong", structure: "underground" },
-  { id: "hongik-univ", code: "239", nameKo: "홍대입구", nameEn: "Hongik Univ.", structure: "underground" },
-  { id: "sinchon", code: "240", nameKo: "신촌", nameEn: "Sinchon", structure: "underground" },
-  { id: "ewha", code: "241", nameKo: "이대", nameEn: "Ewha Womans Univ.", structure: "underground" },
-  { id: "ahyeon", code: "242", nameKo: "아현", nameEn: "Ahyeon", structure: "underground" },
-  { id: "chungjeongno", code: "243", nameKo: "충정로", nameEn: "Chungjeongno", structure: "underground" },
-  { id: "city-hall", code: "201", nameKo: "시청", nameEn: "City Hall", structure: "underground" },
-  { id: "euljiro-1ga", code: "202", nameKo: "을지로입구", nameEn: "Euljiro 1(il)-ga", structure: "underground" },
-  { id: "euljiro-3ga", code: "203", nameKo: "을지로3가", nameEn: "Euljiro 3(sam)-ga", structure: "underground" },
-  { id: "euljiro-4ga", code: "204", nameKo: "을지로4가", nameEn: "Euljiro 4(sa)-ga", structure: "underground" },
-  { id: "ddp", code: "205", nameKo: "동대문역사문화공원", nameEn: "Dongdaemun History & Culture Park", structure: "underground" },
-  { id: "sindang", code: "206", nameKo: "신당", nameEn: "Sindang", structure: "underground" },
-  { id: "sangwangsimni", code: "207", nameKo: "상왕십리", nameEn: "Sangwangsimni", structure: "underground" },
-  { id: "wangsimni", code: "208", nameKo: "왕십리", nameEn: "Wangsimni", structure: "underground" },
-  { id: "hanyang-univ", code: "209", nameKo: "한양대", nameEn: "Hanyang Univ.", structure: "elevated" },
-  { id: "ttukseom", code: "210", nameKo: "뚝섬", nameEn: "Ttukseom", structure: "elevated" },
-  { id: "seongsu", code: "211", nameKo: "성수", nameEn: "Seongsu", structure: "elevated" },
-  { id: "konkuk-univ", code: "212", nameKo: "건대입구", nameEn: "Konkuk Univ.", structure: "elevated" },
-  { id: "guui", code: "213", nameKo: "구의", nameEn: "Guui", structure: "elevated" },
-  { id: "gangbyeon", code: "214", nameKo: "강변", nameEn: "Gangbyeon", structure: "elevated" },
-  { id: "jamsillaru", code: "215", nameKo: "잠실나루", nameEn: "Jamsillaru", structure: "elevated" },
-  { id: "jamsil", code: "216", nameKo: "잠실", nameEn: "Jamsil", structure: "underground" },
-  { id: "jamsilsaenae", code: "217", nameKo: "잠실새내", nameEn: "Jamsilsaenae", structure: "underground" },
-  { id: "sports-complex", code: "218", nameKo: "종합운동장", nameEn: "Sports Complex", structure: "underground" },
+/** 본선 순환 (내선순환 순서, 시청부터). [id, 역번호, 국문, 영문, 구조, 다음 역까지 방위, 랜드마크] */
+const RAW: Array<[string, string, string, string, StationStructure, Heading, string[]]> = [
+  ["city-hall", "201", "시청", "City Hall", "underground", "E", []],
+  ["euljiro-1ga", "202", "을지로입구", "Euljiro 1(il)-ga", "underground", "E", []],
+  ["euljiro-3ga", "203", "을지로3가", "Euljiro 3(sam)-ga", "underground", "E", []],
+  ["euljiro-4ga", "204", "을지로4가", "Euljiro 4(sa)-ga", "underground", "E", []],
+  ["ddp", "205", "동대문역사문화공원", "Dongdaemun History & Culture Park", "underground", "E", []],
+  ["sindang", "206", "신당", "Sindang", "underground", "E", []],
+  ["sangwangsimni", "207", "상왕십리", "Sangwangsimni", "underground", "E", []],
+  ["wangsimni", "208", "왕십리", "Wangsimni", "underground", "E", []],
+  ["hanyang-univ", "209", "한양대", "Hanyang Univ.", "elevated", "SE", ["중랑천"]],
+  ["ttukseom", "210", "뚝섬", "Ttukseom", "elevated", "E", []],
+  ["seongsu", "211", "성수", "Seongsu", "elevated", "E", []],
+  ["konkuk-univ", "212", "건대입구", "Konkuk Univ.", "elevated", "E", []],
+  ["guui", "213", "구의", "Guui", "elevated", "E", []],
+  ["gangbyeon", "214", "강변", "Gangbyeon", "elevated", "S", ["잠실철교", "한강", "올림픽대교", "롯데월드타워"]],
+  ["jamsillaru", "215", "잠실나루", "Jamsillaru", "elevated", "S", []],
+  ["jamsil", "216", "잠실", "Jamsil", "underground", "SW", []],
+  ["jamsilsaenae", "217", "잠실새내", "Jamsilsaenae", "underground", "W", []],
+  ["sports-complex", "218", "종합운동장", "Sports Complex", "underground", "W", []],
+  ["samseong", "219", "삼성", "Samseong", "underground", "W", []],
+  ["seolleung", "220", "선릉", "Seolleung", "underground", "W", []],
+  ["yeoksam", "221", "역삼", "Yeoksam", "underground", "W", []],
+  ["gangnam", "222", "강남", "Gangnam", "underground", "SW", []],
+  ["seoul-natl-univ-of-education", "223", "교대", "Seoul Nat'l Univ. of Education", "underground", "W", []],
+  ["seocho", "224", "서초", "Seocho", "underground", "W", []],
+  ["bangbae", "225", "방배", "Bangbae", "underground", "SW", []],
+  ["sadang", "226", "사당", "Sadang", "underground", "W", []],
+  ["nakseongdae", "227", "낙성대", "Nakseongdae", "underground", "W", []],
+  ["seoul-natl-univ", "228", "서울대입구", "Seoul Nat'l Univ.", "underground", "W", []],
+  ["bongcheon", "229", "봉천", "Bongcheon", "underground", "W", []],
+  ["sillim", "230", "신림", "Sillim", "underground", "W", []],
+  ["sindaebang", "231", "신대방", "Sindaebang", "elevated", "W", ["도림천"]],
+  ["guro-digital", "232", "구로디지털단지", "Guro Digital Complex", "elevated", "NW", ["도림천"]],
+  ["daerim", "233", "대림", "Daerim", "elevated", "N", ["도림천"]],
+  ["sindorim", "234", "신도림", "Sindorim", "elevated", "N", []],
+  ["mullae", "235", "문래", "Mullae", "underground", "N", []],
+  ["yeongdeungpo-gu-office", "236", "영등포구청", "Yeongdeungpo-gu Office", "underground", "N", []],
+  ["dangsan", "237", "당산", "Dangsan", "elevated", "N", ["당산철교", "한강", "양화대교", "선유도공원"]],
+  ["hapjeong", "238", "합정", "Hapjeong", "underground", "NE", []],
+  ["hongik-univ", "239", "홍대입구", "Hongik Univ.", "underground", "E", []],
+  ["sinchon", "240", "신촌", "Sinchon", "underground", "E", []],
+  ["ewha", "241", "이대", "Ewha Womans Univ.", "underground", "E", []],
+  ["ahyeon", "242", "아현", "Ahyeon", "underground", "E", []],
+  ["chungjeongno", "243", "충정로", "Chungjeongno", "underground", "E", []],
 ];
 
-/** 내선순환 방향 인접 역간 구간. estRunSec 는 추정치 */
-const RUN: Array<[string, string, number, LineSegment["heading"], string[]]> = [
-  ["sillim", "sindaebang", 110, "W", []],
-  ["sindaebang", "guro-digital", 90, "W", ["도림천"]],
-  ["guro-digital", "daerim", 100, "NW", ["도림천"]],
-  ["daerim", "sindorim", 100, "N", ["도림천"]],
-  ["sindorim", "mullae", 100, "N", []],
-  ["mullae", "yeongdeungpo-gu-office", 90, "N", []],
-  ["yeongdeungpo-gu-office", "dangsan", 100, "N", []],
-  ["dangsan", "hapjeong", 150, "N", ["당산철교", "한강", "양화대교", "선유도공원"]],
-  ["hapjeong", "hongik-univ", 90, "NE", []],
-  ["hongik-univ", "sinchon", 100, "E", []],
-  ["sinchon", "ewha", 80, "E", []],
-  ["ewha", "ahyeon", 80, "E", []],
-  ["ahyeon", "chungjeongno", 90, "E", []],
-  ["chungjeongno", "city-hall", 110, "E", []],
-  ["city-hall", "euljiro-1ga", 80, "E", []],
-  ["euljiro-1ga", "euljiro-3ga", 80, "E", []],
-  ["euljiro-3ga", "euljiro-4ga", 80, "E", []],
-  ["euljiro-4ga", "ddp", 80, "E", []],
-  ["ddp", "sindang", 90, "E", []],
-  ["sindang", "sangwangsimni", 80, "E", []],
-  ["sangwangsimni", "wangsimni", 80, "E", []],
-  ["wangsimni", "hanyang-univ", 100, "E", []],
-  ["hanyang-univ", "ttukseom", 120, "SE", ["중랑천"]],
-  ["ttukseom", "seongsu", 80, "E", []],
-  ["seongsu", "konkuk-univ", 100, "E", []],
-  ["konkuk-univ", "guui", 90, "E", []],
-  ["guui", "gangbyeon", 80, "E", []],
-  ["gangbyeon", "jamsillaru", 140, "S", ["잠실철교", "한강", "올림픽대교", "롯데월드타워"]],
-  ["jamsillaru", "jamsil", 100, "S", []],
-  ["jamsil", "jamsilsaenae", 90, "SW", []],
-  ["jamsilsaenae", "sports-complex", 80, "W", []],
-];
+export const STATIONS: Station[] = RAW.map(([id, code, nameKo, nameEn, structure]) => ({ id, code, nameKo, nameEn, structure }));
+
+/** 인접 역간 구간 (순환: 마지막 → 첫 역 포함). 운행시간·거리는 공식 데이터에서 역명으로 매칭 */
+export const SEGMENTS: LineSegment[] = RAW.map(([id, , nameKo, , , heading, landmarks], i) => {
+  const [nid, , nextKo] = RAW[(i + 1) % RAW.length];
+  const off = LINE2_OFFICIAL_SEGMENTS.find((s) => s.from === nameKo && s.to === nextKo);
+  if (!off) throw new Error(`Official data missing for ${nameKo} → ${nextKo}`);
+  return {
+    id: `${id}__${nid}`,
+    fromStationId: id,
+    toStationId: nid,
+    runSec: off.runSec,
+    distanceKm: off.distanceKm,
+    heading,
+    landmarks,
+  };
+});
 
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
 
@@ -122,26 +121,17 @@ const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
  * 승객은 항상 "진행 방향 왼쪽 창"을 바라본다 (여정 내내 같은 자리).
  * 북쪽 진행 → 서쪽 창, 남쪽 진행 → 동쪽 창.
  */
-export function windowFacing(heading: LineSegment["heading"]): LineSegment["heading"] {
+export function windowFacing(heading: Heading): Heading {
   return COMPASS[(COMPASS.indexOf(heading) + 6) % 8];
 }
 
-export const SEGMENTS: LineSegment[] = RUN.map(([from, to, est, heading, landmarks]) => ({
-  id: `${from}__${to}`,
-  fromStationId: from,
-  toStationId: to,
-  estRunSec: est,
-  heading,
-  landmarks,
-}));
-
-const stationById = new Map(STATIONS.map((s) => [s.id, s]));
+const indexById = new Map(STATIONS.map((s, i) => [s.id, i]));
 const segmentByPair = new Map(SEGMENTS.map((s) => [`${s.fromStationId}>${s.toStationId}`, s]));
 
 export function getStation(id: string): Station {
-  const s = stationById.get(id);
-  if (!s) throw new Error(`Unknown station: ${id}`);
-  return s;
+  const i = indexById.get(id);
+  if (i === undefined) throw new Error(`Unknown station: ${id}`);
+  return STATIONS[i];
 }
 
 export function getSegment(fromId: string, toId: string): LineSegment {
@@ -150,26 +140,36 @@ export function getSegment(fromId: string, toId: string): LineSegment {
   return s;
 }
 
-/** 내선순환 방향으로 from → to 역 순서 (환승 없음) */
+/** 내선순환 방향으로 from → to 역 순서 (환승 없음, 순환 경계를 넘어갈 수 있음) */
 export function stationsBetween(fromId: string, toId: string): Station[] {
-  const i = STATIONS.findIndex((s) => s.id === fromId);
-  const j = STATIONS.findIndex((s) => s.id === toId);
-  if (i < 0 || j < 0 || j <= i) throw new Error(`Invalid route ${fromId} → ${toId}`);
-  return STATIONS.slice(i, j + 1);
+  const i = indexById.get(fromId);
+  const j = indexById.get(toId);
+  if (i === undefined || j === undefined || i === j) throw new Error(`Invalid route ${fromId} → ${toId}`);
+  const n = STATIONS.length;
+  const len = ((j - i + n) % n) + 1;
+  return Array.from({ length: len }, (_, k) => STATIONS[(i + k) % n]);
 }
 
-/** 경로의 예상 소요시간(추정, 초): 주행 + 중간역 정차 */
+/** 경로의 예상 소요시간(초): 공식 표준 운행시간 합 + 중간역 정차(추정) */
 export function estimateRouteSec(stations: Station[]): number {
   let sec = 0;
   for (let k = 0; k < stations.length - 1; k++) {
-    sec += getSegment(stations[k].id, stations[k + 1].id).estRunSec;
+    sec += getSegment(stations[k].id, stations[k + 1].id).runSec;
     if (k > 0) sec += LINE2_META.estDwellSec;
   }
   return sec;
 }
 
-/** 노선도상 이웃 역 (내선순환 기준 이전/다음). 목록 끝이면 null */
-export function neighbors(id: string): { prev: Station | null; next: Station | null } {
-  const i = STATIONS.findIndex((s) => s.id === id);
-  return { prev: i > 0 ? STATIONS[i - 1] : null, next: i >= 0 && i < STATIONS.length - 1 ? STATIONS[i + 1] : null };
+/** 경로의 실제 거리(km) — 공식 역간 거리 합 */
+export function routeDistanceKm(stations: Station[]): number {
+  let km = 0;
+  for (let k = 0; k < stations.length - 1; k++) km += getSegment(stations[k].id, stations[k + 1].id).distanceKm;
+  return Math.round(km * 10) / 10;
+}
+
+/** 노선도상 이웃 역 (내선순환 기준 이전/다음, 순환) */
+export function neighbors(id: string): { prev: Station; next: Station } {
+  const i = indexById.get(id)!;
+  const n = STATIONS.length;
+  return { prev: STATIONS[(i - 1 + n) % n], next: STATIONS[(i + 1) % n] };
 }
