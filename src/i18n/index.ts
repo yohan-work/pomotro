@@ -5,7 +5,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Station } from "@/data/lines";
+import type { LineDef, Station } from "@/data/lines";
 import { useAppStore } from "@/store/useAppStore";
 import { en, ko, type StringKey } from "./strings";
 
@@ -30,6 +30,10 @@ export function stationName(st: Station, lang: Lang): string {
   return lang === "en" ? st.nameEn : st.nameKo;
 }
 
+export function lineName(line: LineDef, lang: Lang): string {
+  return lang === "en" ? line.nameEn : line.nameKo;
+}
+
 export function useLang(): Lang {
   const pref = useAppStore((s) => s.langPref);
   const [auto, setAuto] = useState<Lang>("ko");
@@ -43,5 +47,6 @@ export function useT() {
     lang,
     t: (key: StringKey, vars?: Record<string, string | number>) => tr(lang, key, vars),
     name: (st: Station) => stationName(st, lang),
+    lineName: (line: LineDef) => lineName(line, lang),
   };
 }

@@ -6,7 +6,8 @@
  * 3. 점수 = 예상 소요시간 오차 비율 − 풍경 보너스(한강 횡단·지상 구간)
  * 4. 상위 3개 (출발역 중복은 최대 2개까지)
  */
-import { LINE_BY_ID, estimateRouteSec, getSegment, getStation, routeDistanceKm, stationsBetween, type Station } from "../data/lines";
+import { LINE_BY_ID, estimateRouteSec, getSegment, getStation, routeDistanceKm, stationsBetween, windowFacing, type Station } from "../data/lines";
+import { cityStyle } from "../data/scenery";
 import type { StringKey } from "../i18n/strings";
 import { minJourneySec } from "../sim/journey";
 
@@ -22,11 +23,14 @@ export interface RouteSuggestion {
   /** 화면 문구 키 (src/i18n/strings.ts) */
   keywords: StringKey[];
   tagline: StringKey;
+  /** 운행시간이 공식 데이터가 아닌 추정 (경의중앙선) */
+  estimated: boolean;
 }
 
 const ORIGINS = [
   "sillim", "sindorim", "yeongdeungpo-gu-office", "dangsan", "hapjeong", "wangsimni", "hanyang-univ", "seongsu", "gangbyeon",
   "l3-gyeongbokgung", "l3-anguk", "l3-chungmuro", "l3-yaksu", "l3-geumho", "l3-oksu", "l3-apgujeong", "l3-express-bus-terminal", "l3-yangjae",
+  "gj-cheongnyangni", "gj-wangsimni", "gj-oksu", "gj-yongsan", "gj-gongdeok", "gj-sangbong", "gj-guri", "gj-deokso", "gj-yangpyeong",
 ];
 const DOWNTOWN = new Set([
   "city-hall", "euljiro-1ga", "euljiro-3ga", "euljiro-4ga", "ddp", "chungjeongno", "samseong", "seolleung", "yeoksam", "gangnam",
@@ -47,26 +51,43 @@ function describe(stations: Station[]): { keywords: StringKey[]; tagline: String
   const marks = stations.slice(0, -1).flatMap((s, i) => getSegment(s.id, stations[i + 1].id).landmarks);
   const yanghwa = marks.includes("양화대교");
   const jamsil = marks.includes("잠실철교");
-  const dongho = marks.includes("동호대교");
+  const dongho = marks.includes("동호대교") && stations[0].line === "3";
   const stream = marks.includes("중랑천") || marks.includes("도림천");
+  // 경의중앙선 강변: 남향(서행)일 때만 창밖이 강
+  const leftView = (i: number) => windowFacing(getSegment(stations[i].id, stations[i + 1].id).heading);
+  const southward = (h: string) => h === "S" || h === "SE" || h === "SW";
+  const segIdx = stations.slice(0, -1).map((_, i) => i);
+  const riverside = segIdx.some((i) => getSegment(stations[i].id, stations[i + 1].id).landmarks.includes("강남 스카이라인") || ["반포대교", "한남대교"].some((l) => getSegment(stations[i].id, stations[i + 1].id).landmarks.includes(l)));
+  const riversideView = riverside && segIdx.some((i) => getSegment(stations[i].id, stations[i + 1].id).landmarks.includes("한강") && stations[i].line === "GJ" && southward(leftView(i)));
+  const paldang = marks.includes("팔당호") || marks.includes("팔당");
+  const bukhan = marks.includes("북한강");
+  const rural = stations.some((st) => cityStyle(st.id, st.id) === "rural");
   const elevated = stations.filter((s) => s.structure === "elevated").length;
   const downtown = ids.some((id) => DOWNTOWN.has(id));
   const keywords: StringKey[] = [];
   if (yanghwa) keywords.push("kw.dangsan");
   if (jamsil) keywords.push("kw.jamsil");
   if (dongho) keywords.push("kw.dongho");
+  if (riversideView) keywords.push("kw.riverside");
+  if (paldang) keywords.push("kw.paldang");
+  if (bukhan) keywords.push("kw.bukhan");
+  if (rural && !paldang) keywords.push("kw.rural");
   if (stream && !yanghwa && !jamsil && !dongho) keywords.push("kw.stream");
   if (elevated >= 3) keywords.push("kw.elevated");
   if (downtown) keywords.push("kw.downtown");
-  keywords.push("kw.underground");
+  if (stations.some((st) => st.structure === "underground")) keywords.push("kw.underground");
   let tagline: StringKey;
   if (yanghwa && jamsil) tagline = "tag.twoRivers";
+  else if (paldang || bukhan) tagline = "tag.paldang";
+  else if (riversideView) tagline = "tag.riverside";
+  else if (riverside) tagline = "tag.riversideNorth";
+  else if (rural) tagline = "tag.rural";
   else if (dongho) tagline = stations[0].id === "l3-apgujeong" || stations.findIndex((x) => x.id === "l3-apgujeong") < stations.findIndex((x) => x.id === "l3-oksu") ? "tag.donghoNorth" : "tag.donghoSouth";
   else if (jamsil) tagline = "tag.jamsil";
   else if (yanghwa) tagline = downtown ? "tag.yanghwaDowntown" : "tag.yanghwa";
   else if (elevated >= 3) tagline = "tag.elevated";
   else tagline = downtown ? "tag.tunnelDowntown" : "tag.tunnel";
-  const scenic = (yanghwa ? 0.2 : 0) + (jamsil ? 0.2 : 0) + (dongho ? 0.2 : 0) + Math.min(0.15, elevated * 0.025);
+  const scenic = (yanghwa ? 0.2 : 0) + (jamsil ? 0.2 : 0) + (dongho ? 0.2 : 0) + (riversideView ? 0.2 : 0) + (paldang || bukhan ? 0.2 : 0) + Math.min(0.15, elevated * 0.025);
   return { keywords: keywords.slice(0, 3), tagline, scenic };
 }
 
@@ -89,6 +110,7 @@ export function recommendRoutes(focusSec: number, limit = 3, originId?: string):
         stops: stations.length - 1,
         keywords: d.keywords,
         tagline: d.tagline,
+        estimated: Boolean(LINE_BY_ID[stations[0].line].runTimeEstimated),
         score: err - d.scenic,
       });
     }
@@ -136,6 +158,7 @@ export function describeRoute(stationIds: string[]): RouteSuggestion {
     stops: stations.length - 1,
     keywords: d.keywords,
     tagline: d.tagline,
+    estimated: Boolean(LINE_BY_ID[stations[0].line].runTimeEstimated),
   };
 }
 

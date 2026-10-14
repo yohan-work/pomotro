@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
-import { LINE_BY_ID, getStation, stationsBetween, type LineId, type Station } from "@/data/lines";
+import { LINES, LINE_BY_ID, getStation, stationsBetween, type LineId, type Station } from "@/data/lines";
 import { notifyStatus, requestNotifyPermission, type NotifyStatus } from "@/lib/background";
 import { DEMO_ROUTE, describeRoute, recommendRoutes } from "@/lib/recommend";
 import { useT } from "@/i18n";
@@ -81,7 +81,7 @@ function ScenePreview({ stationIds }: { stationIds: string[] }) {
 }
 
 export default function SetupScreen() {
-  const { t, name } = useT();
+  const { t, name, lang, lineName } = useT();
   const focusMinutes = useAppStore((s) => s.focusMinutes);
   const task = useAppStore((s) => s.task);
   const records = useAppStore((s) => s.records);
@@ -268,7 +268,7 @@ export default function SetupScreen() {
 
         <footer className={styles.foot}>
           {today > 0 && <span>{t("setup.todayRode", { n: Math.round(today / 60) })}</span>}
-          <span>{t("setup.dataNotice", { date: LINE2_META.source.updated })}</span>
+          <span>{t("setup.dataNotice", { date: LINE2_META.source.updated })}</span> <span>{t("setup.dataNoticeGJ")}</span>
         </footer>
         </div>
         </div>
@@ -295,12 +295,12 @@ export default function SetupScreen() {
                   <button key={r.stationIds.join(">")} className={i === selected ? styles.routeOn : styles.route} onClick={() => setSelected(i)}>
                     <span className={styles.routeTop}>
                       <span className={styles.lineDot} style={{ background: LINE_BY_ID[r.from.line].color }}>
-                        {r.from.line}
+                        {LINE_BY_ID[r.from.line].badge[lang]}
                       </span>
                       <b>
                         {name(r.from)} → {name(r.to)}
                       </b>
-                      <span className={styles.est}>{t("common.minApprox", { n: Math.round(r.estSec / 60) })}</span>
+                      <span className={styles.est}>{t(r.estimated ? "common.minApproxEst" : "common.minApprox", { n: Math.round(r.estSec / 60) })}</span>
                     </span>
                     <span className={styles.tagline}>{t(r.tagline)}</span>
                     <span className={styles.routeMeta}>
@@ -324,7 +324,7 @@ export default function SetupScreen() {
           ) : (
             <div className={styles.picker}>
               <div className={styles.lineChips} role="radiogroup" aria-label={t("setup.line")}>
-                {(["2", "3"] as LineId[]).map((l) => (
+                {LINES.map((ln) => ln.id).map((l) => (
                   <button
                     key={l}
                     role="radio"
@@ -338,7 +338,7 @@ export default function SetupScreen() {
                       setPickTo(null);
                     }}
                   >
-                    {t("line.name", { n: l })}
+                    {lineName(LINE_BY_ID[l])}
                   </button>
                 ))}
               </div>
@@ -356,7 +356,7 @@ export default function SetupScreen() {
                     <b>
                       {name(picked.from)} → {name(picked.to)}
                     </b>{" "}
-                    · {t("common.stopsKm", { n: picked.stops, km: picked.distanceKm })} · {t("common.minApprox", { n: Math.round(picked.estSec / 60) })}
+                    · {t("common.stopsKm", { n: picked.stops, km: picked.distanceKm })} · {t(picked.estimated ? "common.minApproxEst" : "common.minApprox", { n: Math.round(picked.estSec / 60) })}
                     {tooShort ? (
                       <span className={styles.warn}>
                         {t("setup.tooShort", { n: Math.ceil(picked.minSec / 60) })}

@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { SEGMENTS, STATIONS } from "@/data/line2";
 import { LINE3 } from "@/data/line3";
 import { LINE3_OFFICIAL_SEGMENTS } from "@/data/line3.official";
-import type { LineId, Station } from "@/data/lines";
+import { LINE_GJ } from "@/data/lineGJ";
+import { LINE_BY_ID, type LineId, type Station } from "@/data/lines";
 import { useT } from "@/i18n";
 import styles from "./LineMap.module.css";
 
@@ -131,10 +132,89 @@ const L3_POS: Pt[] = (() => {
 const L3_KEY = new Set(["l3-jichuk", "l3-gyeongbokgung", "l3-oksu", "l3-apgujeong", "l3-express-bus-terminal", "l3-yangjae", "l3-ogeum"]);
 const L3_COLOR = LINE3.color;
 
+/* ───────── 경의중앙선 개략 경로 ─────────
+ * 2호선 홍대입구·왕십리, 3호선 옥수를 기준점으로, 용산~한남은 한강 북안을 따라간다.
+ * 서울 밖 구간(파주·양평)은 노선도 가장자리로 압축한다. */
+function cubic(p0: number, p1: number, p2: number, p3: number, t: number) {
+  const u = 1 - t;
+  return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+}
+const RIVER_SAMPLES: Array<[number, number]> = (() => {
+  const a = { x0: -10, y0: RW.y + 14, x1: RW.x - 10, y1: RW.y + 6, x2: RW.x + 40, y2: RW.y - 4, x3: VB_W / 2, y3: RIVER_MID_Y };
+  const b = { x0: VB_W / 2, y0: RIVER_MID_Y, x1: VB_W - (RW.x + 40), y1: 2 * RIVER_MID_Y - (RW.y - 4), x2: RE.x - 30, y2: RE.y + 6, x3: VB_W + 10, y3: RE.y - 12 };
+  const out: Array<[number, number]> = [];
+  for (const c of [a, b]) for (let i = 0; i <= 60; i++) out.push([cubic(c.x0, c.x1, c.x2, c.x3, i / 60), cubic(c.y0, c.y1, c.y2, c.y3, i / 60)]);
+  return out;
+})();
+/** 한강 띠 중심선의 y (x 에서) */
+function riverY(x: number): number {
+  let best = RIVER_SAMPLES[0];
+  for (const p of RIVER_SAMPLES) if (Math.abs(p[0] - x) < Math.abs(best[0] - x)) best = p;
+  return best[1];
+}
+const HG = posOf(idx2("hongik-univ"));
+const WS = posOf(idx2("wangsimni"));
+const OKSU3 = { x: VB_W / 2 + 4, y: RIVER_MID_Y - 18 };
+const GJ_ANCHORS: Record<string, { x: number; y: number }> = {
+  "gj-munsan": { x: 8, y: -56 },
+  "gj-ilsan": { x: 22, y: -30 },
+  "gj-susaek": { x: HG.x - 40, y: HG.y - 34 },
+  "gj-hongik-univ": { x: HG.x, y: HG.y },
+  "gj-gongdeok": { x: HG.x + 36, y: HG.y + 26 },
+  "gj-yongsan": { x: OKSU3.x - 48, y: riverY(OKSU3.x - 48) - 12 },
+  "gj-hannam": { x: OKSU3.x - 14, y: riverY(OKSU3.x - 14) - 13 },
+  // 환승역은 실제 노선도처럼 나란히 (3호선 옥수 바로 왼쪽 아래)
+  "gj-oksu": { x: OKSU3.x - 5, y: OKSU3.y + 4 },
+  "gj-wangsimni": { x: WS.x, y: WS.y },
+  "gj-cheongnyangni": { x: WS.x + 14, y: WS.y - 30 },
+  "gj-guri": { x: VB_W - 40, y: -40 },
+  "gj-deokso": { x: VB_W - 12, y: -20 },
+  "gj-jipyeong": { x: VB_W - 8, y: RE.y - 34 },
+};
+const GJ_CUM = [0];
+for (const sg of LINE_GJ.segments.filter((_, i) => i % 2 === 0)) GJ_CUM.push(GJ_CUM[GJ_CUM.length - 1] + sg.distanceKm);
+function polylineByKm(stations: Station[], cum: number[], anchors: Record<string, { x: number; y: number }>): Pt[] {
+  const anchorIdx = stations.map((s, i) => (anchors[s.id] ? i : -1)).filter((i) => i >= 0);
+  const out: Pt[] = [];
+  for (let k = 0; k < anchorIdx.length - 1; k++) {
+    const i0 = anchorIdx[k];
+    const i1 = anchorIdx[k + 1];
+    const a = anchors[stations[i0].id];
+    const b = anchors[stations[i1].id];
+    for (let i = i0; i < i1 || (k === anchorIdx.length - 2 && i === i1); i++) {
+      const t = (cum[i] - cum[i0]) / (cum[i1] - cum[i0]);
+      out[i] = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, nx: 1, ny: 0 };
+    }
+  }
+  out.forEach((p, i) => {
+    const a = out[Math.max(0, i - 1)];
+    const b = out[Math.min(out.length - 1, i + 1)];
+    let nx = b.y - a.y;
+    let ny = -(b.x - a.x);
+    const len = Math.hypot(nx, ny) || 1;
+    nx /= len;
+    ny /= len;
+    if (nx + ny * 0.6 < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    p.nx = nx;
+    p.ny = ny;
+  });
+  return out;
+}
+const GJ_POS = polylineByKm(LINE_GJ.stations, GJ_CUM, GJ_ANCHORS);
+const GJ_KEY = new Set(["gj-munsan", "gj-ilsan", "gj-yongsan", "gj-ichon", "gj-cheongnyangni", "gj-paldang", "gj-yongmun"]);
+const GJ_COLOR = LINE_GJ.color;
+
 const poly = (pts: Pt[]) => `M${pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join("L")}`;
 function l3Path(i: number, j: number): string {
   const [a, b] = i < j ? [i, j] : [j, i];
   return poly(L3_POS.slice(a, b + 1));
+}
+function gjPath(i: number, j: number): string {
+  const [a, b] = i < j ? [i, j] : [j, i];
+  return poly(GJ_POS.slice(a, b + 1));
 }
 
 const VB_TOP = -62;
@@ -163,19 +243,32 @@ interface Node {
 
 const NODES2: Node[] = STATIONS.map((st, i) => ({ st, p: posOf(i), key: KEY.has(st.id), i }));
 const NODES3: Node[] = LINE3.stations.map((st, i) => ({ st, p: L3_POS[i], key: L3_KEY.has(st.id), i }));
+const NODESGJ: Node[] = LINE_GJ.stations.map((st, i) => ({ st, p: GJ_POS[i], key: GJ_KEY.has(st.id), i }));
+const LINE_STYLE: Record<LineId, { base: string; visited: string; color: string }> = {
+  "2": { base: "", visited: "", color: "var(--c-primary)" },
+  "3": { base: "#f6d3b4", visited: "#f2a96a", color: L3_COLOR },
+  GJ: { base: "#cdeadf", visited: "#9fd6c0", color: GJ_COLOR },
+};
 
 export default function LineMap({ originId, destId, onPick, activeLine, visited, visitedStations, label }: LineMapProps) {
-  const { t, name } = useT();
+  const { t, name, lineName } = useT();
   const [hover, setHover] = useState<string | null>(null);
-  const nodeOf = (id?: string | null) => (id ? (NODES2.find((n) => n.st.id === id) ?? NODES3.find((n) => n.st.id === id) ?? null) : null);
+  const nodeOf = (id?: string | null) =>
+    id ? (NODES2.find((n) => n.st.id === id) ?? NODES3.find((n) => n.st.id === id) ?? NODESGJ.find((n) => n.st.id === id) ?? null) : null;
   const o = nodeOf(originId);
   const d = nodeOf(destId);
 
   const loopPath = useMemo(() => pathBetween(0, P - 0.01) + "Z", []);
   const l3Full = useMemo(() => poly(L3_POS), []);
+  const gjFull = useMemo(() => poly(GJ_POS), []);
   let route: { d: string; color: string } | null = null;
   if (o && d && o.st.line === d.st.line && o.st.id !== d.st.id) {
-    route = o.st.line === "2" ? { d: pathBetween(sOf(o.i), sOf(d.i)), color: "var(--c-primary)" } : { d: l3Path(o.i, d.i), color: L3_COLOR };
+    route =
+      o.st.line === "2"
+        ? { d: pathBetween(sOf(o.i), sOf(d.i)), color: "var(--c-primary)" }
+        : o.st.line === "3"
+          ? { d: l3Path(o.i, d.i), color: L3_COLOR }
+          : { d: gjPath(o.i, d.i), color: GJ_COLOR };
   }
 
   const visitedPaths = useMemo(() => {
@@ -187,6 +280,10 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
     LINE3.stations.forEach((st, i) => {
       const nx = LINE3.stations[i + 1];
       if (nx && (visited.has(`${st.id}__${nx.id}`) || visited.has(`${nx.id}__${st.id}`))) out.push({ d: l3Path(i, i + 1), line: "3" });
+    });
+    LINE_GJ.stations.forEach((st, i) => {
+      const nx = LINE_GJ.stations[i + 1];
+      if (nx && (visited.has(`${st.id}__${nx.id}`) || visited.has(`${nx.id}__${st.id}`))) out.push({ d: gjPath(i, i + 1), line: "GJ" });
     });
     return out;
   }, [visited]);
@@ -208,9 +305,10 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
         key={st.id}
         className={`${styles.station} ${pickable ? styles.pickable : ""}`}
         opacity={dim(st.line) ? 0.35 : 1}
+        style={onPick && !pickable ? { pointerEvents: "none" } : undefined}
         role={pickable ? "button" : undefined}
         tabIndex={pickable ? 0 : undefined}
-        aria-label={pickable ? t("map.station", { line: t("line.name", { n: st.line }), station: name(st) }) + (st.id === o?.st.id ? t("map.origin") : st.id === d?.st.id ? t("map.dest") : "") : undefined}
+        aria-label={pickable ? t("map.station", { line: lineName(LINE_BY_ID[st.line]), station: name(st) }) + (st.id === o?.st.id ? t("map.origin") : st.id === d?.st.id ? t("map.dest") : "") : undefined}
         aria-hidden={pickable ? undefined : true}
         aria-pressed={pickable ? isEnd : undefined}
         onClick={() => pickable && onPick?.(st)}
@@ -225,13 +323,19 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
         onFocus={() => setHover(st.id)}
         onBlur={() => setHover(null)}
       >
-        {pickable && <circle cx={p.x} cy={p.y} r={st.line === "3" ? 7 : 10} className={styles.hit} />}
+        {pickable && <circle cx={p.x} cy={p.y} r={st.line === "2" ? 10 : st.line === "3" ? 7 : 5.5} className={styles.hit} />}
         <circle
           cx={p.x}
           cy={p.y}
           r={isEnd ? 6 : hover === st.id && pickable ? 4.6 : 3.1}
           className={st.id === o?.st.id ? styles.origin : st.id === d?.st.id ? styles.dest : visitedStations?.has(st.id) ? styles.dotVisited : styles.dot}
-          style={st.line === "3" && !(isEnd || visitedStations?.has(st.id)) ? { stroke: L3_COLOR } : st.line === "3" && visitedStations?.has(st.id) && !isEnd ? { fill: L3_COLOR } : undefined}
+          style={
+            st.line !== "2" && !(isEnd || visitedStations?.has(st.id))
+              ? { stroke: LINE_STYLE[st.line].color }
+              : st.line !== "2" && visitedStations?.has(st.id) && !isEnd
+                ? { fill: LINE_STYLE[st.line].color }
+                : undefined
+          }
         />
         {show && (
           <text x={lx} y={ly + 3.2} textAnchor={anchor} className={isEnd ? styles.labelStrong : styles.label}>
@@ -251,15 +355,19 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
       <g opacity={dim("2") ? 0.35 : 1}>
         <path d={loopPath} className={styles.loop} />
       </g>
+      <g opacity={dim("GJ") ? 0.35 : 1}>
+        <path d={gjFull} className={styles.loop} style={{ stroke: LINE_STYLE.GJ.base }} />
+      </g>
       <g opacity={dim("3") ? 0.35 : 1}>
-        <path d={l3Full} className={styles.loop} style={{ stroke: "#f6d3b4" }} />
+        <path d={l3Full} className={styles.loop} style={{ stroke: LINE_STYLE["3"].base }} />
       </g>
       {visitedPaths.map((v, i) => (
-        <path key={i} d={v.d} className={styles.visited} style={v.line === "3" ? { stroke: "#f2a96a" } : undefined} />
+        <path key={i} d={v.d} className={styles.visited} style={v.line !== "2" ? { stroke: LINE_STYLE[v.line].visited } : undefined} />
       ))}
       {route && <path d={route.d} className={styles.route} style={{ stroke: route.color }} />}
       {NODES2.map((n) => renderNode(n, NODES2))}
       {NODES3.map((n) => renderNode(n, NODES3))}
+      {NODESGJ.map((n) => renderNode(n, NODESGJ))}
     </svg>
   );
 }

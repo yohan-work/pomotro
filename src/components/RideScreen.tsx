@@ -434,7 +434,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         </div>
         <div className={styles.decal} aria-hidden>
           <span className={styles.decalBadge} style={{ background: line.color }}>
-            {line.id}
+            {line.badge[lang]}
           </span>
           {t("ride.doNotLean")}
         </div>
@@ -482,7 +482,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       {/* HUD */}
       <header className={styles.topLeft}>
         <span className={styles.lineBadge} style={{ background: line.color }}>
-          {line.id}
+          {line.badge[lang]}
         </span>
         <span className={styles.routeName}>
           {isBreak ? (

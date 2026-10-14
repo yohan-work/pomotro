@@ -14,9 +14,19 @@ describe("recommendRoutes", () => {
     });
   }
 
-  it("offers almost a full loop for 90-minute sessions", () => {
+  it("fills a 90-minute session (Line 2 almost a full loop, or a long Gyeongui–Jungang ride)", () => {
     const routes = recommendRoutes(90 * 60);
-    expect(routes[0].stops).toBeGreaterThanOrEqual(40);
+    expect(routes.length).toBeGreaterThan(0);
+    for (const r of routes) expect(Math.abs(r.estSec - 90 * 60) / (90 * 60)).toBeLessThan(0.1);
+    expect(routes.some((r) => r.from.line === "2" && r.stops >= 40)).toBe(true);
+  });
+
+  it("marks Gyeongui–Jungang run times as estimated and only shows the riverside keyword on the river side", () => {
+    const west = describeRoute(["gj-hannam", "gj-seobinggo"]);
+    const east = describeRoute(["gj-seobinggo", "gj-hannam"]);
+    expect(west.estimated).toBe(true);
+    expect(west.keywords).toContain("kw.riverside");
+    expect(east.keywords).not.toContain("kw.riverside");
   });
 
   it("keeps every suggestion on the chosen origin when continuing a ride", () => {
