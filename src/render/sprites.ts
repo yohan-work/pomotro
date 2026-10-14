@@ -396,6 +396,128 @@ export function drawShop(ctx: CanvasRenderingContext2D, s: ShopSpec, pal: Palett
   }
 }
 
+/* ───────────────────────── 붉은 벽돌 공장 (성수동) ───────────────────────── */
+
+const CAFE_SIGNS = ["로스터리", "베이커리", "갤러리", "CAFE", "편집숍", "브루어리", "공방"];
+
+export interface FactorySpec {
+  w: number;
+  h: number;
+  teeth: number;
+  brick: string;
+  chimney: boolean;
+  sign: string | null;
+  seed: number;
+}
+
+export function factorySpec(seed: number, u: number): FactorySpec {
+  const r = rng(seed * 3 + 17);
+  return {
+    w: (17 + r() * 9) * u,
+    h: (12 + r() * 5) * u,
+    teeth: 3 + Math.floor(r() * 3),
+    brick: pick(["#A9584A", "#B5654F", "#9C4F43", "#B87257"], r()),
+    chimney: r() < 0.35,
+    sign: r() < 0.6 ? pick(CAFE_SIGNS, r()) : null,
+    seed,
+  };
+}
+
+export function drawFactory(ctx: CanvasRenderingContext2D, s: FactorySpec, pal: Palette, u: number) {
+  const r = rng(s.seed * 5 + 9);
+  const { w, h } = s;
+  const night = pal.night;
+  const brick = night > 0.5 ? shadeColor(s.brick, -0.5) : night > 0 ? shadeColor(s.brick, -0.12) : s.brick;
+  const roofH = h * 0.22;
+  // 굴뚝
+  if (s.chimney) {
+    ctx.fillStyle = shadeColor(brick, -0.1);
+    ctx.fillRect(w * 0.78, -3.6 * u, 1.6 * u, roofH + 3.6 * u);
+    ctx.fillStyle = shadeColor(brick, 0.15);
+    ctx.fillRect(w * 0.78 - 0.2 * u, -3.6 * u, 2 * u, 0.6 * u);
+  }
+  // 톱니 지붕 (북향 채광창)
+  const tw = w / s.teeth;
+  for (let k = 0; k < s.teeth; k++) {
+    const x0 = k * tw;
+    ctx.fillStyle = night > 0.5 ? "#3E4150" : "#8E9298";
+    ctx.beginPath();
+    ctx.moveTo(x0, roofH);
+    ctx.lineTo(x0 + tw * 0.75, 0);
+    ctx.lineTo(x0 + tw, roofH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = night > 0.3 ? pal.glassLit : shadeColor(pal.glass, 0.25);
+    ctx.globalAlpha = night > 0.3 ? 0.85 : 0.9;
+    ctx.beginPath();
+    ctx.moveTo(x0 + tw * 0.75, 0);
+    ctx.lineTo(x0 + tw, roofH);
+    ctx.lineTo(x0 + tw * 0.92, roofH);
+    ctx.lineTo(x0 + tw * 0.72, roofH * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  // 벽돌 벽
+  ctx.fillStyle = brick;
+  ctx.fillRect(0, roofH, w, h - roofH);
+  ctx.strokeStyle = "rgba(255,240,225,0.14)";
+  ctx.lineWidth = 0.7;
+  for (let y = roofH + u * 0.55; y < h; y += u * 0.55) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+  // 아치형 철제 창
+  const n = Math.max(2, Math.round(w / (3.4 * u)));
+  const ww = (w * 0.86) / n;
+  for (let k = 0; k < n; k++) {
+    const x = w * 0.07 + k * ww + ww * 0.12;
+    const y = roofH + (h - roofH) * 0.18;
+    const wh = (h - roofH) * 0.6;
+    const lit = night > 0 && r() < 0.5 + night * 0.4;
+    ctx.fillStyle = lit ? pal.glassLit : shadeColor(pal.glass, -0.15);
+    ctx.globalAlpha = lit ? 0.92 : 0.85;
+    ctx.beginPath();
+    ctx.moveTo(x, y + wh);
+    ctx.lineTo(x, y + ww * 0.38);
+    ctx.arc(x + ww * 0.38, y + ww * 0.38, ww * 0.38, Math.PI, 0);
+    ctx.lineTo(x + ww * 0.76, y + wh);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#2C2C30";
+    ctx.lineWidth = Math.max(0.8, 0.14 * u);
+    ctx.beginPath();
+    ctx.moveTo(x + ww * 0.38, y);
+    ctx.lineTo(x + ww * 0.38, y + wh);
+    ctx.moveTo(x, y + wh * 0.55);
+    ctx.lineTo(x + ww * 0.76, y + wh * 0.55);
+    ctx.stroke();
+  }
+  // 담쟁이
+  ctx.fillStyle = night > 0.5 ? "#2E4436" : "#6E9A5E";
+  for (let k = 0; k < 7; k++) {
+    if (r() < 0.45) continue;
+    ctx.beginPath();
+    ctx.arc(r() * w * 0.3, h - r() * (h - roofH) * 0.7, (0.5 + r() * 0.8) * u, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // 카페 간판
+  if (s.sign) {
+    const sw = Math.min(w * 0.5, 9 * u);
+    ctx.fillStyle = night > 0.5 ? "#F3E6CC" : "#2B2B2E";
+    rrect(ctx, w * 0.5 - sw / 2, roofH + 0.4 * u, sw, 1.8 * u, 0.4 * u);
+    ctx.fill();
+    ctx.fillStyle = night > 0.5 ? "#2B2B2E" : "#F3E6CC";
+    ctx.font = `700 ${1.15 * u}px Pretendard, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(s.sign, w * 0.5, roofH + 1.35 * u);
+  }
+}
+
 /* ───────────────────────── 나무 ───────────────────────── */
 
 export function drawTree(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number, pal: Palette) {
