@@ -69,6 +69,31 @@
   background: #fff;
 }
 
+.cycle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 13px;
+  color: #666;
+}
+
+.cycleDot,
+.cycleOn {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(46, 148, 107, 0.18);
+}
+
+.cycleOn {
+  background: var(--c-primary);
+}
+
+.cycle span:last-child {
+  margin-left: 6px;
+}
+
 .msg {
   margin-top: 10px;
   font-size: 13px;
