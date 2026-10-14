@@ -5,6 +5,7 @@ import { CHANNELS, type Channel } from "@/audio/AudioEngine";
 import { getAudio, unlockAudio } from "@/audio/instance";
 import { LINE2_META, getSegment } from "@/data/line2";
 import { Renderer } from "@/render/Renderer";
+import { passingIntensity } from "@/render/scene";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { elapsedSec, epochNow } from "@/sim/clock";
 import { buildJourney, sampleJourney, type Journey, type JourneyEvent, type SimSample } from "@/sim/journey";
@@ -171,7 +172,16 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
 
       const enclosed = renderer.currentDarkness;
       if (paused) audio.suspendMotion();
-      else audio.update({ v: sample.v, a: sample.a, x: sample.x, enclosed, bridge: bridgeAt(journey, sample.x), moving: sample.v > 0 });
+      else
+        audio.update({
+          v: sample.v,
+          a: sample.a,
+          x: sample.x,
+          enclosed,
+          bridge: bridgeAt(journey, sample.x),
+          moving: sample.v > 0,
+          passing: passingIntensity(journey, sample.x),
+        });
 
       if (sample.phase === "COMPLETED") {
         completed = true;

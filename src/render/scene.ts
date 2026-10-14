@@ -18,8 +18,10 @@ import {
   drawApartment,
   drawCloud,
   drawPerson,
+  drawFactory,
   drawShop,
   drawTower,
+  factorySpec,
   drawTree,
   mix,
   rrect,
@@ -772,17 +774,23 @@ function drawMid(f: Frame) {
     const x = sx(f, anchor, s);
     const base = bank ? groundY - 1.7 * u : groundY + 0.6 * u;
     const seed = Math.floor(r() * 64);
-    if (roll < (bank ? 0.95 : 0.66)) {
-      const spec = apartmentSpec(seed, u, pal, bank ? 0.82 : 1);
+    // 동네 분위기별 구성: 아파트 비율, 크기
+    const style = bank ? "residential" : (sec.style ?? "residential");
+    const aptRatio = bank ? 0.95 : { residential: 0.66, highrise: 0.82, office: 0.22, brick: 0.4 }[style];
+    const aptScale = bank ? 0.82 : style === "highrise" ? 1.32 : 1;
+    if (style === "brick" && roll > 0.75) return; // 성수: 낮은 건물 사이로 하늘이 트인다
+    if (roll < aptRatio) {
+      const spec = apartmentSpec(seed, u, pal, aptScale);
       if (x > f.W + 10 || x + spec.w < -10) return;
-      const sp = f.sprites.get(`apt:${seed}:${bank ? 1 : 0}:${pal.key}:${u.toFixed(2)}`, spec.w, spec.h, (c) => drawApartment(c, spec, pal));
+      const sp = f.sprites.get(`apt:${seed}:${aptScale}:${pal.key}:${u.toFixed(2)}`, spec.w, spec.h, (c) => drawApartment(c, spec, pal));
       ctx.fillStyle = pal.shade;
       ctx.fillRect(x + spec.w * 0.2, base - 0.4 * u, spec.w * 0.9, 0.8 * u);
       ctx.drawImage(sp.img, x, base - spec.h, sp.w, sp.h);
     } else {
-      const spec = towerSpec(seed, u, pal, 0.85);
+      const tScale = style === "office" ? 1.08 : 0.85;
+      const spec = towerSpec(seed, u, pal, tScale);
       if (x > f.W + 10 || x + spec.w < -10) return;
-      const sp = f.sprites.get(`tower:${seed}:${pal.key}:${u.toFixed(2)}`, spec.w, spec.h, (c) => drawTower(c, spec, pal));
+      const sp = f.sprites.get(`tower:${seed}:${tScale}:${pal.key}:${u.toFixed(2)}`, spec.w, spec.h, (c) => drawTower(c, spec, pal));
       ctx.drawImage(sp.img, x, base - spec.h, sp.w, sp.h);
     }
   });
@@ -896,11 +904,24 @@ function drawNear(f: Frame) {
   // 상가 건물
   forCells(f, s, 13, 120, 2203, (m, r) => {
     const anchor = m + r() * 2;
-    const land = landOf(sectionAtM(f, anchor));
-    if (land !== "city" || r() < 0.18) return;
+    const sec = sectionAtM(f, anchor);
+    const land = landOf(sec);
+    if (land !== "city" || r() < (sec.style === "office" ? 0.45 : 0.18)) return;
     const seed = Math.floor(r() * 48);
-    const spec = shopSpec(seed, u, pal);
     const x = sx(f, anchor, s);
+    if (sec.style === "brick" && r() < 0.65) {
+      // 성수동 붉은 벽돌 공장 · 창고 카페
+      const fs = factorySpec(seed, u);
+      if (x > f.W + 10 || x + fs.w < -10) return;
+      const pad = 4 * u;
+      const sp = f.sprites.get(`factory:${seed}:${pal.key}:${u.toFixed(2)}`, fs.w, fs.h + pad, (c) => {
+        c.translate(0, pad);
+        drawFactory(c, fs, pal, u);
+      });
+      ctx.drawImage(sp.img, x, streetY + 1.5 * u - fs.h - pad, sp.w, sp.h);
+      return;
+    }
+    const spec = shopSpec(seed, u, pal);
     if (x > f.W + 10 || x + spec.w < -10) return;
     const pad = 2 * u;
     const sp = f.sprites.get(`shop:${seed}:${pal.key}:${u.toFixed(2)}`, spec.w, spec.h + pad, (c) => {
@@ -1036,6 +1057,18 @@ function stationSign(f: Frame, station: Station, w: number, h: number) {
   });
 }
 
+/** 지하역 실내 마감 — 역번호로 결정 (같은 역은 항상 같은 색) */
+const STATION_FINISH = [
+  { wall: "#EDE7DA", lower: "#D9D1C0", pillar: ["#CFC6B5", "#F2ECE0", "#B5AC9C"], round: false },
+  { wall: "#DFE6EA", lower: "#C9D3D9", pillar: ["#C3CDD3", "#EEF2F4", "#A9B4BA"], round: true },
+  { wall: "#EADFCF", lower: "#D6C6AE", pillar: ["#D5C7B2", "#F4ECDF", "#BBAA92"], round: false },
+  { wall: "#E0E8DF", lower: "#C8D4C6", pillar: ["#C7D2C5", "#EFF4EE", "#AAB8A8"], round: true },
+  { wall: "#F0E3DC", lower: "#DCC8BE", pillar: ["#D9C6BC", "#F6EEE9", "#BFAA9F"], round: false },
+];
+function finishOf(st: Station) {
+  return STATION_FINISH[hash2(Number(st.code) || 0, 31) % STATION_FINISH.length];
+}
+
 function drawPlatformBack(f: Frame) {
   const { ctx, u, pal, H } = f;
   const s = SPEED.platformBack;
@@ -1055,11 +1088,12 @@ function drawPlatformBack(f: Frame) {
       g.addColorStop(1, "#7A7873");
       ctx.fillStyle = g;
       ctx.fillRect(sp.xa, 0, w, 13 * u);
-      ctx.fillStyle = "#EDE7DA";
+      const fin = finishOf(sec.station!);
+      ctx.fillStyle = fin.wall;
       ctx.fillRect(sp.xa, 13 * u, w, 66 * u);
       ctx.fillStyle = "#2E946B";
       ctx.fillRect(sp.xa, 50 * u, w, 2.2 * u);
-      ctx.fillStyle = "#D9D1C0";
+      ctx.fillStyle = fin.lower;
       ctx.fillRect(sp.xa, 52.2 * u, w, 26.8 * u);
       // 타일 줄눈
       ctx.strokeStyle = "rgba(120,110,95,0.1)";
@@ -1174,13 +1208,18 @@ function drawPlatformFront(f: Frame) {
     if (sec.kind !== "platform" || sec.station!.structure !== "underground") return;
     if (m < sec.x0 + 4 || m > sec.x1 - 4) return;
     const x = sx(f, m, s);
-    const w = 5 * u;
+    const fin = finishOf(sec.station!);
+    const w = (fin.round ? 4.4 : 5) * u;
     const g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
-    g.addColorStop(0, "#CFC6B5");
-    g.addColorStop(0.35, "#F2ECE0");
-    g.addColorStop(1, "#B5AC9C");
+    g.addColorStop(0, fin.pillar[0]);
+    g.addColorStop(fin.round ? 0.3 : 0.35, fin.pillar[1]);
+    g.addColorStop(1, fin.pillar[2]);
     ctx.fillStyle = g;
     ctx.fillRect(x - w / 2, 0, w, f.H);
+    if (!fin.round) {
+      ctx.fillStyle = "rgba(0,0,0,0.06)";
+      ctx.fillRect(x + w * 0.18, 0, 1, f.H);
+    }
     ctx.fillStyle = "#2E946B";
     ctx.fillRect(x - w / 2, 46 * u, w, 1.4 * u);
   });
@@ -1642,6 +1681,114 @@ function drawTunnel(f: Frame, sp: Span) {
   }
 }
 
+/* ═════════════════════════════ 교행 열차 (터널) ═════════════════════════════ */
+
+/**
+ * 2호선은 우측통행이라 반대 방향 열차는 승객이 보는 왼쪽 창 쪽 선로로 지나간다.
+ * 두 열차가 마주 달리므로 같은 깊이의 정지 물체보다 REL 배 빠르게 흐르는 "상대 좌표"에 배치한다.
+ * 위치는 열차 위치(cam)만의 함수 → 같은 지점에서는 항상 같은 교행 장면.
+ */
+export const PASSING = { depth: 4.8, rel: 2, len: 140, car: 14 } as const;
+const passingCache = new WeakMap<Journey, number[]>();
+
+/** 교행 열차 머리 위치(상대 좌표) 목록 */
+export function passingTrains(j: Journey): number[] {
+  const hit = passingCache.get(j);
+  if (hit) return hit;
+  const out: number[] = [];
+  const lastStop = j.stopX[j.stopX.length - 1];
+  for (const sec of j.sections) {
+    // 출발 전·도착 후 배경 터널은 지나가지 않으므로 제외
+    if (sec.kind !== "tunnel" || sec.x1 - sec.x0 < 360 || sec.x0 < 0 || sec.x1 > lastStop) continue;
+    for (let a = sec.x0 + 170; a + PASSING.len + 80 < sec.x1; a += 700) {
+      if ((hash2(Math.round(a), 2024) & 1023) / 1023 < 0.75) out.push(a);
+    }
+  }
+  passingCache.set(j, out);
+  return out;
+}
+
+/** 0..1 교행 열차가 창 앞에 얼마나 가까운지 (사운드용) */
+export function passingIntensity(j: Journey, cam: number): number {
+  let best = 0;
+  for (const a of passingTrains(j)) {
+    const d = cam < a ? a - cam : cam > a + PASSING.len ? cam - a - PASSING.len : 0;
+    best = Math.max(best, 1 - Math.min(1, d / 12));
+  }
+  return best;
+}
+
+function drawPassingTrain(f: Frame) {
+  const { ctx, u, H } = f;
+  const S = PASSING.depth * PASSING.rel;
+  const [m0, m1] = visRange(f, S, 40);
+  for (const a of passingTrains(f.journey)) {
+    if (a > m1 || a + PASSING.len < m0) continue;
+    const car = PASSING.car;
+    const top = 5 * u;
+    const bottom = 97 * u;
+    for (let c = 0; c < PASSING.len / car; c++) {
+      const ca = a + c * car;
+      const xa = sx(f, ca, S);
+      const xb = sx(f, ca + car - 0.35, S);
+      if (xb < -10 || xa > f.W + 10) continue;
+      const r = rng(hash2(Math.round(ca), 77));
+      // 차체 (터널 조명에 비친 스테인리스)
+      const g = ctx.createLinearGradient(0, top, 0, bottom);
+      g.addColorStop(0, "#8E9497");
+      g.addColorStop(0.35, "#B9BFC1");
+      g.addColorStop(1, "#6E7477");
+      ctx.fillStyle = g;
+      ctx.fillRect(xa, top, xb - xa, bottom - top);
+      // 2호선 띠
+      ctx.fillStyle = "#2E8A62";
+      ctx.fillRect(xa, 66 * u, xb - xa, 3.2 * u);
+      // 창문과 출입문
+      const unit = (xb - xa) / car;
+      for (let k = 0; k < 4; k++) {
+        const dx = xa + (0.7 + k * 3.45) * unit;
+        ctx.fillStyle = "#7E8689";
+        ctx.fillRect(dx, 16 * u, 0.95 * unit, 72 * u);
+        ctx.fillStyle = "rgba(255,231,190,0.7)";
+        ctx.fillRect(dx + 0.12 * unit, 22 * u, 0.32 * unit, 24 * u);
+        ctx.fillRect(dx + 0.51 * unit, 22 * u, 0.32 * unit, 24 * u);
+        if (k < 3) {
+          const wx = dx + 1.17 * unit;
+          ctx.fillStyle = "rgba(255,228,182,0.78)";
+          rrect(ctx, wx, 20 * u, 2.1 * unit, 30 * u, 1.2 * u);
+          ctx.fill();
+          // 승객 실루엣
+          if (r() < 0.7) {
+            ctx.fillStyle = "rgba(70,60,60,0.45)";
+            const px = wx + (0.2 + r() * 0.6) * 2.1 * unit;
+            ctx.beginPath();
+            ctx.arc(px, 34 * u, 3 * u, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(px - 4 * u, 38 * u, 8 * u, 12 * u);
+          }
+        }
+      }
+      // 차량 연결부
+      ctx.fillStyle = "#1D1E1F";
+      ctx.fillRect(xb, top, Math.max(2, sx(f, ca + car, S) - xb), bottom - top);
+    }
+    // 빠르게 스치는 느낌: 가장자리 어둡게
+    const xh = sx(f, a, S);
+    const xt = sx(f, a + PASSING.len, S);
+    for (const [x, dir] of [
+      [xh, -1],
+      [xt, 1],
+    ] as const) {
+      if (x < -40 || x > f.W + 40) continue;
+      const gg = ctx.createLinearGradient(x, 0, x + dir * 30 * u, 0);
+      gg.addColorStop(0, "rgba(10,10,10,0.6)");
+      gg.addColorStop(1, "rgba(10,10,10,0)");
+      ctx.fillStyle = gg;
+      ctx.fillRect(Math.min(x, x + dir * 30 * u), 0, 30 * u, H);
+    }
+  }
+}
+
 /* ═════════════════════════════ 최근경: 전차선 지지대 ═════════════════════════════ */
 
 function drawFore(f: Frame) {
@@ -1780,6 +1927,7 @@ export function renderScene(f: Frame) {
   drawPlatformBack(f);
   drawPlatformFront(f);
   drawTrack(f);
+  drawPassingTrain(f);
   drawFore(f);
   drawGlass(f);
 }

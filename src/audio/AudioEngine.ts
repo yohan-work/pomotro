@@ -22,6 +22,8 @@ export interface AudioState {
   enclosed: number;
   /** 다리 위면 1 (철교 공명) */
   bridge: number;
+  /** 0..1 교행 열차가 창 앞을 지나는 정도 */
+  passing?: number;
   moving: boolean;
 }
 
@@ -49,6 +51,8 @@ export class AudioEngine {
   private motorGain!: GainNode;
   private motorOsc: OscillatorNode[] = [];
   private hissGain!: GainNode;
+  private passGain!: GainNode;
+  private passFilter!: BiquadFilterNode;
   private ambientGain!: GainNode;
   private white!: AudioBuffer;
   private reverb!: ConvolverNode;
@@ -125,6 +129,19 @@ export class AudioEngine {
     hiss.connect(hissF).connect(this.hissGain).connect(this.ch.rolling);
     hiss.start();
 
+    // 교행 열차: 밴드패스 노이즈 "쉬익" (가까울수록 크고 밝게)
+    const pass = ctx.createBufferSource();
+    pass.buffer = this.white;
+    pass.loop = true;
+    this.passFilter = ctx.createBiquadFilter();
+    this.passFilter.type = "bandpass";
+    this.passFilter.frequency.value = 500;
+    this.passFilter.Q.value = 0.7;
+    this.passGain = ctx.createGain();
+    this.passGain.gain.value = 0;
+    pass.connect(this.passFilter).connect(this.passGain).connect(this.ch.rolling);
+    pass.start();
+
     // 모터 인버터음: 가감속 때만 속도에 따라 음높이가 오르내린다
     this.motorGain = ctx.createGain();
     this.motorGain.gain.value = 0;
@@ -193,6 +210,7 @@ export class AudioEngine {
     this.rollGain.gain.setTargetAtTime(0, t, 0.25);
     this.hissGain.gain.setTargetAtTime(0, t, 0.25);
     this.motorGain.gain.setTargetAtTime(0, t, 0.15);
+    this.passGain.gain.setTargetAtTime(0, t, 0.15);
   }
 
   update(s: AudioState) {
@@ -205,6 +223,9 @@ export class AudioEngine {
     this.rollFilter.frequency.setTargetAtTime(160 + vn * 520 + s.enclosed * 200, t, 0.2);
     this.hissGain.gain.setTargetAtTime(vn * vn * 0.05 * enclosedBoost, t, 0.2);
     this.reverbSend.gain.setTargetAtTime(s.enclosed * 0.35, t, 0.4);
+    const pi = s.passing ?? 0;
+    this.passGain.gain.setTargetAtTime(pi * pi * 0.32, t, 0.12);
+    this.passFilter.frequency.setTargetAtTime(450 + pi * 1100, t, 0.15);
 
     // 인버터음: 속도에 비례한 주파수, 가속도 크기에 비례한 음량
     const motorAmt = Math.min(1, Math.abs(s.a) / 0.9) * (s.v > 0.3 ? 1 : 0);
