@@ -47,6 +47,10 @@ export const LINE2_META = {
 } as const;
 
 export const STATIONS: Station[] = [
+  { id: "sillim", code: "230", nameKo: "신림", nameEn: "Sillim", structure: "underground" },
+  { id: "sindaebang", code: "231", nameKo: "신대방", nameEn: "Sindaebang", structure: "elevated" },
+  { id: "guro-digital", code: "232", nameKo: "구로디지털단지", nameEn: "Guro Digital Complex", structure: "elevated" },
+  { id: "daerim", code: "233", nameKo: "대림", nameEn: "Daerim", structure: "elevated" },
   { id: "sindorim", code: "234", nameKo: "신도림", nameEn: "Sindorim", structure: "elevated" },
   { id: "mullae", code: "235", nameKo: "문래", nameEn: "Mullae", structure: "underground" },
   { id: "yeongdeungpo-gu-office", code: "236", nameKo: "영등포구청", nameEn: "Yeongdeungpo-gu Office", structure: "underground" },
@@ -65,10 +69,24 @@ export const STATIONS: Station[] = [
   { id: "sindang", code: "206", nameKo: "신당", nameEn: "Sindang", structure: "underground" },
   { id: "sangwangsimni", code: "207", nameKo: "상왕십리", nameEn: "Sangwangsimni", structure: "underground" },
   { id: "wangsimni", code: "208", nameKo: "왕십리", nameEn: "Wangsimni", structure: "underground" },
+  { id: "hanyang-univ", code: "209", nameKo: "한양대", nameEn: "Hanyang Univ.", structure: "elevated" },
+  { id: "ttukseom", code: "210", nameKo: "뚝섬", nameEn: "Ttukseom", structure: "elevated" },
+  { id: "seongsu", code: "211", nameKo: "성수", nameEn: "Seongsu", structure: "elevated" },
+  { id: "konkuk-univ", code: "212", nameKo: "건대입구", nameEn: "Konkuk Univ.", structure: "elevated" },
+  { id: "guui", code: "213", nameKo: "구의", nameEn: "Guui", structure: "elevated" },
+  { id: "gangbyeon", code: "214", nameKo: "강변", nameEn: "Gangbyeon", structure: "elevated" },
+  { id: "jamsillaru", code: "215", nameKo: "잠실나루", nameEn: "Jamsillaru", structure: "elevated" },
+  { id: "jamsil", code: "216", nameKo: "잠실", nameEn: "Jamsil", structure: "underground" },
+  { id: "jamsilsaenae", code: "217", nameKo: "잠실새내", nameEn: "Jamsilsaenae", structure: "underground" },
+  { id: "sports-complex", code: "218", nameKo: "종합운동장", nameEn: "Sports Complex", structure: "underground" },
 ];
 
 /** 내선순환 방향 인접 역간 구간. estRunSec 는 추정치 */
 const RUN: Array<[string, string, number, LineSegment["heading"], string[]]> = [
+  ["sillim", "sindaebang", 110, "W", []],
+  ["sindaebang", "guro-digital", 90, "W", ["도림천"]],
+  ["guro-digital", "daerim", 100, "NW", ["도림천"]],
+  ["daerim", "sindorim", 100, "N", ["도림천"]],
   ["sindorim", "mullae", 100, "N", []],
   ["mullae", "yeongdeungpo-gu-office", 90, "N", []],
   ["yeongdeungpo-gu-office", "dangsan", 100, "N", []],
@@ -86,7 +104,27 @@ const RUN: Array<[string, string, number, LineSegment["heading"], string[]]> = [
   ["ddp", "sindang", 90, "E", []],
   ["sindang", "sangwangsimni", 80, "E", []],
   ["sangwangsimni", "wangsimni", 80, "E", []],
+  ["wangsimni", "hanyang-univ", 100, "E", []],
+  ["hanyang-univ", "ttukseom", 120, "SE", ["중랑천"]],
+  ["ttukseom", "seongsu", 80, "E", []],
+  ["seongsu", "konkuk-univ", 100, "E", []],
+  ["konkuk-univ", "guui", 90, "E", []],
+  ["guui", "gangbyeon", 80, "E", []],
+  ["gangbyeon", "jamsillaru", 140, "S", ["잠실철교", "한강", "올림픽대교", "롯데월드타워"]],
+  ["jamsillaru", "jamsil", 100, "S", []],
+  ["jamsil", "jamsilsaenae", 90, "SW", []],
+  ["jamsilsaenae", "sports-complex", 80, "W", []],
 ];
+
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
+
+/**
+ * 승객은 항상 "진행 방향 왼쪽 창"을 바라본다 (여정 내내 같은 자리).
+ * 북쪽 진행 → 서쪽 창, 남쪽 진행 → 동쪽 창.
+ */
+export function windowFacing(heading: LineSegment["heading"]): LineSegment["heading"] {
+  return COMPASS[(COMPASS.indexOf(heading) + 6) % 8];
+}
 
 export const SEGMENTS: LineSegment[] = RUN.map(([from, to, est, heading, landmarks]) => ({
   id: `${from}__${to}`,
