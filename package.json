@@ -22,6 +22,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "test:sim": "tsx scripts/check-sim.ts",
     "data:import": "tsx scripts/import-official-data.ts",
     "verify:browser": "node scripts/verify-browser.mjs",
@@ -39,6 +40,7 @@
     "@types/react-dom": "19.3.0",
     "playwright-core": "1.56.1",
     "tsx": "^4.20.6",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^3.2.4"
   }
 }
