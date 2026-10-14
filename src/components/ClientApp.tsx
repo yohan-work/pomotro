@@ -20,6 +20,7 @@ import SetupScreen from "./SetupScreen";
  *   ?seek=40               시작 시점을 40초 앞으로 (스크린샷 검증용)
  *   ?tod=day|sunset|night  시간대 고정
  *   ?debug=1               FPS·시뮬레이션 상태 표시
+ *   ?still=45              시뮬레이션·애니메이션 시간을 45초에 고정 (시각 비교 테스트용)
  */
 export default function ClientApp() {
   const [ready, setReady] = useState(false);
@@ -51,6 +52,7 @@ export default function ClientApp() {
     setDebug({
       enabled: p.get("debug") === "1",
       tod: tod === "day" || tod === "sunset" || tod === "night" ? (tod as TimeOfDay) : null,
+      still: p.get("still") !== null ? Number(p.get("still")) || 0 : undefined,
     });
     const routeParam = p.get("route");
     if (p.get("autostart") === "route" && routeParam) {

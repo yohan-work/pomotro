@@ -20,6 +20,8 @@ import styles from "./RideScreen.module.css";
 export interface RideDebug {
   enabled: boolean;
   tod: TimeOfDay | null;
+  /** 검증용 정지 화면: 시뮬레이션·애니메이션 시간을 이 값(초)에 고정 → 같은 입력이면 항상 같은 그림 */
+  still?: number;
 }
 
 interface Hud {
@@ -184,7 +186,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       const s = st.activeSession;
       if (!s || s.id !== session.id || completed) return;
       const now = epochNow();
-      const t = elapsedSec(s, now);
+      const t = debug.still ?? elapsedSec(s, now);
       const paused = s.pausedAt !== null;
       const sample = sampleJourney(journey, t);
 
@@ -230,7 +232,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           v: sample.v,
           a: paused ? 0 : sample.a,
           doorsOpen: sample.doorsOpen,
-          time: nowP / 1000,
+          time: debug.still ?? nowP / 1000,
           timeOfDay: live.current.tod,
           reducedMotion: live.current.reducedMotion,
           qualityMode: live.current.quality,
