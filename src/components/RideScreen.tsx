@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
 import { getSegment, lineOf, type Station } from "@/data/lines";
-import { stationName, tr, useT, type Lang } from "@/i18n";
+import { stationName, tr, useT, type Lang, type StringKey } from "@/i18n";
 import { Renderer } from "@/render/Renderer";
 import { announce, stopAnnounce } from "@/audio/announce";
 import { useConditions } from "@/lib/useConditions";
@@ -11,10 +11,12 @@ import { passingIntensity } from "@/render/scene";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { elapsedSec, epochNow } from "@/sim/clock";
 import { buildJourney, sampleJourney, type Journey, type JourneyEvent, type SimSample } from "@/sim/journey";
+import { cabinEventAt, planRideEvents, seedOf, seenEvents, type RideEvent, type RideEventKind } from "@/sim/rideEvents";
 import { createTicker, notifyIfHidden } from "@/lib/background";
 import { useAppStore, type ActiveSession } from "@/store/useAppStore";
 import { IconExit, IconExpand, IconMute, IconPause, IconPlay, IconSettings, IconVolume, Mascot } from "./Icons";
 import { SoundSettings, ViewSettings } from "./Panels";
+import { CabinPassenger } from "./Passengers";
 import styles from "./RideScreen.module.css";
 
 export interface RideDebug {
@@ -22,6 +24,10 @@ export interface RideDebug {
   tod: TimeOfDay | null;
   /** 검증용 정지 화면: 시뮬레이션·애니메이션 시간을 이 값(초)에 고정 → 같은 입력이면 항상 같은 그림 */
   still?: number;
+  /** 검증용: 이 깜짝 이벤트만 (가장 이른 배치로) */
+  event?: RideEventKind | null;
+  /** URL 로 자동 시작한 세션 — 검증 화면이 흔들리지 않게 깜짝 이벤트를 끈다 (event 로 강제 가능) */
+  scripted?: boolean;
 }
 
 interface Hud {
@@ -61,6 +67,13 @@ function bridgeAt(j: Journey, x: number) {
   return j.sections.some((s) => (s.kind === "river" || s.kind === "bank") && x >= s.x0 && x <= s.x1) ? 1 : 0;
 }
 
+/** 단소 승객이 부는 때: 앉고 6초 뒤, 이후 75초마다 (5초간) */
+function dansoCues(events: RideEvent[]): number[] {
+  const out: number[] = [];
+  for (const e of events) if (e.kind === "danso") for (let c = e.t0 + 6; c < e.t1 - 6; c += 75) out.push(c);
+  return out;
+}
+
 const STRAPS = 6;
 /** 입력이 없으면 이 시간 뒤 집중 모드(HUD 숨김) */
 const IDLE_MS = 5000;
@@ -74,6 +87,15 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   );
   const isBreak = session.mode === "break";
   const { t, name, lang } = useT();
+  const surprisesOn = useAppStore((s) => s.surprises);
+  const plannedEvents = useMemo(() => {
+    if (isBreak) return [];
+    if (debug.event) return planRideEvents(journey, seedOf(session.id), debug.event);
+    if (debug.scripted) return [];
+    return planRideEvents(journey, seedOf(session.id));
+  }, [journey, session.id, isBreak, debug.event, debug.scripted]);
+  const rideEvents = surprisesOn || debug.event ? plannedEvents : [];
+  const cues = useMemo(() => dansoCues(rideEvents), [rideEvents]);
   const line = lineOf(session.stationIds[0]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -123,8 +145,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   // 렌더 루프에서 읽는 최신 설정
   const cond = useConditions();
   const announceOn = useAppStore((s) => s.announce);
-  const live = useRef({ tod, reducedMotion, quality: qualityPref, season: cond.season, weather: cond.weather, announce: announceOn, lang });
-  live.current = { tod, reducedMotion, quality: qualityPref, season: cond.season, weather: cond.weather, announce: announceOn, lang };
+  const live = useRef({ tod, reducedMotion, quality: qualityPref, season: cond.season, weather: cond.weather, announce: announceOn, lang, events: rideEvents, cues });
+  live.current = { tod, reducedMotion, quality: qualityPref, season: cond.season, weather: cond.weather, announce: announceOn, lang, events: rideEvents, cues };
   useEffect(() => getAudio().setRain(cond.weather === "rain"), [cond.weather]);
 
   useEffect(() => {
@@ -201,6 +223,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       if (lastEventT === null) lastEventT = t;
       else if (t > lastEventT) {
         for (const e of journey.events) if (e.t > lastEventT && e.t <= t && t - e.t < 2.5) fire(e);
+        for (const c of live.current.cues) if (c > lastEventT && c <= t && t - c < 2.5 && !document.hidden) audio.danso();
         lastEventT = t;
       }
 
@@ -226,7 +249,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           if (isBreak) notifyIfHidden(tr(L, "notify.breakOverTitle"), tr(L, "notify.breakOverBody", { station: stationName(dest, L) }));
           else notifyIfHidden(tr(L, "notify.arrivedTitle", { station: stationName(dest, L) }), tr(L, "notify.arrivedBody", { n: Math.round(s.totalSec / 60) }));
         }
-        st.completeSession();
+        st.completeSession({ encounters: seenEvents(live.current.events, journey.totalSec) });
         return;
       }
 
@@ -246,6 +269,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           qualityMode: live.current.quality,
           season: live.current.season,
           weather: live.current.weather,
+          events: live.current.events,
         });
         // 창으로 들어오는 햇빛: 낮·노을의 지상 구간에서만, 터널에 들어가면 서서히 사라진다
         const sun = { day: 1, sunset: 0.85, night: 0 }[live.current.tod] * (live.current.weather === "clear" ? 1 : 0.55);
@@ -384,7 +408,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       if (smp.x >= seg.xTo) km += official;
       else if (smp.x > seg.xFrom) km += (official * (smp.x - seg.xFrom)) / seg.distance;
     }
-    st.completeSession({ partialElapsedSec: t, partialDistanceKm: Math.round(km * 10) / 10 });
+    st.completeSession({ partialElapsedSec: t, partialDistanceKm: Math.round(km * 10) / 10, encounters: seenEvents(rideEvents, t) });
   };
 
   const { sample, led, paused } = hud;
@@ -398,6 +422,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const ledParts = led.split("  ·  ");
   const ledShown = ledParts[ledPart % ledParts.length];
   const remainingStops = last - (atStation ? sample.stationIndex : sample.nextIndex - 1);
+  const cabin = cabinEventAt(rideEvents, sample.t);
+  const dansoPlaying = cues.some((c) => sample.t >= c && sample.t < c + 5);
 
   return (
     <div
@@ -477,6 +503,19 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       {/* 좌석 */}
       <div className={styles.seatBack} aria-hidden />
       <div className={styles.seatCushion} aria-hidden />
+      {cabin && (
+        <CabinPassenger
+          key={`${cabin.kind}:${cabin.t0}`}
+          event={cabin}
+          t={sample.t}
+          playing={dansoPlaying}
+          reducedMotion={reducedMotion}
+          speech={t("event.vendorLine")}
+        />
+      )}
+      <p className={styles.srOnly} aria-live="polite">
+        {cabin ? t(`event.sr.${cabin.kind}` as StringKey) : ""}
+      </p>
       <div className={styles.daylight} aria-hidden />
 
       {/* HUD */}

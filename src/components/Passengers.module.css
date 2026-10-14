@@ -1,0 +1,184 @@
+/* 객실 깜짝 승객 — 맞은편 좌석 위. 머리가 창 아래쪽을 살짝 가리고, 정강이는 화면 아래로 잘린다 */
+.passenger {
+  position: absolute;
+  pointer-events: none;
+  top: calc(var(--win-top) + var(--win-h) - 6vh);
+  height: calc(100vh - var(--win-top) - var(--win-h) + 14vh);
+  filter: drop-shadow(0 1.2vh 1.4vh rgba(0, 0, 0, 0.18));
+}
+
+.fig {
+  display: block;
+  height: 100%;
+  width: auto;
+  overflow: visible;
+}
+
+.seated {
+  animation: sitDown 1.2s ease-out both;
+  transition:
+    opacity 1.4s ease,
+    transform 1.4s ease;
+}
+.left {
+  left: 7vw;
+  --enter: -5vw;
+}
+.right {
+  right: 9vw;
+  --enter: 5vw;
+}
+.leaving {
+  opacity: 0;
+  transform: translateX(var(--enter));
+}
+
+@keyframes sitDown {
+  from {
+    opacity: 0;
+    transform: translateX(var(--enter));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 잡상인: 경과 비율로 left 가 4Hz 로 바뀌고, 그 사이를 CSS 가 잇는다 */
+.walker {
+  top: calc(var(--win-top) + var(--win-h) - 16vh);
+  height: calc(100vh - var(--win-top) - var(--win-h) + 24vh);
+  transform: translateX(-50%);
+  transition:
+    left 0.3s linear,
+    opacity 0.8s ease;
+}
+
+.bubble {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, -0.6vh);
+  white-space: nowrap;
+  padding: 0.7vh 1.4vh;
+  border-radius: 1.6vh;
+  background: #fffdf8;
+  color: #3a3a3a;
+  font-size: clamp(12px, 1.7vh, 16px);
+  font-weight: 700;
+  box-shadow: 0 0.4vh 1.2vh rgba(0, 0, 0, 0.15);
+}
+
+/* 동작: 조는 고개, 강아지 귀, 단소 음표, z, 걸음 */
+[data-kind="sleeper"] .head {
+  transform-box: view-box;
+  transform-origin: 60px 64px;
+  animation: nod 6s ease-in-out infinite;
+}
+@keyframes nod {
+  0%,
+  40% {
+    transform: rotate(0);
+  }
+  55%,
+  80% {
+    transform: rotate(14deg) translateY(4px);
+  }
+  86% {
+    transform: rotate(-2deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+.zzz {
+  animation: drift 3s ease-in-out infinite;
+}
+.notes {
+  animation: drift 1.6s ease-in-out infinite;
+}
+@keyframes drift {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  30%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.earL,
+.earR {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: ear 3.4s ease-in-out infinite;
+}
+.earR {
+  animation-delay: 0.25s;
+}
+@keyframes ear {
+  0%,
+  80%,
+  100% {
+    transform: rotate(0);
+  }
+  88% {
+    transform: rotate(12deg);
+  }
+  94% {
+    transform: rotate(-8deg);
+  }
+}
+.legA,
+.legB {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: step 0.9s ease-in-out infinite alternate;
+}
+.legB {
+  animation-direction: alternate-reverse;
+}
+@keyframes step {
+  from {
+    transform: rotate(-9deg);
+  }
+  to {
+    transform: rotate(9deg);
+  }
+}
+
+/* 모션 감소: 미끄러짐·동작 없이 나타나고 사라진다 */
+.still,
+.still * {
+  animation: none !important;
+}
+.still.leaving {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .passenger,
+  .passenger * {
+    animation: none !important;
+  }
+}
+
+/* 세로 화면: 타이머가 좌석 한가운데를 차지하므로 작게, 가장자리에 앉힌다 */
+@media (max-aspect-ratio: 1/1) {
+  .seated {
+    top: calc(var(--win-top) + var(--win-h) - 2vh);
+    height: 32vh;
+  }
+  .walker {
+    height: calc(100vh - var(--win-top) - var(--win-h) + 10vh);
+  }
+  .left {
+    left: -2vw;
+  }
+  .right {
+    right: -3vw;
+  }
+}

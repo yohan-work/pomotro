@@ -382,6 +382,61 @@ export class AudioEngine {
     src.start(when, 0, dur + 0.1);
   }
 
+  /**
+   * 맞은편 승객의 단소 한 소절 (자체 합성: 사인파 + 숨소리, 음 머리를 살짝 밀어 올리는 꺾기).
+   * 객실 안 소리라 주변음 채널로 작게.
+   */
+  danso() {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    // 황·태·중·임·남 근사 (Eb4 F4 Ab4 Bb4 C5) — 짧은 연습 소절
+    const phrase: Array<[number, number]> = [
+      [415.3, 0.55],
+      [466.16, 0.35],
+      [523.25, 0.9],
+      [466.16, 0.35],
+      [415.3, 0.45],
+      [349.23, 1.3],
+    ];
+    let t = ctx.currentTime + 0.1;
+    for (const [freq, dur] of phrase) {
+      const o = ctx.createOscillator();
+      o.type = "sine";
+      o.frequency.setValueAtTime(freq * 0.97, t);
+      o.frequency.linearRampToValueAtTime(freq, t + 0.09);
+      const vib = ctx.createOscillator();
+      vib.frequency.value = 5.2;
+      const vibG = ctx.createGain();
+      vibG.gain.setValueAtTime(0, t);
+      vibG.gain.linearRampToValueAtTime(freq * 0.012, t + dur);
+      vib.connect(vibG).connect(o.frequency);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.07, t + 0.06);
+      g.gain.setValueAtTime(0.06, t + dur * 0.7);
+      g.gain.linearRampToValueAtTime(0, t + dur);
+      o.connect(g).connect(this.ch.ambient);
+      // 숨소리
+      const n = ctx.createBufferSource();
+      n.buffer = this.white;
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = freq * 2;
+      bp.Q.value = 3;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0, t);
+      ng.gain.linearRampToValueAtTime(0.05, t + 0.03);
+      ng.gain.exponentialRampToValueAtTime(0.004, t + dur);
+      n.connect(bp).connect(ng).connect(this.ch.ambient);
+      o.start(t);
+      vib.start(t);
+      n.start(t, 0, dur + 0.05);
+      o.stop(t + dur + 0.05);
+      vib.stop(t + dur + 0.05);
+      t += dur + 0.04;
+    }
+  }
+
   private thump(when: number) {
     const ctx = this.ctx!;
     const o = ctx.createOscillator();

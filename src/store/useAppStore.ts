@@ -22,6 +22,7 @@ import { epochNow, pauseTiming, resumeTiming, type SessionTiming } from "../sim/
 import type { TimeOfDay } from "../render/palette";
 import type { QualityMode } from "../render/Renderer";
 import type { Season, Weather } from "../render/conditions";
+import type { RideEventKind } from "../sim/rideEvents";
 
 export type SessionMode = "demo" | "focus" | "break";
 export type BreakKind = "short" | "long";
@@ -69,6 +70,8 @@ export interface RideRecord {
   distanceKm: number;
   /** 할 일을 끝냈는지 (도착 후 사용자가 답한 경우) */
   taskDone?: boolean;
+  /** 이번 여행에서 만난 깜짝 이벤트 */
+  encounters?: RideEventKind[];
 }
 
 export interface AppState {
@@ -85,6 +88,9 @@ export interface AppState {
   seasonPref: "auto" | Season;
   /** 역 접근 시 한국어 안내방송 (음성 합성) */
   announce: boolean;
+  /** 깜짝 이벤트 (별난 승객·창밖 구경거리) */
+  surprises: boolean;
+  setSurprises: (on: boolean) => void;
   langPref: "auto" | "ko" | "en";
   setLangPref: (l: "auto" | "ko" | "en") => void;
   setWeatherPref: (w: "auto" | Weather) => void;
@@ -127,7 +133,7 @@ export interface AppState {
   startSession: (s: { mode: SessionMode; stationIds: string[]; totalSec: number; task: string; seekSec?: number }) => void;
   pause: () => void;
   resume: () => void;
-  completeSession: (opts?: { partialElapsedSec?: number; partialDistanceKm?: number }) => void;
+  completeSession: (opts?: { partialElapsedSec?: number; partialDistanceKm?: number; encounters?: RideEventKind[] }) => void;
   closeCompletion: () => void;
   /** 도착 후 "할 일 끝냈나요?" 응답. 끝냈으면 출발 화면의 할 일을 비운다 */
   setTaskDone: (recordId: string, done: boolean) => void;
@@ -169,11 +175,13 @@ export const useAppStore = create<AppState>()(
       weatherPref: "auto",
       seasonPref: "auto",
       announce: false,
+      surprises: true,
       langPref: "auto",
       setLangPref: (l) => set({ langPref: l }),
       setWeatherPref: (w) => set({ weatherPref: w }),
       setSeasonPref: (v) => set({ seasonPref: v }),
       setAnnounce: (a) => set({ announce: a }),
+      setSurprises: (on) => set({ surprises: on }),
       pomodoro: DEFAULT_POMODORO,
       setPomodoro: (p) => set({ pomodoro: { ...get().pomodoro, ...p } }),
       seenRideTips: false,
@@ -278,6 +286,7 @@ export const useAppStore = create<AppState>()(
           task: s.task,
           partial,
           distanceKm: partial ? (opts!.partialDistanceKm ?? 0) : routeDistanceKm(s.stationIds.map(getStation)),
+          ...(opts?.encounters?.length ? { encounters: opts.encounters } : {}),
         };
         // 끝난 지 오래된 세션은 지금의 뽀모도로 흐름과 무관 → 회차에 넣지 않는다
         const fresh = now - endAt < POMODORO.staleCycleMs;
@@ -341,6 +350,7 @@ export const useAppStore = create<AppState>()(
         weatherPref: s.weatherPref,
         seasonPref: s.seasonPref,
         announce: s.announce,
+        surprises: s.surprises,
         langPref: s.langPref,
         pomodoro: s.pomodoro,
         seenRideTips: s.seenRideTips,

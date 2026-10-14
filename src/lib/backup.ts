@@ -4,6 +4,7 @@
  */
 import { getStation } from "../data/lines";
 import type { RideRecord } from "../store/useAppStore";
+import { EVENT_KINDS, type RideEventKind } from "../sim/rideEvents";
 
 export const BACKUP_FORMAT = { app: "metro", version: 1 } as const;
 
@@ -42,6 +43,7 @@ function sanitize(x: unknown): RideRecord | null {
     partial: r.partial === true,
     distanceKm: num(r.distanceKm) ? (r.distanceKm as number) : 0,
     ...(typeof r.taskDone === "boolean" ? { taskDone: r.taskDone } : {}),
+    ...(Array.isArray(r.encounters) ? { encounters: r.encounters.filter((k): k is RideEventKind => EVENT_KINDS.includes(k as RideEventKind)) } : {}),
   };
 }
 
