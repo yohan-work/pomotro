@@ -28,6 +28,6 @@ describe("recommendRoutes", () => {
   it("describes a picked route with official distance", () => {
     const r = describeRoute(["dangsan", "hapjeong"]);
     expect(r.distanceKm).toBe(2);
-    expect(r.keywords).toContain("당산철교 한강");
+    expect(r.keywords).toContain("kw.dangsan");
   });
 });

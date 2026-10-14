@@ -69,17 +69,16 @@ export interface DayBar {
 }
 
 /** 최근 7일(오늘 포함) 일별 집중 시간 */
-export function lastWeek(records: RideRecord[], now = Date.now()): DayBar[] {
+export function lastWeek(records: RideRecord[], now = Date.now(), names = ["일", "월", "화", "수", "목", "금", "토"], todayLabel = "오늘"): DayBar[] {
   const today = kstDay(now);
   const list = focusRecords(records);
-  const names = ["일", "월", "화", "수", "목", "금", "토"];
   return Array.from({ length: 7 }, (_, k) => {
     const day = today - 6 + k;
     const recs = list.filter((r) => kstDay(r.completedAt) === day);
     const date = new Date(day * DAY);
     return {
       day,
-      label: k === 6 ? "오늘" : names[date.getUTCDay()],
+      label: k === 6 ? todayLabel : names[date.getUTCDay()],
       minutes: Math.round(recs.reduce((a, r) => a + r.focusSec, 0) / 60),
       rides: recs.length,
       isToday: k === 6,

@@ -55,10 +55,10 @@ export function parseBackup(text: string): ParsedBackup {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error("JSON 파일이 아니에요.");
+    throw new Error("not-json");
   }
   const list = Array.isArray(data) ? data : (data as { app?: string; records?: unknown }).app === "metro" ? (data as { records?: unknown }).records : null;
-  if (!Array.isArray(list)) throw new Error("METRO 기록 파일이 아니에요.");
+  if (!Array.isArray(list)) throw new Error("not-metro");
   const records: RideRecord[] = [];
   let invalid = 0;
   for (const x of list) {
