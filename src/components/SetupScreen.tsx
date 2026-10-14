@@ -114,6 +114,7 @@ export default function SetupScreen() {
       <div className={styles.scrim} />
 
       <section className={styles.card}>
+        <div className={styles.colMain}>
         <div className={styles.brand}>
           <span className={styles.brandMark}>
             <IconTrain width={18} height={18} />
@@ -197,7 +198,26 @@ export default function SetupScreen() {
           </label>
         )}
 
-        <div className={styles.field}>
+        <div className={styles.actionsBlock}>
+        <button className={styles.depart} onClick={depart} disabled={!route || tooShort}>
+          출발하기 <IconArrow width={18} height={18} />
+        </button>
+        <label className={styles.notify}>
+          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+          다른 창에서 작업할 때 도착하면 알림 받기
+        </label>
+        <button className={styles.demo} onClick={demo}>
+          1분 50초 체험 운행 · 당산 → 합정 (한강 철교)
+        </button>
+
+        <footer className={styles.foot}>
+          {today > 0 && <span>오늘 {Math.round(today / 60)}분 달렸어요 · </span>}
+          <span>{DATA_NOTICE}</span>
+        </footer>
+        </div>
+        </div>
+        <div className={styles.colRoute}>
+        <div className={`${styles.field} ${styles.routeBlock}`}>
           <div className={styles.tabs} role="tablist" aria-label="노선 고르기">
             <button role="tab" aria-selected={tab === "recommend"} className={tab === "recommend" ? styles.tabOn : styles.tab} onClick={() => setTab("recommend")}>
               추천 노선
@@ -208,6 +228,11 @@ export default function SetupScreen() {
           </div>
           {tab === "recommend" ? (
             <div className={styles.routes}>
+              {routes[selected] && (
+                <div className={styles.mapPreview}>
+                  <LineMap originId={routes[selected].from.id} destId={routes[selected].to.id} label="선택한 추천 노선" />
+                </div>
+              )}
               {routes.map((r, i) => {
                 const diff = Math.round((focusSec - r.estSec) / 60);
                 return (
@@ -272,21 +297,7 @@ export default function SetupScreen() {
           )}
         </div>
 
-        <button className={styles.depart} onClick={depart} disabled={!route || tooShort}>
-          출발하기 <IconArrow width={18} height={18} />
-        </button>
-        <label className={styles.notify}>
-          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
-          다른 창에서 작업할 때 도착하면 알림 받기
-        </label>
-        <button className={styles.demo} onClick={demo}>
-          1분 50초 체험 운행 · 당산 → 합정 (한강 철교)
-        </button>
-
-        <footer className={styles.foot}>
-          {today > 0 && <span>오늘 {Math.round(today / 60)}분 달렸어요 · </span>}
-          <span>{DATA_NOTICE}</span>
-        </footer>
+        </div>
       </section>
 
       <div className={styles.mascot} aria-hidden>

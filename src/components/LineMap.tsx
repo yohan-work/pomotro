@@ -118,7 +118,9 @@ export default function LineMap({ originId, destId, onPick, visited, visitedStat
       {STATIONS.map((st, i) => {
         const p = posOf(i);
         const isEnd = i === oi || i === di;
-        const show = isEnd || hover === st.id || KEY.has(st.id);
+        const n = STATIONS.length;
+        const nearEnd = [oi, di].some((e) => e >= 0 && !isEnd && (Math.abs(e - i) <= 1 || Math.abs(e - i) === n - 1));
+        const show = isEnd || hover === st.id || (KEY.has(st.id) && !nearEnd);
         const lx = p.x + p.nx * (isEnd ? 13 : 10);
         const ly = p.y + p.ny * (isEnd ? 13 : 10);
         const anchor = p.nx > 0.4 ? "start" : p.nx < -0.4 ? "end" : "middle";

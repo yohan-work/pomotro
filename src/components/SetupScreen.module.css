@@ -35,6 +35,51 @@
   backdrop-filter: blur(6px);
 }
 
+.colMain,
+.colRoute {
+  min-width: 0;
+}
+
+.mapPreview {
+  padding: 4px 6px 0;
+  border-radius: var(--radius-m);
+  background: #fff;
+  border: 1.5px solid var(--c-line);
+}
+
+/* 좁은 화면: 시간·할 일 → 노선 → 출발 순서 */
+@media not ((min-width: 1080px) and (min-height: 640px)) {
+  .card {
+    display: flex;
+    flex-direction: column;
+  }
+  .colMain,
+  .colRoute {
+    display: contents;
+  }
+  .routeBlock {
+    order: 2;
+  }
+  .actionsBlock {
+    order: 3;
+  }
+}
+
+/* 넓은 화면: 설정 | 노선 2단 */
+@media (min-width: 1080px) and (min-height: 640px) {
+  .card {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 32px;
+    width: min(880px, calc(100vw - 48px));
+  }
+  .colRoute {
+    padding-top: 6px;
+    max-height: calc(100dvh - 96px);
+    overflow-y: auto;
+  }
+}
+
 .brand {
   display: flex;
   align-items: center;
