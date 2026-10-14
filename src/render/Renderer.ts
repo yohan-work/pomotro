@@ -1,4 +1,5 @@
 import { sectionAt, type Journey } from "../sim/journey";
+import { applyConditions, type Season, type Weather } from "./conditions";
 import { PALETTES, type TimeOfDay } from "./palette";
 import { darknessAt, renderScene, type Frame } from "./scene";
 import { SpriteCache } from "./sprites";
@@ -12,6 +13,8 @@ export interface RenderInput {
   /** 초 단위 단조 시간 (물결·구름 등 주변 애니메이션) */
   time: number;
   timeOfDay: TimeOfDay;
+  season?: Season;
+  weather?: Weather;
   reducedMotion: boolean;
   /** auto: 프레임 시간에 따라 자동 / high: 항상 고해상도 / low: 저해상도·간소화 */
   qualityMode?: QualityMode;
@@ -36,7 +39,7 @@ export class Renderer {
   private sunAlpha = -1;
   private lastTime = -1;
   private frameAvg = 16;
-  private lastPalette: TimeOfDay | null = null;
+  private lastPalette: string | null = null;
   private mode: QualityMode = "auto";
   fps = 0;
 
@@ -91,9 +94,12 @@ export class Renderer {
     this.lastTime = input.time;
     if (dt > 0) this.fps = this.fps * 0.9 + (1 / dt) * 0.1;
 
-    if (this.lastPalette !== input.timeOfDay) {
+    const season = input.season ?? "autumn";
+    const weather = input.weather ?? "clear";
+    const palKey = `${input.timeOfDay}:${season}:${weather}`;
+    if (this.lastPalette !== palKey) {
       this.sprites.clear();
-      this.lastPalette = input.timeOfDay;
+      this.lastPalette = palKey;
     }
 
     // 스크린도어 개폐 / 터널 진입 밝기 — 부드럽게 따라간다
@@ -103,7 +109,8 @@ export class Renderer {
     this.darkness += (dTarget - this.darkness) * Math.min(1, dt * 2.5);
     // 해는 서쪽(노을)에 있으므로 서향 창에서만 보인다
     const view = sectionAt(input.journey, input.x).view;
-    const sTarget = view === "W" || view === "SW" || view === "NW" ? 1 : 0;
+    // 흐리거나 비·눈이면 해가 보이지 않는다
+    const sTarget = (view === "W" || view === "SW" || view === "NW") && weather === "clear" ? 1 : 0;
     if (this.sunAlpha < 0) this.sunAlpha = sTarget;
     this.sunAlpha += (sTarget - this.sunAlpha) * Math.min(1, dt * 0.8);
     if (dt === 0) {
@@ -138,7 +145,8 @@ export class Renderer {
       cam: input.x,
       v: input.v,
       time: input.time,
-      pal: PALETTES[input.timeOfDay],
+      pal: applyConditions(PALETTES[input.timeOfDay], season, weather),
+      weather,
       journey: input.journey,
       sprites: this.sprites,
       quality: this.quality,

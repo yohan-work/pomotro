@@ -45,6 +45,14 @@ export interface Palette {
   tintAlpha: number;
   lamp: string;
   night: number;
+  /** 계절 강조 나무 비율 (가을 단풍·봄 벚꽃) */
+  accentRatio?: number;
+  /** 겨울: 잎 없는 나무 */
+  bareTrees?: boolean;
+  /** 0..1 구름 덮인 정도 */
+  overcast?: number;
+  /** 눈 쌓인 지붕 */
+  snowRoofs?: boolean;
 }
 
 export const PALETTES: Record<TimeOfDay, Palette> = {

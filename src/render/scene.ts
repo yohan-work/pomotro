@@ -12,6 +12,7 @@
 import { neighbors, type Station } from "../data/line2";
 import { sectionsInRange, type Journey, type Section } from "../sim/journey";
 import type { Palette } from "./palette";
+import type { Weather } from "./conditions";
 import { fbm, hash2, pick, rng } from "./rng";
 import {
   apartmentSpec,
@@ -71,6 +72,7 @@ export interface Frame {
   /** 0..1 해가 창 방향에 있는지 (서향 창일 때만 노을 해가 보인다) */
   sunAlpha: number;
   reducedMotion: boolean;
+  weather: Weather;
 }
 
 type Land = "city" | "bank" | "river" | "none";
@@ -180,8 +182,8 @@ function drawSky(f: Frame) {
   const i1 = Math.ceil((off + W * 2) / cell);
   for (let i = i0; i <= i1; i++) {
     const r = rng(hash2(i, 991));
-    if (r() < 0.3) continue;
-    const cw = (10 + r() * 24) * u;
+    if (r() < 0.3 * (1 - (pal.overcast ?? 0))) continue;
+    const cw = (10 + r() * 24) * u * (1 + (pal.overcast ?? 0) * 0.7);
     const ch = cw * (0.32 + r() * 0.12);
     const x = W / 2 + i * cell - off + r() * 200;
     const y = (3 + r() * 26) * u;
@@ -1828,6 +1830,93 @@ function drawFore(f: Frame) {
 
 /* ═════════════════════════════ 창 유리 효과 ═════════════════════════════ */
 
+/* ═════════════════════════════ 날씨: 비·눈·안개 ═════════════════════════════ */
+
+/**
+ * 창밖 강수. 가로 위치는 시간이 아니라 열차 위치(cam)에 묶는다 — 속도가 바뀌어도 튀지 않는다.
+ * 비는 속도가 빠를수록 비스듬히 눕는다.
+ */
+function drawPrecip(f: Frame) {
+  const { ctx, W, H, u, time, cam, v } = f;
+  if (f.weather === "fog") {
+    ctx.fillStyle = f.pal.haze;
+    ctx.globalAlpha = 0.32;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+    return;
+  }
+  if (f.weather !== "rain" && f.weather !== "snow") return;
+  const rain = f.weather === "rain";
+  const n = Math.round((rain ? 150 : 120) * f.quality);
+  const span = W * 1.4;
+  const slant = Math.min(1.6, Math.abs(v) * 0.07);
+  for (let i = 0; i < n; i++) {
+    const h = hash2(i, rain ? 5150 : 7170);
+    const r1 = (h & 1023) / 1023;
+    const r2 = ((h >> 10) & 1023) / 1023;
+    const d = 0.3 + (((h >> 20) & 255) / 255) * 0.7; // 깊이: 가까울수록 크고 빠름
+    const par = (0.6 + d * 2.6) * u;
+    let x = (r1 * span - cam * par) % span;
+    if (x < 0) x += span;
+    x -= W * 0.2;
+    if (rain) {
+      const fall = (55 + d * 60) * u;
+      const len = (2.4 + d * 4.5) * u;
+      const y = ((r2 * (H + len) + time * fall) % (H + len)) - len;
+      if (!f.reducedMotion || i % 3 === 0) {
+        ctx.strokeStyle = f.pal.night > 0.5 ? `rgba(190,200,230,${0.18 + d * 0.22})` : `rgba(235,240,248,${0.22 + d * 0.3})`;
+        ctx.lineWidth = Math.max(0.6, d * 0.16 * u);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + len * slant, y - len);
+        ctx.stroke();
+      }
+    } else {
+      const fall = (6 + d * 10) * u;
+      const y = (r2 * H + time * fall) % H;
+      const sway = f.reducedMotion ? 0 : Math.sin(time * (0.8 + r1) + i) * 1.4 * u * d;
+      ctx.fillStyle = `rgba(255,255,255,${0.55 + d * 0.4})`;
+      ctx.beginPath();
+      ctx.arc(x + sway, y, (0.18 + d * 0.42) * u, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+/** 비 오는 날 창에 맺힌 물방울: 정차 중엔 천천히 흘러내리고, 달리면 뒤로 밀려 꼬리가 생긴다 */
+function drawDroplets(f: Frame) {
+  const { ctx, W, H, u, time, cam, v } = f;
+  const n = Math.round(80 * f.quality);
+  const tail = Math.min(5, Math.abs(v) * 0.22) * u;
+  const alpha = 1 - f.darkness * 0.4;
+  for (let i = 0; i < n; i++) {
+    const h = hash2(i, 9311);
+    const r1 = (h & 1023) / 1023;
+    const r2 = ((h >> 10) & 1023) / 1023;
+    const sz = (0.18 + (((h >> 20) & 255) / 255) * 0.5) * u;
+    let x = (r1 * W - cam * u * (0.25 + r2 * 0.5)) % W;
+    if (x < 0) x += W;
+    const y = (r2 * H + time * (0.25 + r1 * 0.6) * u) % H;
+    ctx.globalAlpha = alpha;
+    if (tail > 0.3 * u) {
+      const g = ctx.createLinearGradient(x, 0, x + tail, 0);
+      g.addColorStop(0, "rgba(255,255,255,0.28)");
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y - sz * 0.35, tail, sz * 0.7);
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.beginPath();
+    ctx.arc(x, y, sz, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.beginPath();
+    ctx.arc(x - sz * 0.3, y - sz * 0.35, sz * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawGlass(f: Frame) {
   const { ctx, W, H, u, pal, darkness } = f;
   if (pal.tintAlpha > 0) {
@@ -1924,11 +2013,13 @@ export function renderScene(f: Frame) {
     }
     drawMid(f);
     drawNear(f);
+    drawPrecip(f);
   }
   drawPlatformBack(f);
   drawPlatformFront(f);
   drawTrack(f);
   drawPassingTrain(f);
   drawFore(f);
+  if (f.weather === "rain") drawDroplets(f);
   drawGlass(f);
 }

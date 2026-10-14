@@ -307,7 +307,7 @@ export function drawShop(ctx: CanvasRenderingContext2D, s: ShopSpec, pal: Palett
   const wall = night > 0.5 ? shadeColor(s.wall, -0.55) : night > 0 ? shadeColor(s.wall, -0.15) : s.wall;
 
   // 옥상: 녹색 방수 도장 + 물탱크
-  ctx.fillStyle = night > 0.5 ? "#2F4B45" : "#7FB79A";
+  ctx.fillStyle = pal.snowRoofs ? (night > 0.5 ? "#b9c0d6" : "#f3f5f8") : night > 0.5 ? "#2F4B45" : "#7FB79A";
   ctx.beginPath();
   ctx.moveTo(0, roofH * 0.55);
   ctx.lineTo(w * 0.06, 0);
@@ -522,12 +522,39 @@ export function drawFactory(ctx: CanvasRenderingContext2D, s: FactorySpec, pal: 
 
 export function drawTree(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number, pal: Palette) {
   const r = rng(seed);
-  const autumn = r() < 0.38;
+  const autumn = r() < (pal.accentRatio ?? 0.38);
   const colors = autumn ? pal.treeAutumn : pal.tree;
   const trunkH = h * 0.32;
-  ctx.fillStyle = pal.night > 0.5 ? "#2A2626" : "#8A6A55";
+  const bark = pal.night > 0.5 ? "#2A2626" : "#8A6A55";
+  ctx.fillStyle = bark;
   rrect(ctx, w / 2 - w * 0.045, h - trunkH, w * 0.09, trunkH, w * 0.03);
   ctx.fill();
+  if (pal.bareTrees) {
+    // 겨울: 잎 없는 가지
+    ctx.strokeStyle = bark;
+    ctx.lineCap = "round";
+    const branch = (x: number, y: number, ang: number, len: number, width: number, depth: number) => {
+      const x2 = x + Math.cos(ang) * len;
+      const y2 = y + Math.sin(ang) * len;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      if (depth > 0) {
+        branch(x2, y2, ang - 0.45 - r() * 0.3, len * 0.72, width * 0.65, depth - 1);
+        branch(x2, y2, ang + 0.4 + r() * 0.3, len * 0.7, width * 0.65, depth - 1);
+      }
+    };
+    branch(w / 2, h - trunkH, -Math.PI / 2, h * 0.26, w * 0.07, 3);
+    if (pal.snowRoofs) {
+      ctx.fillStyle = "rgba(245,247,250,0.85)";
+      ctx.beginPath();
+      ctx.ellipse(w / 2, h * 0.32, w * 0.22, h * 0.05, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
   const crownH = h - trunkH * 0.6;
   const blobs = 5 + Math.floor(r() * 3);
   // 그림자 쪽 먼저
