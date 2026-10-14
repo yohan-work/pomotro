@@ -179,6 +179,37 @@ await page.waitForSelector("[role=dialog][aria-label='승차권']");
 check(true, "ticket re-open dialog");
 await page.keyboard.press("Escape");
 
+// 5h) 출발 화면 설정 · 할 일 완료 체크 · 기록 백업
+await page.evaluate(() => localStorage.clear());
+await page.goto(base, { waitUntil: "load" });
+await page.getByRole("button", { name: "설정" }).click();
+check((await page.getByRole("dialog", { name: "설정" }).getByText("그래픽 품질").count()) === 1, "settings dialog on setup screen");
+await page.getByRole("dialog", { name: "설정" }).getByRole("button", { name: "밤" }).click();
+check((await store()).timeOfDay === "night", "time-of-day change from setup persists");
+await page.keyboard.press("Escape");
+await page.evaluate(() => {
+  const s = JSON.parse(localStorage.getItem("metro-focus-v1"));
+  s.state.task = "README 다듬기";
+  localStorage.setItem("metro-focus-v1", JSON.stringify(s));
+});
+await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=110&mode=focus&seek=108`, { waitUntil: "load" });
+await page.waitForSelector("canvas[aria-label='집중 완료 승차권']", { timeout: 10000 });
+await page.screenshot({ path: ".verify/complete-task.png" });
+await page.getByRole("button", { name: "끝냈어요" }).click();
+const tst = await store();
+check(tst.records.at(-1).taskDone === true && tst.task === "", "task marked done on record and cleared for next ride");
+await page.getByRole("button", { name: /바로 이어 타기|다음 여행/ }).click();
+await page.getByRole("button", { name: "나의 노선도" }).click();
+const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "내보내기" }).click()]);
+const backupPath = ".verify/backup.json";
+await download.saveAs(backupPath);
+await page.getByRole("button", { name: "모두 지우기" }).click();
+await page.getByRole("button", { name: /한 번 더 누르면 모든 기록/ }).click();
+check((await store()).records.length === 0, "clear all records (two-step confirm)");
+await page.locator("input[type=file]").setInputFiles(backupPath);
+await page.waitForSelector("text=새로 가져왔어요");
+check((await store()).records.length === 1, "import restores records from exported file");
+
 // 6) 시간대 렌더 스냅샷
 for (const tod of ["sunset", "night"]) {
   for (const [name, seek] of [["river", 50], ["city", 26], ["platform", 2], ["tunnel", 82]]) {
