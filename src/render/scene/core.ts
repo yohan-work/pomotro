@@ -10,6 +10,7 @@
  *   느린 레이어일수록 넓은 트랙 범위를 비추므로 구간 전환이 레이어별로 자연스럽게 엇갈린다.
  */
 import { sectionsInRange, type Journey, type Section } from "../../sim/journey";
+import { type RideEvent } from "../../sim/rideEvents";
 import { type Palette } from "../palette";
 import { type Season, type Weather } from "../conditions";
 import { hash2, rng } from "../rng";
@@ -56,6 +57,8 @@ export interface Frame {
   reducedMotion: boolean;
   weather: Weather;
   season: Season;
+  /** 깜짝 이벤트 (창밖에 그릴 것만 쓴다) */
+  events: RideEvent[];
 }
 
 export type Land = "city" | "bank" | "river" | "none";

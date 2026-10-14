@@ -1,4 +1,5 @@
 import { sectionAt, type Journey } from "../sim/journey";
+import { type RideEvent } from "../sim/rideEvents";
 import { applyConditions, type Season, type Weather } from "./conditions";
 import { PALETTES, type TimeOfDay } from "./palette";
 import { darknessAt, renderScene, type Frame } from "./scene";
@@ -18,6 +19,8 @@ export interface RenderInput {
   reducedMotion: boolean;
   /** auto: 프레임 시간에 따라 자동 / high: 항상 고해상도 / low: 저해상도·간소화 */
   qualityMode?: QualityMode;
+  /** 깜짝 이벤트 */
+  events?: RideEvent[];
 }
 
 export type QualityMode = "auto" | "high" | "low";
@@ -155,6 +158,7 @@ export class Renderer {
       darkness: this.darkness,
       sunAlpha: this.sunAlpha,
       reducedMotion: input.reducedMotion,
+      events: input.events ?? [],
     };
     renderScene(frame);
     ctx.restore();
