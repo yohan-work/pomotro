@@ -20,27 +20,32 @@ export interface RouteSuggestion {
   tagline: string;
 }
 
-const ORIGINS = ["dangsan", "yeongdeungpo-gu-office", "sindorim", "hapjeong"];
+const ORIGINS = ["sillim", "sindorim", "yeongdeungpo-gu-office", "dangsan", "hapjeong", "wangsimni", "hanyang-univ", "seongsu", "gangbyeon"];
 const DOWNTOWN = new Set(["city-hall", "euljiro-1ga", "euljiro-3ga", "euljiro-4ga", "ddp", "chungjeongno"]);
 
 function describe(stations: Station[]): { keywords: string[]; tagline: string; scenic: number } {
   const ids = stations.map((s) => s.id);
-  const crossesRiver = stations.some((s, i) => i < stations.length - 1 && getSegment(s.id, stations[i + 1].id).landmarks.includes("한강"));
+  const marks = stations.slice(0, -1).flatMap((s, i) => getSegment(s.id, stations[i + 1].id).landmarks);
+  const yanghwa = marks.includes("양화대교");
+  const jamsil = marks.includes("잠실철교");
+  const stream = marks.includes("중랑천") || marks.includes("도림천");
   const elevated = stations.filter((s) => s.structure === "elevated").length;
   const downtown = ids.some((id) => DOWNTOWN.has(id));
   const keywords: string[] = [];
-  if (crossesRiver) keywords.push("한강 철교");
-  if (elevated) keywords.push("지상 구간");
-  keywords.push("지하 구간");
+  if (yanghwa) keywords.push("당산철교 한강");
+  if (jamsil) keywords.push("잠실철교 한강");
+  if (stream && !yanghwa && !jamsil) keywords.push("하천 교량");
+  if (elevated >= 3) keywords.push("지상 고가");
   if (downtown) keywords.push("도심");
-  const tagline = crossesRiver
-    ? downtown
-      ? "한강을 건너 도심 한가운데로 향하는 여행"
-      : "노을 진 한강을 건너는 짧은 여행"
-    : downtown
-      ? "조용한 터널을 지나 도심으로"
-      : "조용한 터널을 따라 달리는 시간";
-  return { keywords: keywords.slice(0, 3), tagline, scenic: (crossesRiver ? 0.25 : 0) + (elevated ? 0.05 : 0) };
+  keywords.push("지하 구간");
+  let tagline: string;
+  if (yanghwa && jamsil) tagline = "한강을 두 번 건너는 긴 여행";
+  else if (jamsil) tagline = "고가 위 성수를 지나 잠실철교로 한강을 건너는 여행";
+  else if (yanghwa) tagline = downtown ? "한강을 건너 도심 한가운데로 향하는 여행" : "양화대교를 바라보며 한강을 건너는 여행";
+  else if (elevated >= 3) tagline = "창밖으로 서울 동네가 이어지는 고가 여행";
+  else tagline = downtown ? "조용한 터널을 지나 도심으로" : "조용한 터널을 따라 달리는 시간";
+  const scenic = (yanghwa ? 0.2 : 0) + (jamsil ? 0.2 : 0) + Math.min(0.15, elevated * 0.025);
+  return { keywords: keywords.slice(0, 3), tagline, scenic };
 }
 
 export function recommendRoutes(focusSec: number, limit = 3): RouteSuggestion[] {
