@@ -74,6 +74,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const isBreak = session.mode === "break";
   const line = lineOf(session.stationIds[0]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const strapRefs = useRef<Array<HTMLDivElement | null>>([]);
   const statsRef = useRef<HTMLPreElement>(null);
   const [hud, setHud] = useState<Hud>(() => {
@@ -153,6 +154,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     const theta = new Float64Array(STRAPS);
     const omega = new Float64Array(STRAPS);
     let lastFrame = performance.now();
+    let lastDaylight = -1;
 
     const fire = (e: JourneyEvent) => {
       switch (e.type) {
@@ -239,6 +241,13 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           season: live.current.season,
           weather: live.current.weather,
         });
+        // 창으로 들어오는 햇빛: 낮·노을의 지상 구간에서만, 터널에 들어가면 서서히 사라진다
+        const sun = { day: 1, sunset: 0.85, night: 0 }[live.current.tod] * (live.current.weather === "clear" ? 1 : 0.55);
+        const daylight = Math.round((1 - renderer.currentDarkness) * sun * 100) / 100;
+        if (Math.abs(daylight - lastDaylight) >= 0.01 && rootRef.current) {
+          lastDaylight = daylight;
+          rootRef.current.style.setProperty("--daylight", String(daylight));
+        }
         // 손잡이: 가감속 관성 + 주행 흔들림을 받는 감쇠 진자
         const rm = live.current.reducedMotion;
         for (let k = 0; k < STRAPS; k++) {
@@ -384,6 +393,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
 
   return (
     <div
+      ref={rootRef}
       className={`${styles.ride} ${styles[`tod_${tod}`]} ${focusMode ? styles.zen : ""}`}
       data-phase={sample.phase}
       data-focus={focusMode ? "on" : "off"}
@@ -459,6 +469,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       {/* 좌석 */}
       <div className={styles.seatBack} aria-hidden />
       <div className={styles.seatCushion} aria-hidden />
+      <div className={styles.daylight} aria-hidden />
 
       {/* HUD */}
       <header className={styles.topLeft}>
