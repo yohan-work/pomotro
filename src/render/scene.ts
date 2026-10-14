@@ -1796,7 +1796,8 @@ function drawFore(f: Frame) {
   const s = SPEED.fore;
   const gap = 48;
   const [m0, m1] = visRange(f, s, 80);
-  const blur = Math.min(60, (Math.abs(v) * s * u) / 60) * (f.reducedMotion ? 0.3 : 1);
+  // 블러 폭은 창 폭에 비례해 상한 (좁은 모바일 창에서 넓은 반투명 띠가 되지 않게)
+  const blur = Math.min(60, f.W * 0.012, (Math.abs(v) * s * u) / 60) * (f.reducedMotion ? 0.3 : 1);
   for (let m = Math.floor(m0 / gap) * gap; m <= m1; m += gap) {
     const sec = sectionAtM(f, m);
     if (sec.kind !== "city" && sec.kind !== "bank" && sec.kind !== "river") continue;
