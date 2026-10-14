@@ -8,6 +8,7 @@ import { Renderer } from "@/render/Renderer";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { elapsedSec, epochNow } from "@/sim/clock";
 import { buildJourney, sampleJourney, type Journey, type JourneyEvent, type SimSample } from "@/sim/journey";
+import { createTicker, notifyIfHidden } from "@/lib/background";
 import { useAppStore, type ActiveSession } from "@/store/useAppStore";
 import { IconExit, IconExpand, IconMute, IconPause, IconPlay, IconSettings, IconVolume, Mascot } from "./Icons";
 import styles from "./RideScreen.module.css";
@@ -40,7 +41,8 @@ function fmt(sec: number) {
 }
 
 /** 현재 상태에서 객실 LED 안내 문구 */
-function ledText(j: Journey, s: SimSample): string {
+function ledText(j: Journey, s: SimSample, isBreak = false): string {
+  if (isBreak) return `${j.stations[0].nameKo}역에서 잠시 쉬어가요  ·  Take a short break`;
   const last = j.stations.length - 1;
   if (s.phase === "BOARDING" || s.phase === "ARRIVED" || s.phase === "COMPLETED") {
     const st = j.stations[s.stationIndex];
@@ -69,12 +71,13 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [session.id],
   );
+  const isBreak = session.mode === "break";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strapRefs = useRef<Array<HTMLDivElement | null>>([]);
   const statsRef = useRef<HTMLPreElement>(null);
   const [hud, setHud] = useState<Hud>(() => {
     const s = sampleJourney(journey, elapsedSec(session));
-    return { sample: s, led: ledText(journey, s), paused: session.pausedAt !== null };
+    return { sample: s, led: ledText(journey, s, isBreak), paused: session.pausedAt !== null };
   });
   const [audioOn, setAudioOn] = useState(() => getAudio().started);
   const [panel, setPanel] = useState<"none" | "sound" | "settings" | "exit">("none");
@@ -168,6 +171,11 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       if (sample.phase === "COMPLETED") {
         completed = true;
         audio.suspendMotion();
+        const dest = journey.stations[journey.stations.length - 1];
+        if (st.notify) {
+          if (isBreak) notifyIfHidden("휴식 끝", `${dest.nameKo}역에서 다시 출발해요`);
+          else notifyIfHidden(`${dest.nameKo}에 도착했어요`, `${Math.round(s.totalSec / 60)}분 집중 완료 · 잠깐 쉬어갈까요?`);
+        }
         st.completeSession();
         return;
       }
@@ -206,13 +214,19 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         }
       }
 
-      const led = ledText(journey, sample);
+      const led = ledText(journey, sample, isBreak);
       if (now - lastHud > 250 || led !== lastLed || paused !== lastPaused || sample.phase !== lastPhase) {
         lastHud = now;
         lastLed = led;
         lastPaused = paused;
         lastPhase = sample.phase;
         setHud({ sample, led, paused });
+        const nextSt = journey.stations[sample.nextIndex];
+        document.title = paused
+          ? `⏸ ${fmt(sample.remainingSec)} · METRO`
+          : isBreak
+            ? `${fmt(sample.remainingSec)} · 휴식 중`
+            : `${fmt(sample.remainingSec)} · ${sample.v > 0 ? `다음 역 ${nextSt.nameKo}` : nextSt.nameKo}`;
       }
     };
 
@@ -221,14 +235,17 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    // 탭이 숨겨지면 렌더링을 멈추고(rAF 정지) 타이머·사운드·완료 판정만 저속으로 유지한다
-    const iv = setInterval(() => {
+    // 탭이 숨겨지면 렌더링을 멈추고(rAF 정지) 타이머·사운드·완료 판정만 유지한다.
+    // 숨겨진 탭의 일반 타이머는 스로틀링되므로 Worker 틱을 쓴다.
+    const ticker = createTicker(() => {
       if (document.hidden) tick(false);
     }, 500);
+    const baseTitle = document.title;
 
     return () => {
       cancelAnimationFrame(raf);
-      clearInterval(iv);
+      ticker.stop();
+      document.title = baseTitle.includes("·") ? "METRO — 서울을 달리는 뽀모도로" : baseTitle;
       ro.disconnect();
       audio.suspendMotion();
     };
@@ -361,9 +378,16 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       <header className={styles.topLeft}>
         <span className={styles.lineBadge}>{LINE2_META.line}</span>
         <span className={styles.routeName}>
-          {stations[0].nameKo} <span className={styles.arrow}>→</span> {dest.nameKo}
+          {isBreak ? (
+            <>{dest.nameKo}역 정차 중</>
+          ) : (
+            <>
+              {stations[0].nameKo} <span className={styles.arrow}>→</span> {dest.nameKo}
+            </>
+          )}
         </span>
         {session.mode === "demo" && <span className={styles.demoTag}>체험 운행</span>}
+        {isBreak && <span className={styles.demoTag}>{session.breakKind === "long" ? "긴 휴식" : "휴식"}</span>}
       </header>
       <div className={styles.topRight}>
         {session.task && <span className={styles.task}>{session.task}</span>}
@@ -377,8 +401,15 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           {fmt(sample.remainingSec)}
         </div>
         <div className={styles.timerLabel}>
-          {paused ? "일시정지" : atStation && sample.stationIndex === last ? "도착했어요" : "목적지까지 남은 시간"}
+          {paused
+            ? "일시정지"
+            : isBreak
+              ? "다시 출발까지 · 창밖을 보며 잠시 쉬어요"
+              : atStation && sample.stationIndex === last
+                ? "도착했어요"
+                : "목적지까지 남은 시간"}
         </div>
+        {!isBreak && (
         <div className={styles.progress} aria-label={`진행률 ${Math.round(sample.progress * 100)}%`}>
           <div className={styles.track}>
             <div className={styles.trackFill} style={{ width: `${sample.progress * 100}%` }} />
@@ -401,6 +432,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
             <span>{dest.nameKo}</span>
           </div>
         </div>
+        )}
       </section>
 
       <nav className={styles.controls} aria-label="운행 조작">
@@ -418,9 +450,15 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         </button>
       </nav>
 
-      <button className={styles.exitBtn} onClick={() => setPanel("exit")}>
-        <IconExit width={16} height={16} /> 내리기
-      </button>
+      {isBreak ? (
+        <button className={styles.exitBtn} onClick={() => useAppStore.getState().completeSession()}>
+          <IconPlay width={14} height={14} /> 휴식 끝내기
+        </button>
+      ) : (
+        <button className={styles.exitBtn} onClick={() => setPanel("exit")}>
+          <IconExit width={16} height={16} /> 내리기
+        </button>
+      )}
 
       {!audioOn && (
         <button className={styles.audioPrompt} onClick={enableAudio}>
