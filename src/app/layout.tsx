@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "METRO — 서울을 달리는 뽀모도로",
   description: "집중하는 동안, 서울의 한 구간을 함께 달려요.",
+  applicationName: "METRO",
+  appleWebApp: { capable: true, title: "METRO", statusBarStyle: "default" },
+  icons: { apple: "/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {

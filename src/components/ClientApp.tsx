@@ -15,7 +15,7 @@ import SetupScreen from "./SetupScreen";
  *
  * 개발·검증용 URL 파라미터
  *   ?autostart=demo        체험 운행 즉시 시작
- *   ?autostart=route&route=gangbyeon,jamsillaru&total=150   임의 구간 즉시 시작 (내선순환 순서)
+ *   ?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]   임의 구간 즉시 시작 (내선순환 순서)
  *   ?seek=40               시작 시점을 40초 앞으로 (스크린샷 검증용)
  *   ?tod=day|sunset|night  시간대 고정
  *   ?debug=1               FPS·시뮬레이션 상태 표시
@@ -38,7 +38,8 @@ export default function ClientApp() {
       const [from, to] = routeParam.split(",");
       const ids = stationsBetween(from, to).map((st) => st.id);
       const total = Math.max(minJourneySec(ids), Number(p.get("total") ?? 0) || 0);
-      useAppStore.getState().startSession({ mode: "demo", stationIds: ids, totalSec: total, task: "", seekSec: Number(p.get("seek") ?? 0) || 0 });
+      const mode = p.get("mode") === "focus" ? "focus" : "demo";
+      useAppStore.getState().startSession({ mode, stationIds: ids, totalSec: total, task: "", seekSec: Number(p.get("seek") ?? 0) || 0 });
     } else if (p.get("autostart") === "demo") {
       useAppStore.getState().startSession({
         mode: "demo",
@@ -49,6 +50,10 @@ export default function ClientApp() {
       });
     }
     setReady(true);
+    // 프로덕션에서만 서비스 워커 등록 (개발 중 HMR 캐시 꼬임 방지)
+    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
   }, []);
 
   if (!ready) return null;
