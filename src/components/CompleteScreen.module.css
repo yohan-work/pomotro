@@ -94,6 +94,16 @@
   margin-left: 6px;
 }
 
+.today {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  color: #555;
+}
+
+.today b {
+  color: var(--c-text);
+}
+
 .msg {
   margin-top: 10px;
   font-size: 13px;

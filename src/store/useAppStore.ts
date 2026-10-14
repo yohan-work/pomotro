@@ -254,6 +254,18 @@ export function nextBreakKind(cycleCount: number): BreakKind {
   return cycleCount >= POMODORO.longEvery ? "long" : "short";
 }
 
+/** 오늘(KST) 집중 기록 요약 */
+export function todaySummary(records: RideRecord[], now = Date.now()): { count: number; sec: number; km: number } {
+  const kstDay = (t: number) => Math.floor((t + 9 * 3600 * 1000) / 86400000);
+  const today = kstDay(now);
+  const list = records.filter((r) => r.mode === "focus" && kstDay(r.completedAt) === today);
+  return {
+    count: list.length,
+    sec: list.reduce((a, r) => a + r.focusSec, 0),
+    km: Math.round(list.reduce((a, r) => a + (r.distanceKm ?? 0), 0) * 10) / 10,
+  };
+}
+
 /** 오늘(KST) 누적 집중 시간 (초) */
 export function todayFocusSec(records: RideRecord[], now = Date.now()): number {
   const kstDay = (t: number) => Math.floor((t + 9 * 3600 * 1000) / 86400000);

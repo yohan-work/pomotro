@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getStation } from "@/data/line2";
-import { POMODORO, nextBreakKind, todayFocusSec, useAppStore } from "@/store/useAppStore";
+import { POMODORO, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconDownload } from "./Icons";
 import styles from "./CompleteScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
@@ -14,6 +14,7 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [shareMsg, setShareMsg] = useState("");
   const today = todayFocusSec(records);
+  const summary = todaySummary(records);
 
   useEffect(() => {
     if (!rec || !ref.current) return;
@@ -68,6 +69,11 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
             ))}
             <span>{breakKind === "long" ? `${POMODORO.longEvery}번 달렸어요 · 이번엔 길게 쉬어요` : `${cycleCount}번째 집중 · ${POMODORO.longEvery}번마다 긴 휴식`}</span>
           </div>
+        )}
+        {rec.mode === "focus" && summary.count > 0 && (
+          <p className={styles.today}>
+            오늘 <b>{summary.count}번</b> · <b>{Math.round(summary.sec / 60)}분</b> 집중 · 서울 <b>{summary.km.toFixed(1)}km</b> 달렸어요
+          </p>
         )}
         <div className={styles.actions}>
           {canBreak ? (
