@@ -66,14 +66,18 @@ export interface Frame {
   doorOpen: number;
   /** 0 = 실외 밝기, 1 = 터널 안 (창 반사 강도) */
   darkness: number;
+  /** 0..1 해가 창 방향에 있는지 (서향 창일 때만 노을 해가 보인다) */
+  sunAlpha: number;
   reducedMotion: boolean;
 }
 
 type Land = "city" | "bank" | "river" | "none";
 
-function landOf(sec: Section): Land {
+function landOf(sec: Section, layer: "mid" | "near" = "near"): Land {
   switch (sec.kind) {
     case "river":
+      // 좁은 하천은 중경에서는 건너편 둑(강변도로·아파트)이 바로 보인다
+      if (sec.variant === "stream" && layer === "mid") return "bank";
       return "river";
     case "bank":
       return "bank";
@@ -149,7 +153,8 @@ function drawSky(f: Frame) {
     ctx.globalAlpha = 1;
   }
 
-  if (pal.sun.visible) {
+  if (pal.sun.visible && f.sunAlpha > 0.01) {
+    ctx.globalAlpha = f.sunAlpha;
     const x = pal.sun.x * W;
     const y = pal.sun.y * H;
     const rr = pal.sun.r * u;
@@ -162,6 +167,7 @@ function drawSky(f: Frame) {
     ctx.beginPath();
     ctx.arc(x, y, rr, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   // 구름 — 바람에 천천히 흐르고 열차 이동에는 거의 반응하지 않는다
@@ -275,7 +281,16 @@ function drawFar(f: Frame) {
 
 function riverNearby(f: Frame): boolean {
   const [m0, m1] = visRange(f, SPEED.mid * 0.6, 200);
-  return sectionsInRange(f.journey, m0, m1).some((s) => s.kind === "river" || s.kind === "bank");
+  return sectionsInRange(f.journey, m0, m1).some(
+    (s) => (s.kind === "river" && s.variant !== "stream") || (s.kind === "bank" && !nearStream(f, s)),
+  );
+}
+
+/** 하천 옆 둔치인지 (한강 둔치가 아니면 큰 수면을 그리지 않는다) */
+function nearStream(f: Frame, bank: Section): boolean {
+  const a = sectionAtM(f, bank.x0 - 1);
+  const b = sectionAtM(f, bank.x1 + 1);
+  return (a.kind === "river" && a.variant === "stream") || (b.kind === "river" && b.variant === "stream");
 }
 
 function drawWater(f: Frame) {
@@ -330,9 +345,9 @@ function drawWater(f: Frame) {
   ctx.globalAlpha = 1;
 
   // 태양 반사 기둥
-  if (pal.sun.visible) {
+  if (pal.sun.visible && f.sunAlpha > 0.01) {
     const cx = pal.sun.x * W;
-    const strength = pal.key === "sunset" ? 1 : 0.45;
+    const strength = (pal.key === "sunset" ? 1 : 0.45) * f.sunAlpha;
     for (let k = 0; k < 90 * f.quality; k++) {
       const r = rng(hash2(k, 4242));
       const d = Math.pow(r(), 1.3);
@@ -579,6 +594,129 @@ function drawBirds(f: Frame) {
   }
 }
 
+/** 롯데월드타워 — 잠실철교 남단 너머 진행 방향(화면 오른쪽)에 우뚝 */
+function drawLotteTower(f: Frame, river: Section) {
+  const { ctx, u, pal, time } = f;
+  const s = 0.05;
+  const x = sx(f, river.x1 + 450, s);
+  if (x < -20 * u || x > f.W + 20 * u) return;
+  const base = (HZ + 2.6) * u;
+  const top = (HZ - 33) * u;
+  const bw = 5.4 * u;
+  const tw = 0.9 * u;
+  const body = mix(pal.key === "night" ? "#3B4468" : "#C9D6E2", pal.haze, 0.25);
+  const g = ctx.createLinearGradient(x - bw / 2, 0, x + bw / 2, 0);
+  g.addColorStop(0, shadeColor(body, 0.22));
+  g.addColorStop(0.5, body);
+  g.addColorStop(1, shadeColor(body, -0.18));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(x - bw / 2, base);
+  ctx.bezierCurveTo(x - bw / 2, base - (base - top) * 0.45, x - tw, top + (base - top) * 0.2, x - tw / 2, top);
+  ctx.lineTo(x + tw / 2, top);
+  ctx.bezierCurveTo(x + tw, top + (base - top) * 0.2, x + bw / 2, base - (base - top) * 0.45, x + bw / 2, base);
+  ctx.closePath();
+  ctx.fill();
+  // 가운데 이음선(슬릿)
+  ctx.strokeStyle = pal.night > 0.5 ? "rgba(255,230,180,0.75)" : "rgba(255,255,255,0.45)";
+  ctx.lineWidth = Math.max(1, 0.12 * u);
+  ctx.beginPath();
+  ctx.moveTo(x + 0.15 * u, base);
+  ctx.lineTo(x + 0.05 * u, top + 1.5 * u);
+  ctx.stroke();
+  // 꼭대기 랜턴
+  ctx.fillStyle = pal.night > 0.5 ? "#FFE3A8" : shadeColor(body, 0.3);
+  ctx.globalAlpha = pal.night > 0.5 ? 0.6 + 0.3 * Math.sin(time * 1.5) : 1;
+  ctx.fillRect(x - tw / 2, top - 1.4 * u, tw, 1.4 * u);
+  ctx.globalAlpha = 1;
+}
+
+/** 올림픽대교 — 4개 주탑이 모여 성화 조형물을 받치는 사장교 */
+function drawOlympicBridge(f: Frame, river: Section) {
+  const { ctx, u, pal, time } = f;
+  const s = SPEED.yanghwa;
+  const m0 = river.x0 - 140;
+  const m1 = river.x1 + 140;
+  const xa = sx(f, m0, s);
+  const xb = sx(f, m1, s);
+  if (xb < -10 || xa > f.W + 10) return;
+  const deckTop = 60.5 * u;
+  const deckH = 2 * u;
+  const pierBottom = 68 * u;
+  const col = mix("#D4DCE4", pal.haze, 0.15);
+  const colDark = shadeColor(col, pal.night > 0.5 ? -0.55 : -0.28);
+  const span = 70;
+  for (let m = Math.ceil(m0 / span) * span; m <= m1; m += span) {
+    const x = sx(f, m, s);
+    if (x < -40 || x > f.W + 40) continue;
+    ctx.fillStyle = colDark;
+    rrect(ctx, x - 1.2 * u, deckTop + deckH, 2.4 * u, pierBottom - deckTop - deckH, 0.4 * u);
+    ctx.fill();
+    for (let k = 0; k < 5; k++) {
+      ctx.globalAlpha = 0.22 - k * 0.04;
+      ctx.fillRect(x - 1.2 * u + Math.sin(time * 2.2 + k * 1.3 + m) * 0.35 * u, pierBottom + k * 1.1 * u, 2.4 * u, 0.8 * u);
+    }
+    ctx.globalAlpha = 1;
+  }
+  // 주탑 + 케이블
+  const cm = river.x0 + (river.x1 - river.x0) * 0.55;
+  const cx = sx(f, cm, s);
+  const towerTop = deckTop - 27 * u;
+  if (cx > -60 * u && cx < f.W + 60 * u) {
+    ctx.strokeStyle = mix(col, "#FFFFFF", 0.2);
+    ctx.lineWidth = Math.max(0.7, 0.12 * u);
+    for (let k = 1; k <= 9; k++) {
+      for (const dir of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(cx, towerTop + 4 * u + k * 1.1 * u);
+        ctx.lineTo(cx + dir * (k * 5.5) * u, deckTop);
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = mix("#E8ECEF", pal.haze, 0.1);
+    for (const off of [-2.4, -0.9, 0.9, 2.4]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + off * u - 0.45 * u, deckTop + deckH);
+      ctx.lineTo(cx + off * u + 0.45 * u, deckTop + deckH);
+      ctx.lineTo(cx + off * 0.15 * u + 0.3 * u, towerTop + 2 * u);
+      ctx.lineTo(cx + off * 0.15 * u - 0.3 * u, towerTop + 2 * u);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // 성화 조형물
+    const flick = f.reducedMotion ? 0 : Math.sin(time * 6) * 0.15 * u;
+    ctx.fillStyle = pal.night > 0.5 ? "#FFC46B" : "#E9B04C";
+    ctx.beginPath();
+    ctx.moveTo(cx - 0.9 * u, towerTop + 2.2 * u);
+    ctx.quadraticCurveTo(cx - 1.2 * u, towerTop - 0.6 * u, cx + flick, towerTop - 2.8 * u);
+    ctx.quadraticCurveTo(cx + 1.2 * u, towerTop - 0.6 * u, cx + 0.9 * u, towerTop + 2.2 * u);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // 상판 + 차량
+  ctx.fillStyle = col;
+  ctx.fillRect(Math.max(-10, xa), deckTop, Math.min(f.W + 10, xb) - Math.max(-10, xa), deckH);
+  ctx.fillStyle = colDark;
+  ctx.fillRect(Math.max(-10, xa), deckTop + deckH * 0.7, Math.min(f.W + 10, xb) - Math.max(-10, xa), deckH * 0.3);
+  const len = m1 - m0;
+  const carColors = ["#F4F1EA", "#E36D5B", "#4F6E9C", "#F2C14E", "#3D3F48", "#9FC3D8"];
+  for (let k = 0; k < 30; k++) {
+    const dir = k % 2 ? 1 : -1;
+    let m = (k * 41.7 + dir * (f.reducedMotion ? 0 : time) * (12 + (k % 5))) % len;
+    if (m < 0) m += len;
+    const x = sx(f, m0 + m, s);
+    if (x < -10 || x > f.W + 10) continue;
+    const cw = (k % 6 === 0 ? 3.4 : 1.9) * u;
+    ctx.fillStyle = carColors[k % carColors.length];
+    rrect(ctx, x, deckTop - 1.2 * u, cw, 1.2 * u, 0.45 * u);
+    ctx.fill();
+    if (pal.night > 0.3) {
+      ctx.fillStyle = dir > 0 ? "#FFF2C0" : "#FF6B5A";
+      ctx.fillRect(dir > 0 ? x + cw - 1 : x, deckTop - 0.8 * u, 1.5, 0.35 * u);
+    }
+  }
+}
+
 /* ═════════════════════════════ 중경: 아파트 단지·빌딩 ═════════════════════════════ */
 
 function drawMid(f: Frame) {
@@ -587,14 +725,14 @@ function drawMid(f: Frame) {
   const groundY = 64 * u;
   // 지면 띠
   for (const sp of spans(f, s, 20)) {
-    const land = landOf(sp.sec);
+    const land = landOf(sp.sec, "mid");
     if (land === "city") {
       ctx.fillStyle = mix(pal.groundFar, pal.haze, 0.2);
       ctx.fillRect(sp.xa, groundY, sp.xb - sp.xa, H - groundY);
     } else if (land === "bank") {
       // 둔치: 강 쪽 끝은 완만한 경사로 물에 닿는다
-      const riverBefore = landOf(sectionAtM(f, sp.sec.x0 - 1)) === "river";
-      const riverAfter = landOf(sectionAtM(f, sp.sec.x1 + 1)) === "river";
+      const riverBefore = landOf(sectionAtM(f, sp.sec.x0 - 1), "mid") === "river";
+      const riverAfter = landOf(sectionAtM(f, sp.sec.x1 + 1), "mid") === "river";
       const taper = 18 * s * u;
       const x0 = sp.xa;
       const x1 = sp.xb;
@@ -626,7 +764,7 @@ function drawMid(f: Frame) {
   forCells(f, s, 34, 140, 1301, (m, r) => {
     const anchor = m + r() * 10;
     const sec = sectionAtM(f, anchor);
-    const land = landOf(sec);
+    const land = landOf(sec, "mid");
     if (land === "river" || land === "none") return;
     const roll = r();
     const bank = land === "bank";
@@ -651,7 +789,7 @@ function drawMid(f: Frame) {
   // 단지 사이 나무
   forCells(f, s, 9, 40, 1307, (m, r) => {
     const anchor = m + r() * 9;
-    const land = landOf(sectionAtM(f, anchor));
+    const land = landOf(sectionAtM(f, anchor), "mid");
     if (land === "river" || land === "none" || r() < 0.4) return;
     const seed = Math.floor(r() * 40);
     const w = (2.2 + r() * 1.6) * u;
@@ -665,7 +803,7 @@ function drawMid(f: Frame) {
   ctx.globalAlpha = pal.hazeStrength * 0.18;
   ctx.fillStyle = pal.haze;
   for (const sp of spans(f, s, 20)) {
-    if (landOf(sp.sec) === "city" || landOf(sp.sec) === "bank") ctx.fillRect(sp.xa, 20 * u, sp.xb - sp.xa, 48 * u);
+    if (landOf(sp.sec, "mid") === "city" || landOf(sp.sec, "mid") === "bank") ctx.fillRect(sp.xa, 20 * u, sp.xb - sp.xa, 48 * u);
   }
   ctx.globalAlpha = 1;
 }
@@ -683,6 +821,26 @@ function drawNear(f: Frame) {
       ctx.fillRect(sp.xa, streetY - 1 * u, sp.xb - sp.xa, H - streetY + u);
       ctx.fillStyle = pal.road;
       ctx.fillRect(sp.xa, streetY + 3 * u, sp.xb - sp.xa, 5 * u);
+    } else if (sp.sec.kind === "river" && sp.sec.variant === "stream") {
+      // 하천: 근경에 좁은 물길과 돌 호안
+      const g = ctx.createLinearGradient(0, 74 * u, 0, H);
+      g.addColorStop(0, pal.waterTop);
+      g.addColorStop(1, pal.waterBottom);
+      ctx.fillStyle = g;
+      ctx.fillRect(sp.xa, 74 * u, sp.xb - sp.xa, H - 74 * u);
+      ctx.fillStyle = mix(pal.concrete, pal.grass, 0.25);
+      ctx.fillRect(sp.xa, 72.5 * u, sp.xb - sp.xa, 1.6 * u);
+      ctx.fillStyle = pal.waterGlint;
+      for (let k = 0; k < 24; k++) {
+        const r = rng(hash2(k, 919));
+        const m = sp.sec.x0 + r() * (sp.sec.x1 - sp.sec.x0);
+        const x = sx(f, m, s);
+        if (x < sp.xa || x > sp.xb) continue;
+        const wob = 0.5 + 0.5 * Math.sin(f.time * (1.2 + r()) + k);
+        ctx.globalAlpha = 0.25 + 0.4 * wob;
+        ctx.fillRect(x, (76 + r() * 20) * u, (2 + r() * 5) * u * wob, Math.max(1, 0.25 * u));
+      }
+      ctx.globalAlpha = 1;
     } else if (land === "bank") {
       // 한강공원: 완만한 둔덕 잔디 + 자전거길
       ctx.fillStyle = pal.grass;
@@ -1601,14 +1759,20 @@ export function renderScene(f: Frame) {
   if (!outdoorHidden(f)) {
     drawSky(f);
     drawFar(f);
+    for (const sec of f.journey.sections) if (sec.kind === "river" && sec.variant === "hangang-jamsil") drawLotteTower(f, sec);
     if (riverNearby(f)) {
       drawWater(f);
       drawBirds(f);
       for (const sec of f.journey.sections) {
         if (sec.kind !== "river") continue;
-        drawIsland(f, sec);
-        drawBoat(f, sec);
-        drawYanghwa(f, sec);
+        if (sec.variant === "hangang-yanghwa") {
+          drawIsland(f, sec);
+          drawBoat(f, sec);
+          drawYanghwa(f, sec);
+        } else if (sec.variant === "hangang-jamsil") {
+          drawBoat(f, sec);
+          drawOlympicBridge(f, sec);
+        }
       }
     } else {
       ctx.fillStyle = f.pal.groundFar;

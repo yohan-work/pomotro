@@ -1,4 +1,4 @@
-import type { Journey } from "../sim/journey";
+import { sectionAt, type Journey } from "../sim/journey";
 import { PALETTES, type TimeOfDay } from "./palette";
 import { darknessAt, renderScene, type Frame } from "./scene";
 import { SpriteCache } from "./sprites";
@@ -29,6 +29,7 @@ export class Renderer {
   private quality = 1;
   private doorOpen = 0;
   private darkness = 0;
+  private sunAlpha = -1;
   private lastTime = -1;
   private frameAvg = 16;
   private lastPalette: TimeOfDay | null = null;
@@ -85,9 +86,15 @@ export class Renderer {
     this.doorOpen += Math.sign(doorTarget - this.doorOpen) * Math.min(Math.abs(doorTarget - this.doorOpen), dt / 1.4);
     const dTarget = darknessAt(input.journey, input.x);
     this.darkness += (dTarget - this.darkness) * Math.min(1, dt * 2.5);
+    // 해는 서쪽(노을)에 있으므로 서향 창에서만 보인다
+    const view = sectionAt(input.journey, input.x).view;
+    const sTarget = view === "W" || view === "SW" || view === "NW" ? 1 : 0;
+    if (this.sunAlpha < 0) this.sunAlpha = sTarget;
+    this.sunAlpha += (sTarget - this.sunAlpha) * Math.min(1, dt * 0.8);
     if (dt === 0) {
       this.doorOpen = doorTarget;
       this.darkness = dTarget;
+      this.sunAlpha = sTarget;
     }
 
     const ctx = this.ctx;
@@ -122,6 +129,7 @@ export class Renderer {
       quality: this.quality,
       doorOpen: this.doorOpen,
       darkness: this.darkness,
+      sunAlpha: this.sunAlpha,
       reducedMotion: input.reducedMotion,
     };
     renderScene(frame);
