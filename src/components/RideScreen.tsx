@@ -415,6 +415,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
             }}
             className={styles.strap}
             style={{ left: `${14 + k * 14.4}%` }}
+            data-k={k}
           >
             <div className={styles.belt} />
             <svg className={styles.handle} viewBox="0 0 40 40">
@@ -504,10 +505,18 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           <IconSettings />
         </button>
         {canFullscreen && (
-          <button className={styles.ctrl} onClick={fullscreen} aria-label="전체 화면">
+          <button className={`${styles.ctrl} ${styles.ctrlWide}`} onClick={fullscreen} aria-label="전체 화면">
             <IconExpand />
           </button>
         )}
+        {/* 좁은 화면에서는 내리기/휴식 끝내기를 조작 줄에 모은다 */}
+        <button
+          className={`${styles.ctrl} ${styles.ctrlNarrow}`}
+          onClick={() => (isBreak ? useAppStore.getState().completeSession() : setPanel("exit"))}
+          aria-label={isBreak ? "휴식 끝내기" : "내리기"}
+        >
+          {isBreak ? <IconPlay /> : <IconExit />}
+        </button>
       </nav>
 
       {isBreak ? (

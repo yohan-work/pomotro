@@ -733,6 +733,10 @@
   }
 }
 
+.ctrlNarrow {
+  display: none;
+}
+
 /* ───────── 모바일 세로 ───────── */
 @media (max-aspect-ratio: 1/1) {
   .ride {
@@ -762,15 +766,27 @@
     width: 82vw;
   }
   .exitBtn {
-    left: 16px;
-    bottom: calc(2vh + 64px);
+    display: none;
+  }
+  .ctrlNarrow {
+    display: grid;
   }
   .audioPrompt {
-    right: 16px;
+    right: 50%;
+    transform: translateX(50%);
     bottom: calc(2vh + 64px);
   }
   .belt {
-    height: 3.6vh;
+    height: 2.4vh;
+  }
+  .handle {
+    width: 3.4vh;
+    height: 3.4vh;
+  }
+  /* 손잡이 4개만 (창 위쪽 시야 확보) */
+  .strap[data-k="1"],
+  .strap[data-k="4"] {
+    display: none;
   }
   .strapBar {
     top: 12.4vh;
@@ -793,4 +809,51 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* ───────── 낮은 가로 화면 (휴대폰 가로) ───────── */
+@media (orientation: landscape) and (max-height: 520px) {
+  .ride {
+    --win-top: 12vh;
+    --win-h: 58vh;
+    --win-w: min(74vw, 160vh);
+    --win-r: 3vh;
+    --frame: 1.4vh;
+  }
+  .ceiling,
+  .straps,
+  .strapBar,
+  .pole {
+    display: none;
+  }
+  .led {
+    top: 1.2vh;
+    width: min(34vw, 420px);
+    height: 8vh;
+    min-height: 26px;
+  }
+  .ledStatic {
+    font-size: max(11px, 3.4vh);
+  }
+  .timerBlock {
+    top: calc(var(--win-top) + var(--win-h) + var(--frame) + 3.4vh);
+    width: min(44vw, 520px);
+  }
+  .timer {
+    font-size: clamp(24px, 8.5vh, 56px);
+  }
+  .timerLabel {
+    margin-top: 0.4vh;
+  }
+  .progress {
+    margin-top: 1.6vh;
+  }
+  .stopLabels {
+    margin-top: 0.8vh;
+  }
+  .exitBtn,
+  .audioPrompt {
+    bottom: 2.4vh;
+    padding: 6px 12px;
+  }
 }
