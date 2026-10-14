@@ -1,0 +1,98 @@
+/* 설정 패널 내용 — 주행 화면·출발 화면 공용 */
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.panelTitle {
+  font-size: 15px;
+}
+
+.panelSub {
+  display: block;
+  margin: 14px 0 8px;
+  font-size: 13px;
+}
+
+.panelText {
+  margin: 6px 0 14px;
+  font-size: 13px;
+  color: var(--c-text-2);
+}
+
+.slider {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: #444;
+}
+
+.slider input {
+  accent-color: var(--c-primary);
+  width: 100%;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.check input {
+  accent-color: var(--c-primary);
+}
+
+.segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segment button {
+  padding: 6px 10px;
+  border: 1px solid var(--c-line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #444;
+}
+
+.segment .segOn {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+
+.textBtn {
+  border: 0;
+  background: none;
+  color: var(--c-text-2);
+  font-size: 13px;
+}
+
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--c-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.primaryBtn:hover {
+  background: var(--c-primary-ink);
+}
