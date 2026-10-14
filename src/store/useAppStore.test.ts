@@ -9,7 +9,15 @@ const finishFocus = () => {
 
 describe("session lifecycle", () => {
   beforeEach(() => {
-    useAppStore.setState({ activeSession: null, records: [], lastRecordId: null, cycleCount: 0, lastFocusAt: 0, nextOriginId: null });
+    useAppStore.setState({
+      activeSession: null,
+      records: [],
+      lastRecordId: null,
+      cycleCount: 0,
+      lastFocusAt: 0,
+      nextOriginId: null,
+      pomodoro: { shortMin: 5, longMin: 15, longEvery: 4, autoContinue: false },
+    });
   });
 
   it("records a completed focus ride once, even if completion fires twice", () => {
@@ -58,6 +66,28 @@ describe("session lifecycle", () => {
     st().setTaskDone(id, true);
     expect(st().records[0].taskDone).toBe(true);
     expect(st().task).toBe("");
+  });
+
+  it("uses the chosen break lengths and long-break interval", () => {
+    st().setPomodoro({ shortMin: 3, longMin: 20, longEvery: 2 });
+    finishFocus();
+    st().startBreak("hapjeong");
+    expect(st().activeSession?.totalSec).toBe(180);
+    st().completeSession();
+    finishFocus();
+    st().startBreak("hapjeong");
+    expect(st().activeSession).toMatchObject({ breakKind: "long", totalSec: 1200 });
+  });
+
+  it("auto-continues from the break station when enabled", () => {
+    st().setPomodoro({ autoContinue: true });
+    useAppStore.setState({ focusMinutes: 25 });
+    st().startBreak("hapjeong");
+    st().completeSession();
+    const s = st().activeSession;
+    expect(s?.mode).toBe("focus");
+    expect(s?.stationIds[0]).toBe("hapjeong");
+    expect(s?.totalSec).toBe(1500);
   });
 
   it("does not record breaks and resumes from the break station", () => {

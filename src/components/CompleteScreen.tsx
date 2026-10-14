@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getStation } from "@/data/line2";
-import { LATE_COMPLETION_MS, POMODORO, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
+import { LATE_COMPLETION_MS, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconDownload } from "./Icons";
 import styles from "./CompleteScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
@@ -10,6 +10,7 @@ import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
 export default function CompleteScreen({ recordId }: { recordId: string }) {
   const records = useAppStore((s) => s.records);
   const cycleCount = useAppStore((s) => s.cycleCount);
+  const prefs = useAppStore((s) => s.pomodoro);
   const rec = records.find((r) => r.id === recordId);
   const ref = useRef<HTMLCanvasElement>(null);
   const [shareMsg, setShareMsg] = useState("");
@@ -28,8 +29,8 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
   const to = getStation(rec.toId);
   const late = Date.now() - rec.completedAt > LATE_COMPLETION_MS;
   const canBreak = rec.mode === "focus" && !rec.partial && !late;
-  const breakKind = nextBreakKind(cycleCount);
-  const breakMin = breakKind === "long" ? POMODORO.longBreakMin : POMODORO.shortBreakMin;
+  const breakKind = nextBreakKind(cycleCount, prefs.longEvery);
+  const breakMin = breakKind === "long" ? prefs.longMin : prefs.shortMin;
 
   const save = async () => {
     const blob = await ticketBlob(rec, today);
@@ -94,10 +95,10 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
         )}
         {canBreak && (
           <div className={styles.cycle} aria-label={`뽀모도로 ${cycleCount}회차`}>
-            {Array.from({ length: POMODORO.longEvery }, (_, i) => (
+            {Array.from({ length: prefs.longEvery }, (_, i) => (
               <span key={i} className={i < cycleCount ? styles.cycleOn : styles.cycleDot} />
             ))}
-            <span>{breakKind === "long" ? `${POMODORO.longEvery}번 달렸어요 · 이번엔 길게 쉬어요` : `${cycleCount}번째 집중 · ${POMODORO.longEvery}번마다 긴 휴식`}</span>
+            <span>{breakKind === "long" ? `${prefs.longEvery}번 달렸어요 · 이번엔 길게 쉬어요` : `${cycleCount}번째 집중 · ${prefs.longEvery}번마다 긴 휴식`}</span>
           </div>
         )}
         {rec.mode === "focus" && summary.count > 0 && (

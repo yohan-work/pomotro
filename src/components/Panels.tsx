@@ -130,3 +130,36 @@ export function ViewSettings({ onClose }: { onClose?: () => void }) {
     </div>
   );
 }
+
+/** 뽀모도로 휴식 설정 */
+export function PomodoroSettings() {
+  const p = useAppStore((s) => s.pomodoro);
+  const set = useAppStore.getState().setPomodoro;
+  const row = (label: string, value: number, opts: number[], unit: string, key: "shortMin" | "longMin" | "longEvery") => (
+    <>
+      <strong className={styles.panelSub}>{label}</strong>
+      <div className={styles.segment}>
+        {opts.map((o) => (
+          <button key={o} className={value === o ? styles.segOn : ""} onClick={() => set({ [key]: o })}>
+            {o}
+            {unit}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+  return (
+    <div>
+      <div className={styles.panelHead}>
+        <strong className={styles.panelTitle}>휴식</strong>
+      </div>
+      {row("짧은 휴식", p.shortMin, [3, 5, 10], "분", "shortMin")}
+      {row("긴 휴식", p.longMin, [15, 20, 30], "분", "longMin")}
+      {row("긴 휴식 주기", p.longEvery, [3, 4, 5], "번마다", "longEvery")}
+      <label className={styles.check} style={{ marginTop: 12 }}>
+        <input type="checkbox" checked={p.autoContinue} onChange={(e) => set({ autoContinue: e.target.checked })} /> 휴식이 끝나면 같은 역에서 자동
+        출발
+      </label>
+    </div>
+  );
+}

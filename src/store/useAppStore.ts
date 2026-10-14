@@ -16,6 +16,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { Channel } from "../audio/AudioEngine";
 import { getStation, routeDistanceKm, stationsBetween } from "../data/line2";
 import { mergeRecords } from "../lib/backup";
+import { recommendRoutes } from "../lib/recommend";
 import { epochNow, pauseTiming, resumeTiming, type SessionTiming } from "../sim/clock";
 import type { TimeOfDay } from "../render/palette";
 import type { QualityMode } from "../render/Renderer";
@@ -23,8 +24,23 @@ import type { QualityMode } from "../render/Renderer";
 export type SessionMode = "demo" | "focus" | "break";
 export type BreakKind = "short" | "long";
 
-/** 뽀모도로 기본값: 짧은 휴식 5분, 4회마다 긴 휴식 15분 */
+/** 뽀모도로 기본값: 짧은 휴식 5분, 4회마다 긴 휴식 15분 (사용자가 바꿀 수 있음) */
 export const POMODORO = { shortBreakMin: 5, longBreakMin: 15, longEvery: 4, staleCycleMs: 2 * 3600_000 };
+
+export interface PomodoroPrefs {
+  shortMin: number;
+  longMin: number;
+  longEvery: number;
+  /** 휴식이 끝나면 같은 역에서 같은 집중 시간으로 자동 출발 */
+  autoContinue: boolean;
+}
+
+export const DEFAULT_POMODORO: PomodoroPrefs = {
+  shortMin: POMODORO.shortBreakMin,
+  longMin: POMODORO.longBreakMin,
+  longEvery: POMODORO.longEvery,
+  autoContinue: false,
+};
 
 export interface ActiveSession extends SessionTiming {
   id: string;
@@ -63,6 +79,11 @@ export interface AppState {
   timeOfDay: TimeOfDay | "auto";
   reducedMotion: "system" | "on" | "off";
   quality: QualityMode;
+  pomodoro: PomodoroPrefs;
+  setPomodoro: (p: Partial<PomodoroPrefs>) => void;
+  /** 첫 주행 안내를 봤는지 */
+  seenRideTips: boolean;
+  setSeenRideTips: () => void;
   volumes: Record<Channel, number>;
   masterVolume: number;
   muted: boolean;
@@ -134,6 +155,10 @@ export const useAppStore = create<AppState>()(
       setReducedMotion: (r) => set({ reducedMotion: r }),
       quality: "auto",
       setQuality: (q) => set({ quality: q }),
+      pomodoro: DEFAULT_POMODORO,
+      setPomodoro: (p) => set({ pomodoro: { ...get().pomodoro, ...p } }),
+      seenRideTips: false,
+      setSeenRideTips: () => set({ seenRideTips: true }),
       setVolume: (c, v) => set({ volumes: { ...get().volumes, [c]: v } }),
       setMasterVolume: (v) => set({ masterVolume: v }),
       setMuted: (m) => set({ muted: m }),
@@ -141,7 +166,8 @@ export const useAppStore = create<AppState>()(
       setNextOrigin: (id) => set({ nextOriginId: id }),
 
       startBreak: (stationId) => {
-        const kind = nextBreakKind(get().cycleCount);
+        const prefs = get().pomodoro;
+        const kind = nextBreakKind(get().cycleCount, prefs.longEvery);
         set({
           lastRecordId: null,
           cycleCount: kind === "long" ? 0 : get().cycleCount,
@@ -150,7 +176,7 @@ export const useAppStore = create<AppState>()(
             mode: "break",
             breakKind: kind,
             stationIds: [stationId],
-            totalSec: (kind === "long" ? POMODORO.longBreakMin : POMODORO.shortBreakMin) * 60,
+            totalSec: (kind === "long" ? prefs.longMin : prefs.shortMin) * 60,
             task: "",
             startedAt: epochNow(),
             pausedAccumMs: 0,
@@ -189,7 +215,29 @@ export const useAppStore = create<AppState>()(
         if (!s) return;
         if (s.mode === "break") {
           // 휴식은 기록하지 않는다. 같은 역에서 이어 탈 수 있게 출발 화면으로.
-          set({ activeSession: null, nextOriginId: s.stationIds[0], breakJustEnded: true });
+          const station = s.stationIds[0];
+          const breakEnd = s.startedAt + s.pausedAccumMs + s.totalSec * 1000;
+          const route =
+            get().pomodoro.autoContinue && Date.now() - breakEnd < LATE_COMPLETION_MS
+              ? recommendRoutes(get().focusMinutes * 60, 1, station)[0]
+              : undefined;
+          if (route) {
+            // 자동 출발: 같은 역에서 같은 집중 시간으로
+            set({
+              breakJustEnded: false,
+              nextOriginId: station,
+              activeSession: {
+                id: uid(),
+                mode: "focus",
+                stationIds: route.stationIds,
+                totalSec: get().focusMinutes * 60,
+                task: get().task.trim(),
+                startedAt: epochNow(),
+                pausedAccumMs: 0,
+                pausedAt: null,
+              },
+            });
+          } else set({ activeSession: null, nextOriginId: station, breakJustEnded: true });
           return;
         }
         if (get().records.some((r) => r.id === s.id)) {
@@ -269,6 +317,8 @@ export const useAppStore = create<AppState>()(
         timeOfDay: s.timeOfDay,
         reducedMotion: s.reducedMotion,
         quality: s.quality,
+        pomodoro: s.pomodoro,
+        seenRideTips: s.seenRideTips,
         volumes: s.volumes,
         masterVolume: s.masterVolume,
         muted: s.muted,
@@ -294,8 +344,8 @@ function safeDistance(fromId: string, toId: string): number {
 /** 앱을 다시 열었을 때 이미 오래전에 끝나 있던 기록인지 (완료 화면 문구용) */
 export const LATE_COMPLETION_MS = 10 * 60 * 1000;
 
-export function nextBreakKind(cycleCount: number): BreakKind {
-  return cycleCount >= POMODORO.longEvery ? "long" : "short";
+export function nextBreakKind(cycleCount: number, longEvery = POMODORO.longEvery): BreakKind {
+  return cycleCount >= longEvery ? "long" : "short";
 }
 
 /** 오늘(KST) 집중 기록 요약 */
