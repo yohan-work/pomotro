@@ -74,6 +74,16 @@ run("신림→당산 (지하→고가 진출)", stationsBetween("sillim", "dangs
 run("순환 경계 통과 (아현→을지로3가)", stationsBetween("ahyeon", "euljiro-3ga").map((s) => s.id), 10 * 60);
 run("60분 (짧은 노선 늘이기)", stationsBetween("dangsan", "sinchon").map((s) => s.id), 60 * 60);
 
+// 휴식(한 역 정차) 여정
+{
+  const j = buildJourney({ stationIds: ["hapjeong"], totalSec: 300 });
+  const mid = sampleJourney(j, 150);
+  const end = sampleJourney(j, 300);
+  console.log(`\n▶ break at 합정: ${mid.phase} v=${mid.v} doors=${mid.doorsOpen} → ${end.phase}`);
+  check(mid.phase === "ARRIVED" && mid.v === 0 && mid.doorsOpen && mid.x === 0, "break: stopped at platform with doors open");
+  check(end.phase === "COMPLETED" && Math.abs(mid.remainingSec - 150) < 0.01, "break: completes on time");
+}
+
 if (failures) {
   console.error(`\n${failures} check(s) failed`);
   process.exit(1);

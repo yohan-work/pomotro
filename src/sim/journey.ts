@@ -8,7 +8,7 @@
  *   늘리거나 줄여 맞춘다. 열차 속도/가속도는 항상 현실적인 범위로 유지된다.
  *   실제 예상 운행시간은 노선 데이터(line2.ts)에서 별도로 표시한다.
  */
-import { getSegment, getStation, windowFacing, type LineSegment, type Station } from "../data/line2";
+import { getSegment, getStation, neighbors, windowFacing, type LineSegment, type Station } from "../data/line2";
 import { PLATFORM_HALF, leadSection, middleSections, type SectionKind, type WaterVariant } from "../data/scenery";
 import { ACCEL, DECEL, lookup } from "./profile";
 
@@ -114,9 +114,31 @@ export function minJourneySec(stationIds: string[]): number {
   return Math.ceil(sec);
 }
 
+/**
+ * 한 역에 정차한 채 머무는 여정 (휴식). 승강장에 문을 연 채 서 있고, 시간이 끝나면 완료된다.
+ */
+function buildStayJourney(stationId: string, totalSec: number): Journey {
+  const station = getStation(stationId);
+  const view = windowFacing(getSegment(station.id, neighbors(station.id).next.id).heading);
+  return {
+    stations: [station],
+    segments: [],
+    sections: [
+      { kind: leadSection(station), x0: -2000, x1: -PLATFORM_HALF, view },
+      { kind: "platform", x0: -PLATFORM_HALF, x1: PLATFORM_HALF, station, stationIndex: 0, view },
+      { kind: leadSection(station), x0: PLATFORM_HALF, x1: 2000, view },
+    ],
+    phases: [{ kind: "ARRIVED", t0: 0, t1: totalSec, ref: 0 }],
+    events: [{ t: totalSec, type: "complete", stationIndex: 0 }],
+    stopX: [0],
+    totalSec,
+  };
+}
+
 export function buildJourney(config: JourneyConfig): Journey {
+  if (config.stationIds.length === 1) return buildStayJourney(config.stationIds[0], config.totalSec);
   const stations = config.stationIds.map(getStation);
-  if (stations.length < 2) throw new Error("Journey needs at least two stations");
+  if (stations.length < 2) throw new Error("Journey needs at least one station");
   const n = stations.length - 1;
   const raw = Array.from({ length: n }, (_, i) => getSegment(stations[i].id, stations[i + 1].id));
   const views = raw.map((r) => windowFacing(r.heading));
