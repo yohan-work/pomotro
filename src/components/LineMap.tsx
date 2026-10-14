@@ -5,6 +5,7 @@ import { SEGMENTS, STATIONS } from "@/data/line2";
 import { LINE3 } from "@/data/line3";
 import { LINE3_OFFICIAL_SEGMENTS } from "@/data/line3.official";
 import type { LineId, Station } from "@/data/lines";
+import { useT } from "@/i18n";
 import styles from "./LineMap.module.css";
 
 /**
@@ -163,7 +164,8 @@ interface Node {
 const NODES2: Node[] = STATIONS.map((st, i) => ({ st, p: posOf(i), key: KEY.has(st.id), i }));
 const NODES3: Node[] = LINE3.stations.map((st, i) => ({ st, p: L3_POS[i], key: L3_KEY.has(st.id), i }));
 
-export default function LineMap({ originId, destId, onPick, activeLine, visited, visitedStations, label = "서울 지하철 노선도" }: LineMapProps) {
+export default function LineMap({ originId, destId, onPick, activeLine, visited, visitedStations, label }: LineMapProps) {
+  const { t, name } = useT();
   const [hover, setHover] = useState<string | null>(null);
   const nodeOf = (id?: string | null) => (id ? (NODES2.find((n) => n.st.id === id) ?? NODES3.find((n) => n.st.id === id) ?? null) : null);
   const o = nodeOf(originId);
@@ -208,7 +210,7 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
         opacity={dim(st.line) ? 0.35 : 1}
         role={pickable ? "button" : undefined}
         tabIndex={pickable ? 0 : undefined}
-        aria-label={pickable ? `${st.line}호선 ${st.nameKo}역${st.id === o?.st.id ? " (출발)" : st.id === d?.st.id ? " (도착)" : ""}` : undefined}
+        aria-label={pickable ? t("map.station", { line: t("line.name", { n: st.line }), station: name(st) }) + (st.id === o?.st.id ? t("map.origin") : st.id === d?.st.id ? t("map.dest") : "") : undefined}
         aria-hidden={pickable ? undefined : true}
         aria-pressed={pickable ? isEnd : undefined}
         onClick={() => pickable && onPick?.(st)}
@@ -233,7 +235,7 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
         />
         {show && (
           <text x={lx} y={ly + 3.2} textAnchor={anchor} className={isEnd ? styles.labelStrong : styles.label}>
-            {st.nameKo}
+            {name(st)}
           </text>
         )}
       </g>
@@ -241,10 +243,10 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
   };
 
   return (
-    <svg className={styles.map} viewBox={`0 ${VB_TOP} ${VB_W} ${VB_BOTTOM - VB_TOP}`} role="group" aria-label={label}>
+    <svg className={styles.map} viewBox={`0 ${VB_TOP} ${VB_W} ${VB_BOTTOM - VB_TOP}`} role="group" aria-label={label ?? t("map.label")}>
       <path d={RIVER_PATH} className={styles.river} />
       <text x={VB_W / 2 - 60} y={RIVER_MID_Y + 4} className={styles.riverLabel}>
-        한강
+        {t("map.river")}
       </text>
       <g opacity={dim("2") ? 0.35 : 1}>
         <path d={loopPath} className={styles.loop} />

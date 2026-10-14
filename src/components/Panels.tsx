@@ -1,19 +1,26 @@
 "use client";
 
-import { CHANNELS, type Channel } from "@/audio/AudioEngine";
+import { CHANNELS } from "@/audio/AudioEngine";
 import { getAudio } from "@/audio/instance";
+import { useT, type StringKey } from "@/i18n";
 import { useAppStore } from "@/store/useAppStore";
 import styles from "./Panels.module.css";
 
-const CHANNEL_LABEL: Record<Channel, string> = {
-  rolling: "주행음",
-  rail: "레일 소리",
-  chime: "안내 차임",
-  door: "출입문",
-  ambient: "객실 앰비언트",
-};
+function Segment<V extends string>({ value, opts, onPick }: { value: V; opts: Array<[V, StringKey]>; onPick: (v: V) => void }) {
+  const { t } = useT();
+  return (
+    <div className={styles.segment}>
+      {opts.map(([v, k]) => (
+        <button key={v} className={value === v ? styles.segOn : ""} onClick={() => onPick(v)}>
+          {t(k)}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function SoundSettings({ onClose, onEnable, audioOn }: { onClose?: () => void; onEnable: () => void; audioOn: boolean }) {
+  const { t } = useT();
   const volumes = useAppStore((s) => s.volumes);
   const master = useAppStore((s) => s.masterVolume);
   const muted = useAppStore((s) => s.muted);
@@ -22,20 +29,20 @@ export function SoundSettings({ onClose, onEnable, audioOn }: { onClose?: () => 
   return (
     <div>
       <div className={styles.panelHead}>
-        <strong className={styles.panelTitle}>소리</strong>
+        <strong className={styles.panelTitle}>{t("panel.sound")}</strong>
         {onClose && (
           <button className={styles.textBtn} onClick={onClose}>
-            닫기
+            {t("common.close")}
           </button>
         )}
       </div>
       {!audioOn && (
         <button className={styles.primaryBtn} onClick={onEnable} style={{ width: "100%", marginBottom: 12 }}>
-          소리 켜기
+          {t("panel.enableSound")}
         </button>
       )}
       <label className={styles.slider}>
-        <span>전체</span>
+        <span>{t("panel.master")}</span>
         <input
           type="range"
           min={0}
@@ -50,7 +57,7 @@ export function SoundSettings({ onClose, onEnable, audioOn }: { onClose?: () => 
       </label>
       {CHANNELS.map((c) => (
         <label key={c} className={styles.slider}>
-          <span>{CHANNEL_LABEL[c]}</span>
+          <span>{t(`ch.${c}` as StringKey)}</span>
           <input
             type="range"
             min={0}
@@ -65,101 +72,101 @@ export function SoundSettings({ onClose, onEnable, audioOn }: { onClose?: () => 
         </label>
       ))}
       <label className={styles.check}>
-        <input type="checkbox" checked={announceOn} onChange={(e) => useAppStore.getState().setAnnounce(e.target.checked)} /> 역 안내방송 (음성)
+        <input type="checkbox" checked={announceOn} onChange={(e) => useAppStore.getState().setAnnounce(e.target.checked)} /> {t("panel.announce")}
       </label>
       <label className={styles.check}>
-        <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} /> 모두 음소거
+        <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} /> {t("panel.muteAll")}
       </label>
     </div>
   );
 }
 
 export function ViewSettings({ onClose }: { onClose?: () => void }) {
+  const { t } = useT();
   const tod = useAppStore((s) => s.timeOfDay);
   const rm = useAppStore((s) => s.reducedMotion);
   const q = useAppStore((s) => s.quality);
   const weather = useAppStore((s) => s.weatherPref);
   const season = useAppStore((s) => s.seasonPref);
-  const { setWeatherPref, setSeasonPref } = useAppStore.getState();
-  const weatherOpts: Array<[typeof weather, string]> = [
-    ["auto", "서울 실시간"],
-    ["clear", "맑음"],
-    ["cloudy", "흐림"],
-    ["rain", "비"],
-    ["snow", "눈"],
-  ];
-  const seasonOpts: Array<[typeof season, string]> = [
-    ["auto", "자동"],
-    ["spring", "봄"],
-    ["summer", "여름"],
-    ["autumn", "가을"],
-    ["winter", "겨울"],
-  ];
-  const { setTimeOfDay, setReducedMotion, setQuality } = useAppStore.getState();
-  const qOpts: Array<[typeof q, string]> = [
-    ["auto", "자동"],
-    ["high", "높음"],
-    ["low", "낮음 (배터리 절약)"],
-  ];
-  const todOpts: Array<[typeof tod, string]> = [
-    ["auto", "자동 (한국 시간)"],
-    ["day", "낮"],
-    ["sunset", "노을"],
-    ["night", "밤"],
-  ];
-  const rmOpts: Array<[typeof rm, string]> = [
-    ["system", "시스템 설정"],
-    ["on", "켜기"],
-    ["off", "끄기"],
-  ];
+  const lang = useAppStore((s) => s.langPref);
+  const { setWeatherPref, setSeasonPref, setTimeOfDay, setReducedMotion, setQuality, setLangPref } = useAppStore.getState();
   return (
     <div>
       <div className={styles.panelHead}>
-        <strong className={styles.panelTitle}>창밖 풍경</strong>
+        <strong className={styles.panelTitle}>{t("panel.view")}</strong>
         {onClose && (
           <button className={styles.textBtn} onClick={onClose}>
-            닫기
+            {t("common.close")}
           </button>
         )}
       </div>
-      <div className={styles.segment}>
-        {todOpts.map(([v, l]) => (
-          <button key={v} className={tod === v ? styles.segOn : ""} onClick={() => setTimeOfDay(v)}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Segment
+        value={tod}
+        onPick={setTimeOfDay}
+        opts={[
+          ["auto", "opt.autoKst"],
+          ["day", "tod.day"],
+          ["sunset", "tod.sunset"],
+          ["night", "tod.night"],
+        ]}
+      />
       <p className={styles.panelText} style={{ margin: "12px 0 0" }}>
-        5초 동안 입력이 없으면 버튼이 사라져요. <b>H</b> 키로 집중 모드를 켜고 끌 수 있어요.
+        {t("panel.zenHint")}
       </p>
-      <strong className={styles.panelSub}>날씨</strong>
+      <strong className={styles.panelSub}>{t("panel.weather")}</strong>
+      <Segment
+        value={weather}
+        onPick={setWeatherPref}
+        opts={[
+          ["auto", "opt.seoulLive"],
+          ["clear", "weather.clear"],
+          ["cloudy", "weather.cloudy"],
+          ["rain", "weather.rain"],
+          ["snow", "weather.snow"],
+        ]}
+      />
+      <strong className={styles.panelSub}>{t("panel.season")}</strong>
+      <Segment
+        value={season}
+        onPick={setSeasonPref}
+        opts={[
+          ["auto", "opt.auto"],
+          ["spring", "season.spring"],
+          ["summer", "season.summer"],
+          ["autumn", "season.autumn"],
+          ["winter", "season.winter"],
+        ]}
+      />
+      <strong className={styles.panelSub}>{t("panel.quality")}</strong>
+      <Segment
+        value={q}
+        onPick={setQuality}
+        opts={[
+          ["auto", "opt.auto"],
+          ["high", "opt.high"],
+          ["low", "opt.low"],
+        ]}
+      />
+      <strong className={styles.panelSub}>{t("panel.motion")}</strong>
+      <Segment
+        value={rm}
+        onPick={setReducedMotion}
+        opts={[
+          ["system", "opt.system"],
+          ["on", "opt.on"],
+          ["off", "opt.off"],
+        ]}
+      />
+      <strong className={styles.panelSub}>{t("panel.language")}</strong>
       <div className={styles.segment}>
-        {weatherOpts.map(([v, l]) => (
-          <button key={v} className={weather === v ? styles.segOn : ""} onClick={() => setWeatherPref(v)}>
-            {l}
-          </button>
-        ))}
-      </div>
-      <strong className={styles.panelSub}>계절</strong>
-      <div className={styles.segment}>
-        {seasonOpts.map(([v, l]) => (
-          <button key={v} className={season === v ? styles.segOn : ""} onClick={() => setSeasonPref(v)}>
-            {l}
-          </button>
-        ))}
-      </div>
-      <strong className={styles.panelSub}>그래픽 품질</strong>
-      <div className={styles.segment}>
-        {qOpts.map(([v, l]) => (
-          <button key={v} className={q === v ? styles.segOn : ""} onClick={() => setQuality(v)}>
-            {l}
-          </button>
-        ))}
-      </div>
-      <strong className={styles.panelSub}>모션 줄이기</strong>
-      <div className={styles.segment}>
-        {rmOpts.map(([v, l]) => (
-          <button key={v} className={rm === v ? styles.segOn : ""} onClick={() => setReducedMotion(v)}>
+        {(
+          [
+            ["auto", t("opt.auto")],
+            ["ko", "한국어"],
+            ["en", "English"],
+          ] as const
+        ).map(([v, l]) => (
+          <button key={v} className={lang === v ? styles.segOn : ""} onClick={() => setLangPref(v)}>
             {l}
           </button>
         ))}
@@ -170,16 +177,16 @@ export function ViewSettings({ onClose }: { onClose?: () => void }) {
 
 /** 뽀모도로 휴식 설정 */
 export function PomodoroSettings() {
+  const { t } = useT();
   const p = useAppStore((s) => s.pomodoro);
   const set = useAppStore.getState().setPomodoro;
-  const row = (label: string, value: number, opts: number[], unit: string, key: "shortMin" | "longMin" | "longEvery") => (
+  const row = (label: StringKey, value: number, opts: number[], unit: StringKey, key: "shortMin" | "longMin" | "longEvery") => (
     <>
-      <strong className={styles.panelSub}>{label}</strong>
+      <strong className={styles.panelSub}>{t(label)}</strong>
       <div className={styles.segment}>
         {opts.map((o) => (
           <button key={o} className={value === o ? styles.segOn : ""} onClick={() => set({ [key]: o })}>
-            {o}
-            {unit}
+            {t(unit, { n: o })}
           </button>
         ))}
       </div>
@@ -188,14 +195,13 @@ export function PomodoroSettings() {
   return (
     <div>
       <div className={styles.panelHead}>
-        <strong className={styles.panelTitle}>휴식</strong>
+        <strong className={styles.panelTitle}>{t("panel.break")}</strong>
       </div>
-      {row("짧은 휴식", p.shortMin, [3, 5, 10], "분", "shortMin")}
-      {row("긴 휴식", p.longMin, [15, 20, 30], "분", "longMin")}
-      {row("긴 휴식 주기", p.longEvery, [3, 4, 5], "번마다", "longEvery")}
+      {row("panel.shortBreak", p.shortMin, [3, 5, 10], "panel.unitMin", "shortMin")}
+      {row("panel.longBreak", p.longMin, [15, 20, 30], "panel.unitMin", "longMin")}
+      {row("panel.longEvery", p.longEvery, [3, 4, 5], "panel.unitEvery", "longEvery")}
       <label className={styles.check} style={{ marginTop: 12 }}>
-        <input type="checkbox" checked={p.autoContinue} onChange={(e) => set({ autoContinue: e.target.checked })} /> 휴식이 끝나면 같은 역에서 자동
-        출발
+        <input type="checkbox" checked={p.autoContinue} onChange={(e) => set({ autoContinue: e.target.checked })} /> {t("panel.autoContinue")}
       </label>
     </div>
   );
