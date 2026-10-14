@@ -30,6 +30,27 @@ export interface SectionSpec {
   stretch: number;
 }
 
+/** 지상 시가지의 동네 분위기 (연출) */
+export type CityStyle = "residential" | "brick" | "office" | "highrise";
+
+const AREA_STYLE: Record<string, CityStyle> = {
+  // 성수동 붉은 벽돌 공장·창고 카페 지대
+  ttukseom: "brick",
+  seongsu: "brick",
+  // G밸리 (구로디지털단지) 유리 오피스
+  "guro-digital": "office",
+  sindaebang: "office",
+  // 고층 주상복합·대단지
+  sindorim: "highrise",
+  daerim: "highrise",
+  jamsillaru: "highrise",
+};
+
+/** 구간의 시가지 스타일 — 양 끝 역 중 특색 있는 쪽을 따른다 */
+export function cityStyle(fromId: string, toId: string): CityStyle {
+  return AREA_STYLE[fromId] ?? AREA_STYLE[toId] ?? "residential";
+}
+
 /** 정차 위치 기준 승강장 반 길이 (10량 편성 승강장 약 200m 를 가정한 연출값) */
 export const PLATFORM_HALF = 100;
 
