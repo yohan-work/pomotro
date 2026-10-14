@@ -6,7 +6,8 @@
  * 3. 점수 = 예상 소요시간 오차 비율 − 풍경 보너스(한강 횡단·지상 구간)
  * 4. 상위 3개 (출발역 중복은 최대 2개까지)
  */
-import { LINE2_META, LINE_BY_ID, estimateRouteSec, getSegment, getStation, routeDistanceKm, stationsBetween, type Station } from "../data/lines";
+import { LINE_BY_ID, estimateRouteSec, getSegment, getStation, routeDistanceKm, stationsBetween, type Station } from "../data/lines";
+import type { StringKey } from "../i18n/strings";
 import { minJourneySec } from "../sim/journey";
 
 export interface RouteSuggestion {
@@ -18,8 +19,9 @@ export interface RouteSuggestion {
   /** 공식 역간 거리 합 (km) */
   distanceKm: number;
   stops: number;
-  keywords: string[];
-  tagline: string;
+  /** 화면 문구 키 (src/i18n/strings.ts) */
+  keywords: StringKey[];
+  tagline: StringKey;
 }
 
 const ORIGINS = [
@@ -40,7 +42,7 @@ function destinations(originId: string): string[] {
   return st.filter((s) => s.id !== originId).map((s) => s.id);
 }
 
-function describe(stations: Station[]): { keywords: string[]; tagline: string; scenic: number } {
+function describe(stations: Station[]): { keywords: StringKey[]; tagline: StringKey; scenic: number } {
   const ids = stations.map((s) => s.id);
   const marks = stations.slice(0, -1).flatMap((s, i) => getSegment(s.id, stations[i + 1].id).landmarks);
   const yanghwa = marks.includes("양화대교");
@@ -49,21 +51,21 @@ function describe(stations: Station[]): { keywords: string[]; tagline: string; s
   const stream = marks.includes("중랑천") || marks.includes("도림천");
   const elevated = stations.filter((s) => s.structure === "elevated").length;
   const downtown = ids.some((id) => DOWNTOWN.has(id));
-  const keywords: string[] = [];
-  if (yanghwa) keywords.push("당산철교 한강");
-  if (jamsil) keywords.push("잠실철교 한강");
-  if (dongho) keywords.push("동호대교 한강");
-  if (stream && !yanghwa && !jamsil && !dongho) keywords.push("하천 교량");
-  if (elevated >= 3) keywords.push("지상 고가");
-  if (downtown) keywords.push("도심");
-  keywords.push("지하 구간");
-  let tagline: string;
-  if (yanghwa && jamsil) tagline = "한강을 두 번 건너는 긴 여행";
-  else if (dongho) tagline = stations[0].id === "l3-apgujeong" || stations.findIndex((x) => x.id === "l3-apgujeong") < stations.findIndex((x) => x.id === "l3-oksu") ? "동호대교를 건너 남산을 바라보며 강북으로" : "동호대교 한가운데로 한강을 건너는 여행";
-  else if (jamsil) tagline = "고가 위 성수를 지나 잠실철교로 한강을 건너는 여행";
-  else if (yanghwa) tagline = downtown ? "한강을 건너 도심 한가운데로 향하는 여행" : "양화대교를 바라보며 한강을 건너는 여행";
-  else if (elevated >= 3) tagline = "창밖으로 서울 동네가 이어지는 고가 여행";
-  else tagline = downtown ? "조용한 터널을 지나 도심으로" : "조용한 터널을 따라 달리는 시간";
+  const keywords: StringKey[] = [];
+  if (yanghwa) keywords.push("kw.dangsan");
+  if (jamsil) keywords.push("kw.jamsil");
+  if (dongho) keywords.push("kw.dongho");
+  if (stream && !yanghwa && !jamsil && !dongho) keywords.push("kw.stream");
+  if (elevated >= 3) keywords.push("kw.elevated");
+  if (downtown) keywords.push("kw.downtown");
+  keywords.push("kw.underground");
+  let tagline: StringKey;
+  if (yanghwa && jamsil) tagline = "tag.twoRivers";
+  else if (dongho) tagline = stations[0].id === "l3-apgujeong" || stations.findIndex((x) => x.id === "l3-apgujeong") < stations.findIndex((x) => x.id === "l3-oksu") ? "tag.donghoNorth" : "tag.donghoSouth";
+  else if (jamsil) tagline = "tag.jamsil";
+  else if (yanghwa) tagline = downtown ? "tag.yanghwaDowntown" : "tag.yanghwa";
+  else if (elevated >= 3) tagline = "tag.elevated";
+  else tagline = downtown ? "tag.tunnelDowntown" : "tag.tunnel";
   const scenic = (yanghwa ? 0.2 : 0) + (jamsil ? 0.2 : 0) + (dongho ? 0.2 : 0) + Math.min(0.15, elevated * 0.025);
   return { keywords: keywords.slice(0, 3), tagline, scenic };
 }
@@ -139,9 +141,4 @@ export function describeRoute(stationIds: string[]): RouteSuggestion {
 
 export const DEMO_ROUTE = { stationIds: ["dangsan", "hapjeong"], totalSec: 110 };
 
-export const DATA_NOTICE = `역 순서·운행시간·거리: ${LINE2_META.source.provider.replace(/ \(.*\)/, "")} 공식 데이터(${LINE2_META.source.updated} 갱신, ${LINE2_META.source.license}). 예상 소요시간에는 추정 정차시간이 포함됩니다.`;
 
-export function formatMin(sec: number): string {
-  const m = Math.round(sec / 60);
-  return `${m}분`;
-}
