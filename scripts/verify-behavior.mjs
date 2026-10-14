@@ -136,6 +136,19 @@ if (process.argv.includes("--pwa")) {
   check(sw === true, "service worker active");
 }
 
+// 5f-2) 오래 방치한 세션: 실제 종료 시각으로 기록, 오늘·회차에 섞지 않음
+await page.goto(base, { waitUntil: "load" });
+await page.evaluate(() => {
+  localStorage.setItem("metro-focus-v1", JSON.stringify({ version: 2, state: { records: [], activeSession: {
+    id: "stale", mode: "focus", stationIds: ["dangsan", "hapjeong"], totalSec: 1500, task: "",
+    startedAt: Date.now() - 2 * 86400000, pausedAccumMs: 0, pausedAt: null } } }));
+});
+await page.reload({ waitUntil: "load" });
+await page.waitForSelector("text=지난 여행이 끝나 있었어요", { timeout: 10000 });
+const staleSt = await store();
+check(staleSt.records[0].completedAt < Date.now() - 86400000 && staleSt.cycleCount === 0, "abandoned session recorded at its real end time, not counted in cycle");
+check((await page.getByRole("button", { name: /쉬기/ }).count()) === 0, "no break offer for a long-finished ride");
+
 // 5g) 나의 서울 노선도: 지난 기록으로 달린 구간·통계·주간 차트·승차권 다시 보기
 await page.goto(base, { waitUntil: "networkidle" });
 await page.evaluate(() => {
