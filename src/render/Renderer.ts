@@ -38,11 +38,28 @@ export class Renderer {
   private frameAvg = 16;
   private lastPalette: TimeOfDay | null = null;
   private mode: QualityMode = "auto";
+  private scratch: HTMLCanvasElement | null = null;
+  private grain: CanvasPattern | null = null;
   fps = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext("2d", { alpha: false })!;
     this.sprites = new SpriteCache(1);
+    if (typeof document !== "undefined") {
+      this.scratch = document.createElement("canvas");
+      // 128×128 단색 노이즈 → 필름 그레인 패턴
+      const n = document.createElement("canvas");
+      n.width = n.height = 128;
+      const nctx = n.getContext("2d")!;
+      const img = nctx.createImageData(128, 128);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = 128 + (Math.random() - 0.5) * 255;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+        img.data[i + 3] = 255;
+      }
+      nctx.putImageData(img, 0, 0);
+      this.grain = this.ctx.createPattern(n, "repeat");
+    }
     if (typeof document !== "undefined" && document.fonts) {
       document.fonts.ready.then(() => this.sprites.clear()).catch(() => {});
     }
@@ -145,6 +162,8 @@ export class Renderer {
       doorOpen: this.doorOpen,
       darkness: this.darkness,
       sunAlpha: this.sunAlpha,
+      scratch: this.scratch ?? undefined,
+      grain: this.grain,
       reducedMotion: input.reducedMotion,
     };
     renderScene(frame);

@@ -71,6 +71,10 @@ export interface Frame {
   /** 0..1 해가 창 방향에 있는지 (서향 창일 때만 노을 해가 보인다) */
   sunAlpha: number;
   reducedMotion: boolean;
+  /** 반사 등 중간 합성용 오프스크린 캔버스 */
+  scratch?: HTMLCanvasElement;
+  /** 필름 그레인 패턴 */
+  grain?: CanvasPattern | null;
 }
 
 type Land = "city" | "bank" | "river" | "none";
@@ -133,8 +137,55 @@ function forCells(f: Frame, s: number, cell: number, margin: number, seed: numbe
 
 /* ═════════════════════════════ 하늘 ═════════════════════════════ */
 
+/**
+ * 사진 하늘 — Poly Haven CC0 "pure sky" 파노라마에서 수평선~40° 띠를 잘라 쓴다 (public/sky, docs/credits 참고).
+ * 360° 띠라 좌우가 이어진다. sunU 는 사진 속 해가 있는 가로 위치(0..1).
+ */
+const SKY_PHOTO: Record<Palette["key"], { src: string; sunU: number }> = {
+  day: { src: "/sky/day.webp", sunU: 0.5754 },
+  sunset: { src: "/sky/sunset.webp", sunU: 0.5378 },
+  night: { src: "/sky/night.webp", sunU: 0.5706 },
+};
+const skyImages = new Map<string, HTMLImageElement>();
+
+function skyPhoto(key: Palette["key"]): HTMLImageElement | null {
+  if (typeof Image === "undefined") return null;
+  let img = skyImages.get(key);
+  if (!img) {
+    img = new Image();
+    img.decoding = "async";
+    img.src = SKY_PHOTO[key].src;
+    skyImages.set(key, img);
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+/** 사진 띠를 창에 맞춰 그린다: 띠 아래쪽 = 수평선, 창 위쪽까지 약 25°가 보인다 */
+function drawSkyPhoto(f: Frame, img: HTMLImageElement): void {
+  const { ctx, W, u, pal, time } = f;
+  const bandH = (HZ * u) / 0.62;
+  const bandW = bandH * (img.naturalWidth / img.naturalHeight);
+  const top = HZ * u - bandH + 1.5 * u;
+  // 서향 창: 사진 속 해를 노을 해 위치에 맞춘다. 동향 창(sunAlpha→0): 해 반대편 하늘
+  const anchorU = SKY_PHOTO[pal.key].sunU + (1 - f.sunAlpha) * 0.5;
+  const drift = f.reducedMotion ? 0 : time * 1.1;
+  let x0 = pal.sun.x * W - anchorU * bandW - drift;
+  x0 = (((x0 % bandW) + bandW) % bandW) - bandW;
+  for (let x = x0; x < W; x += bandW) ctx.drawImage(img, x, top, bandW + 1, bandH);
+  // 화면 톤과 맞추기: 살짝 파스텔로
+  ctx.globalAlpha = pal.key === "night" ? 0.08 : 0.16;
+  ctx.fillStyle = pal.haze;
+  ctx.fillRect(0, 0, W, (HZ + 6) * u);
+  ctx.globalAlpha = 1;
+}
+
 function drawSky(f: Frame) {
   const { ctx, W, H, u, pal } = f;
+  const photo = skyPhoto(pal.key);
+  if (photo) {
+    drawSkyPhoto(f, photo);
+    return;
+  }
   const g = ctx.createLinearGradient(0, 0, 0, HZ * u);
   g.addColorStop(0, pal.sky[0]);
   g.addColorStop(0.6, pal.sky[1]);
@@ -305,20 +356,46 @@ function drawWater(f: Frame) {
   ctx.fillStyle = g;
   ctx.fillRect(0, y0, W, H - y0);
 
-  // 원경(산·스카이라인) 반사: 이미 그려진 수평선 띠를 뒤집어 눌러 붙인다
+  // 하늘·원경 반사: 이미 그려진 수면 위 장면을 오프스크린에 한 번 복사한 뒤,
+  // 물결에 따라 흔들리는 가로 띠로 뒤집어 붙인다. 수평선 쪽일수록 진하게(프레넬).
   {
     const T = ctx.getTransform();
     const cv = ctx.canvas;
-    const srcTop = T.d * ((HZ - 14) * u) + T.f;
-    const srcBot = T.d * ((WATER_Y - 0.6) * u) + T.f;
-    const dstTop = T.d * y0 + T.f;
-    const sh = srcBot - srcTop;
-    if (sh > 2) {
+    const srcTop = Math.max(0, T.d * ((HZ - 30) * u) + T.f);
+    const srcBot = T.d * ((WATER_Y - 0.4) * u) + T.f;
+    const sh = Math.floor(srcBot - srcTop);
+    const sc = f.scratch;
+    if (sh > 4 && sc) {
+      if (sc.width !== cv.width || sc.height < sh) {
+        sc.width = cv.width;
+        sc.height = sh;
+      }
+      const sctx = sc.getContext("2d")!;
+      sctx.clearRect(0, 0, sc.width, sc.height);
+      sctx.drawImage(cv, 0, srcTop, cv.width, sh, 0, 0, cv.width, sh);
       ctx.save();
-      ctx.setTransform(1, 0, 0, -0.55, 0, dstTop + sh * 0.55);
-      ctx.globalAlpha = 0.3;
-      ctx.drawImage(cv, 0, srcTop, cv.width, sh, 0, 0, cv.width, sh);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const dstTop = T.d * y0 + T.f;
+      const dstBot = T.d * H + T.f;
+      const span = dstBot - dstTop;
+      const strip = Math.max(2, Math.round(3 * T.d));
+      for (let y = 0; y < span; y += strip) {
+        const d = y / span;
+        // 아래로 갈수록(가까울수록) 반사가 엷어지고 물결 흔들림이 커진다
+        const srcY = sh - 1 - Math.min(sh - 1, y * (sh / span) * 1.15);
+        const wob = f.reducedMotion ? 0 : Math.sin(y * 0.09 + time * 1.6) * (1 + d * 7) * T.a + Math.sin(y * 0.31 - time * 2.3) * d * 3 * T.a;
+        ctx.globalAlpha = 0.62 * (1 - d) ** 1.3 + 0.08;
+        ctx.drawImage(sc, 0, srcY, sc.width, 1, wob, dstTop + y, cv.width, strip);
+      }
       ctx.restore();
+      // 물빛으로 살짝 덮어 반사가 물속에 잠긴 느낌
+      const tint = ctx.createLinearGradient(0, y0, 0, H);
+      tint.addColorStop(0, "rgba(0,0,0,0)");
+      tint.addColorStop(1, pal.waterBottom);
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = tint;
+      ctx.fillRect(0, y0, W, H - y0);
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -1876,6 +1953,72 @@ function drawGlass(f: Frame) {
 
 /* ═════════════════════════════ 합성 ═════════════════════════════ */
 
+/**
+ * 빛과 대기 — 사진 하늘과 그린 풍경을 한 장면으로 묶는다.
+ * 노을: 해 주변 빛 번짐 + 수평선 따뜻한 빛 / 낮: 은은한 햇빛 / 밤: 수평선 도시 불빛.
+ */
+function drawAtmosphere(f: Frame) {
+  const { ctx, W, H, u, pal } = f;
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  if (pal.key === "sunset") {
+    const a = 0.14 + 0.24 * f.sunAlpha;
+    const x = pal.sun.x * W;
+    const y = pal.sun.y * H;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, W * 0.55);
+    g.addColorStop(0, `rgba(255,190,120,${0.55 * a})`);
+    g.addColorStop(0.35, `rgba(255,150,110,${0.22 * a})`);
+    g.addColorStop(1, "rgba(255,140,100,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const hz = ctx.createLinearGradient(0, (HZ - 8) * u, 0, (HZ + 10) * u);
+    hz.addColorStop(0, "rgba(255,170,110,0)");
+    hz.addColorStop(0.5, `rgba(255,170,110,${0.22 * a})`);
+    hz.addColorStop(1, "rgba(255,170,110,0)");
+    ctx.fillStyle = hz;
+    ctx.fillRect(0, (HZ - 8) * u, W, 18 * u);
+  } else if (pal.key === "day") {
+    const g = ctx.createLinearGradient(0, 0, W * 0.6, H);
+    g.addColorStop(0, "rgba(255,248,225,0.16)");
+    g.addColorStop(1, "rgba(255,248,225,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    const hz = ctx.createLinearGradient(0, (HZ - 12) * u, 0, (HZ + 6) * u);
+    hz.addColorStop(0, "rgba(255,160,90,0)");
+    hz.addColorStop(0.75, "rgba(255,160,90,0.16)");
+    hz.addColorStop(1, "rgba(255,160,90,0)");
+    ctx.fillStyle = hz;
+    ctx.fillRect(0, (HZ - 12) * u, W, 18 * u);
+  }
+  ctx.restore();
+}
+
+/** 마무리 색 보정 + 필름 그레인 (아주 약하게) */
+function drawGrade(f: Frame) {
+  const { ctx, W, H, pal } = f;
+  ctx.save();
+  ctx.globalCompositeOperation = "soft-light";
+  ctx.globalAlpha = pal.key === "night" ? 0.25 : 0.18;
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, pal.key === "night" ? "#4a5a9a" : "#fff3dc");
+  g.addColorStop(1, pal.key === "sunset" ? "#7a4a6a" : "#3a4a5a");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+  if (f.grain && f.quality >= 0.8) {
+    ctx.save();
+    ctx.globalCompositeOperation = "overlay";
+    ctx.globalAlpha = 0.04;
+    const ox = f.reducedMotion ? 0 : Math.floor((f.time * 97) % 128);
+    const oy = f.reducedMotion ? 0 : Math.floor((f.time * 61) % 128);
+    ctx.translate(-ox, -oy);
+    ctx.fillStyle = f.grain;
+    ctx.fillRect(0, 0, W + 128, H + 128);
+    ctx.restore();
+  }
+}
+
 /** 창 중앙 근처가 실외를 볼 수 있는지 — 보이지 않으면 원경 레이어를 건너뛴다 */
 function outdoorHidden(f: Frame): boolean {
   const [m0, m1] = visRange(f, SPEED.platformBack, 10);
@@ -1924,11 +2067,13 @@ export function renderScene(f: Frame) {
     }
     drawMid(f);
     drawNear(f);
+    drawAtmosphere(f);
   }
   drawPlatformBack(f);
   drawPlatformFront(f);
   drawTrack(f);
   drawPassingTrain(f);
   drawFore(f);
+  drawGrade(f);
   drawGlass(f);
 }

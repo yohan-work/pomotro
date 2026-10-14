@@ -3,7 +3,7 @@
  * - /_next/static (해시된 불변 파일): 캐시 우선
  * - 글꼴 CDN: 캐시 후 백그라운드 갱신
  */
-const VERSION = "metro-v1";
+const VERSION = "metro-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -37,7 +37,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.origin === location.origin && url.pathname.startsWith("/_next/static/")) {
+  if (url.origin === location.origin && (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/sky/"))) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>
