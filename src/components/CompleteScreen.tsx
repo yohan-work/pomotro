@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getStation } from "@/data/lines";
 import { useT } from "@/i18n";
+import { track } from "@/lib/analytics";
 import { LATE_COMPLETION_MS, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconDownload } from "./Icons";
 import styles from "./CompleteScreen.module.css";
@@ -41,6 +42,7 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
     if (navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title: t("done.shareTitle") });
+        track("ticket_share", { method: "share" });
         setShareMsg(t("done.shared"));
         return;
       } catch {
@@ -53,6 +55,7 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
     a.download = file.name;
     a.click();
     URL.revokeObjectURL(url);
+    track("ticket_share", { method: "download" });
     setShareMsg(t("done.saved"));
   };
 

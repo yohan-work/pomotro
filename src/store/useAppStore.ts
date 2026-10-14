@@ -15,6 +15,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { Channel } from "../audio/AudioEngine";
 import { getStation, routeDistanceKm, stationsBetween } from "../data/lines";
+import { rideParams, track } from "../lib/analytics";
 import { mergeRecords } from "../lib/backup";
 import { recommendRoutes } from "../lib/recommend";
 import { epochNow, pauseTiming, resumeTiming, type SessionTiming } from "../sim/clock";
@@ -290,6 +291,8 @@ export const useAppStore = create<AppState>()(
           cycleCount: counts ? (stale ? 1 : get().cycleCount + 1) : get().cycleCount,
           lastFocusAt: counts ? endAt : get().lastFocusAt,
         });
+        // 기록이 새로 생길 때 한 번만 (위의 중복 방지 분기 이후)
+        track("ride_complete", { mode: s.mode, partial, ...rideParams(s.stationIds, rec.focusSec) });
       },
 
       closeCompletion: () => set({ lastRecordId: null }),

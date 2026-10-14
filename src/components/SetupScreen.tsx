@@ -14,6 +14,7 @@ import { todayFocusSec, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconClose, IconSettings, IconTrain, Mascot } from "./Icons";
 import { PomodoroSettings, SoundSettings, ViewSettings } from "./Panels";
 import { useConditions } from "@/lib/useConditions";
+import { rideParams, track } from "@/lib/analytics";
 import LineMap from "./LineMap";
 import styles from "./SetupScreen.module.css";
 
@@ -134,11 +135,13 @@ export default function SetupScreen() {
     if (!route || tooShort) return;
     unlockAudio();
     if (notify) void requestNotifyPermission().then(() => setNStatus(notifyStatus()));
+    track("ride_start", { mode: "focus", source: tab, ...rideParams(route.stationIds, focusSec) });
     startSession({ mode: "focus", stationIds: route.stationIds, totalSec: focusSec, task: task.trim() });
   };
 
   const demo = () => {
     unlockAudio();
+    track("ride_start", { mode: "demo", ...rideParams(DEMO_ROUTE.stationIds, DEMO_ROUTE.totalSec) });
     startSession({ mode: "demo", stationIds: DEMO_ROUTE.stationIds, totalSec: DEMO_ROUTE.totalSec, task: task.trim() });
   };
 
