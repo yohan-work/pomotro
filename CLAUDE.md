@@ -61,6 +61,12 @@ docs/                  plan / architecture / design-system / phase-01
 - 숨겨진 탭에서 돌아야 하는 판정은 `createTicker`(Worker) 로. 알림 권한은 사용자 클릭 안에서만 요청한다.
 - 서비스 워커는 프로덕션에서만 등록된다. `public/sw.js` 캐시 정책을 바꾸면 `VERSION` 을 올린다.
 
+## 다국어
+
+- 화면 문구는 `src/i18n/strings.ts` 의 키로만 쓴다 (`useT()` 의 `t`, 렌더 루프 등 훅 밖에서는 `tr(lang, key)`). 새 문구는 ko·en 둘 다 추가
+- 역 이름은 `name(st)` (영어 화면은 공식 영문 표기). 창밖 역명판은 실제처럼 한글·영문 병기 그대로
+- 브라우저 검증 스크립트는 `locale: "ko-KR"` 로 실행한다
+
 ## 스타일
 
 - TypeScript strict, 함수형 React, CSS Modules. 주석·UI 문구는 한국어.
