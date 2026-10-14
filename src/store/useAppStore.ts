@@ -84,6 +84,8 @@ export interface AppState {
   seasonPref: "auto" | Season;
   /** 역 접근 시 한국어 안내방송 (음성 합성) */
   announce: boolean;
+  langPref: "auto" | "ko" | "en";
+  setLangPref: (l: "auto" | "ko" | "en") => void;
   setWeatherPref: (w: "auto" | Weather) => void;
   setSeasonPref: (s: "auto" | Season) => void;
   setAnnounce: (a: boolean) => void;
@@ -166,6 +168,8 @@ export const useAppStore = create<AppState>()(
       weatherPref: "auto",
       seasonPref: "auto",
       announce: false,
+      langPref: "auto",
+      setLangPref: (l) => set({ langPref: l }),
       setWeatherPref: (w) => set({ weatherPref: w }),
       setSeasonPref: (v) => set({ seasonPref: v }),
       setAnnounce: (a) => set({ announce: a }),
@@ -334,6 +338,7 @@ export const useAppStore = create<AppState>()(
         weatherPref: s.weatherPref,
         seasonPref: s.seasonPref,
         announce: s.announce,
+        langPref: s.langPref,
         pomodoro: s.pomodoro,
         seenRideTips: s.seenRideTips,
         volumes: s.volumes,
