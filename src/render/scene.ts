@@ -1029,14 +1029,10 @@ function stationSign(f: Frame, station: Station, w: number, h: number) {
     c.fillText(station.nameEn, h * 0.74, h * 0.56);
     c.fillStyle = "#FFFFFF";
     c.font = `600 ${h * 0.14}px Pretendard, sans-serif`;
-    if (nb.prev) {
-      c.textAlign = "left";
-      c.fillText(`‹ ${nb.prev.nameKo}`, h * 0.2, h * 0.84);
-    }
-    if (nb.next) {
-      c.textAlign = "right";
-      c.fillText(`${nb.next.nameKo} ›`, w - h * 0.2, h * 0.84);
-    }
+    c.textAlign = "left";
+    c.fillText(`‹ ${nb.prev.nameKo}`, h * 0.2, h * 0.84);
+    c.textAlign = "right";
+    c.fillText(`${nb.next.nameKo} ›`, w - h * 0.2, h * 0.84);
   });
 }
 
