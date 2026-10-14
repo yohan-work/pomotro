@@ -69,6 +69,41 @@
   background: #fff;
 }
 
+.taskCheck {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-m);
+  background: #fff;
+  box-shadow: var(--shadow-1);
+  font-size: 14px;
+  color: #444;
+}
+
+.chipYes,
+.chipNo {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.chipYes {
+  border: 0;
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.chipNo {
+  border: 1px solid var(--c-line);
+  background: #fff;
+  color: #555;
+}
+
 .cycle {
   display: flex;
   align-items: center;

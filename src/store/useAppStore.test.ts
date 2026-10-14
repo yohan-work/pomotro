@@ -48,6 +48,18 @@ describe("session lifecycle", () => {
     expect(st().cycleCount).toBe(0);
   });
 
+  it("marks the task done on the record and clears the pending task", () => {
+    useAppStore.setState({ task: "README 다듬기" });
+    st().startSession({ mode: "focus", stationIds: ["dangsan", "hapjeong"], totalSec: 1500, task: "README 다듬기" });
+    st().completeSession();
+    const id = st().records[0].id;
+    st().setTaskDone(id, false);
+    expect(st().task).toBe("README 다듬기");
+    st().setTaskDone(id, true);
+    expect(st().records[0].taskDone).toBe(true);
+    expect(st().task).toBe("");
+  });
+
   it("does not record breaks and resumes from the break station", () => {
     st().startBreak("gangnam");
     st().completeSession();

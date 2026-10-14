@@ -15,6 +15,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { Channel } from "../audio/AudioEngine";
 import { getStation, routeDistanceKm, stationsBetween } from "../data/line2";
+import { mergeRecords } from "../lib/backup";
 import { epochNow, pauseTiming, resumeTiming, type SessionTiming } from "../sim/clock";
 import type { TimeOfDay } from "../render/palette";
 import type { QualityMode } from "../render/Renderer";
@@ -48,6 +49,8 @@ export interface RideRecord {
   partial: boolean;
   /** 실제 이동 거리(km) — 공식 역간 거리 기준. 중도 하차 시 구간 진행 비율로 환산 */
   distanceKm: number;
+  /** 할 일을 끝냈는지 (도착 후 사용자가 답한 경우) */
+  taskDone?: boolean;
 }
 
 export interface AppState {
@@ -94,6 +97,12 @@ export interface AppState {
   resume: () => void;
   completeSession: (opts?: { partialElapsedSec?: number; partialDistanceKm?: number }) => void;
   closeCompletion: () => void;
+  /** 도착 후 "할 일 끝냈나요?" 응답. 끝냈으면 출발 화면의 할 일을 비운다 */
+  setTaskDone: (recordId: string, done: boolean) => void;
+  /** 백업 파일에서 가져온 기록 합치기 → 새로 추가된 개수 */
+  importRecords: (incoming: RideRecord[]) => number;
+  deleteRecord: (recordId: string) => void;
+  clearRecords: () => void;
 }
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -209,7 +218,7 @@ export const useAppStore = create<AppState>()(
         const stale = endAt - get().lastFocusAt > POMODORO.staleCycleMs;
         set({
           activeSession: null,
-          records: [...get().records, rec].slice(-500),
+          records: [...get().records, rec].slice(-2000),
           lastRecordId: s.id,
           nextOriginId: s.mode === "focus" && !partial ? rec.toId : get().nextOriginId,
           cycleCount: counts ? (stale ? 1 : get().cycleCount + 1) : get().cycleCount,
@@ -218,6 +227,23 @@ export const useAppStore = create<AppState>()(
       },
 
       closeCompletion: () => set({ lastRecordId: null }),
+
+      importRecords: (incoming) => {
+        const { records, added } = mergeRecords(get().records, incoming);
+        set({ records });
+        return added;
+      },
+      deleteRecord: (recordId) => set({ records: get().records.filter((r) => r.id !== recordId) }),
+      clearRecords: () => set({ records: [], cycleCount: 0, lastFocusAt: 0, nextOriginId: null }),
+
+      setTaskDone: (recordId, done) => {
+        const rec = get().records.find((r) => r.id === recordId);
+        if (!rec) return;
+        set({
+          records: get().records.map((r) => (r.id === recordId ? { ...r, taskDone: done } : r)),
+          task: done && get().task.trim() === rec.task ? "" : get().task,
+        });
+      },
     }),
     {
       name: "metro-focus-v1",

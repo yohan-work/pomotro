@@ -67,6 +67,31 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
               : `${Math.round(rec.focusSec / 60) || 1}분 집중 여행이 완료되었습니다.`}
         </p>
         <canvas ref={ref} width={TICKET_W} height={TICKET_H} className={styles.ticket} role="img" aria-label="집중 완료 승차권" />
+        {rec.task && rec.mode !== "demo" && (
+          <div className={styles.taskCheck} role="group" aria-label="할 일 확인">
+            {rec.taskDone === undefined ? (
+              <>
+                <span>
+                  「{rec.task}」 <b>끝냈나요?</b>
+                </span>
+                <button className={styles.chipYes} onClick={() => useAppStore.getState().setTaskDone(rec.id, true)}>
+                  끝냈어요
+                </button>
+                <button className={styles.chipNo} onClick={() => useAppStore.getState().setTaskDone(rec.id, false)}>
+                  다음에 이어서
+                </button>
+              </>
+            ) : rec.taskDone ? (
+              <span>
+                「{rec.task}」 <b>완료!</b> 승차권에 남겼어요.
+              </span>
+            ) : (
+              <span>
+                「{rec.task}」 다음 여행에서 이어서 해요.
+              </span>
+            )}
+          </div>
+        )}
         {canBreak && (
           <div className={styles.cycle} aria-label={`뽀모도로 ${cycleCount}회차`}>
             {Array.from({ length: POMODORO.longEvery }, (_, i) => (

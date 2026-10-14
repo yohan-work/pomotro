@@ -41,7 +41,8 @@ export default function ClientApp() {
       const ids = stationsBetween(from, to).map((st) => st.id);
       const total = Math.max(minJourneySec(ids), Number(p.get("total") ?? 0) || 0);
       const mode = p.get("mode") === "focus" ? "focus" : "demo";
-      useAppStore.getState().startSession({ mode, stationIds: ids, totalSec: total, task: "", seekSec: Number(p.get("seek") ?? 0) || 0 });
+      const st = useAppStore.getState();
+      st.startSession({ mode, stationIds: ids, totalSec: total, task: mode === "focus" ? st.task.trim() : "", seekSec: Number(p.get("seek") ?? 0) || 0 });
     } else if (p.get("autostart") === "demo") {
       useAppStore.getState().startSession({
         mode: "demo",

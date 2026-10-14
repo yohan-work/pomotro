@@ -177,7 +177,14 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
     c.fillStyle = "#6B6B6B";
     c.font = "600 20px Pretendard, sans-serif";
     const t = rec.task.length > 26 ? rec.task.slice(0, 26) + "…" : rec.task;
-    c.fillText(`“${t}”`, 72, H - 78);
+    if (rec.taskDone) {
+      c.fillStyle = "#2E946B";
+      c.font = "800 20px Pretendard, sans-serif";
+      c.fillText("✓ 완료", 72, H - 78);
+      c.fillStyle = "#6B6B6B";
+      c.font = "600 20px Pretendard, sans-serif";
+      c.fillText(`“${t}”`, 72 + 78, H - 78);
+    } else c.fillText(`“${t}”`, 72, H - 78);
   }
 
   // 스탬프
