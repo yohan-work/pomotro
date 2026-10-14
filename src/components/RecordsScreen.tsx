@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getStation } from "@/data/line2";
+import { makeBackup, parseBackup } from "@/lib/backup";
 import { kstDay, lastWeek, totals, visited, type DayBar } from "@/lib/stats";
 import { useAppStore, type RideRecord } from "@/store/useAppStore";
 import { IconArrow, IconClose, IconDownload } from "./Icons";
@@ -87,6 +88,7 @@ function WeekChart({ data }: { data: DayBar[] }) {
 }
 
 function TicketDialog({ rec, onClose }: { rec: RideRecord; onClose: () => void }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const ref = useRef<HTMLCanvasElement>(null);
   const records = useAppStore((s) => s.records);
   const daySec = useMemo(
@@ -127,8 +129,91 @@ function TicketDialog({ rec, onClose }: { rec: RideRecord; onClose: () => void }
             닫기
           </button>
         </div>
+        <button
+          className={styles.dangerLink}
+          onClick={() => {
+            if (!confirmDelete) return setConfirmDelete(true);
+            useAppStore.getState().deleteRecord(rec.id);
+            onClose();
+          }}
+        >
+          {confirmDelete ? "한 번 더 누르면 이 기록을 지워요" : "이 기록 삭제"}
+        </button>
       </div>
     </div>
+  );
+}
+
+/** 기록 백업·복원·초기화 — 기록은 이 브라우저에만 저장된다 */
+function DataPanel() {
+  const records = useAppStore((s) => s.records);
+  const [msg, setMsg] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const exportFile = () => {
+    const blob = new Blob([makeBackup(records)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const d = new Date();
+    a.href = url;
+    a.download = `metro-records-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setMsg(`기록 ${records.length}개를 파일로 저장했어요.`);
+  };
+
+  const importFile = async (file: File) => {
+    try {
+      const { records: incoming, invalid } = parseBackup(await file.text());
+      const added = useAppStore.getState().importRecords(incoming);
+      setMsg(`${added}개를 새로 가져왔어요.${incoming.length - added > 0 ? ` 이미 있던 ${incoming.length - added}개는 건너뛰었어요.` : ""}${invalid ? ` 형식이 맞지 않는 ${invalid}개는 제외했어요.` : ""}`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "가져오지 못했어요.");
+    }
+  };
+
+  return (
+    <section className={styles.panel}>
+      <h2 className={styles.h2}>기록 관리</h2>
+      <p className={styles.note}>기록은 이 브라우저에만 저장돼요. 다른 기기로 옮기거나 보관하려면 파일로 내보내세요.</p>
+      <div className={styles.dataRow}>
+        <button className={styles.ghost} onClick={exportFile} disabled={records.length === 0}>
+          내보내기
+        </button>
+        <button className={styles.ghost} onClick={() => fileRef.current?.click()}>
+          가져오기
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void importFile(f);
+            e.target.value = "";
+          }}
+        />
+        <button
+          className={styles.dangerLink}
+          disabled={records.length === 0}
+          onClick={() => {
+            if (!confirmClear) return setConfirmClear(true);
+            useAppStore.getState().clearRecords();
+            setConfirmClear(false);
+            setMsg("모든 기록을 지웠어요.");
+          }}
+        >
+          {confirmClear ? "한 번 더 누르면 모든 기록을 지워요" : "모두 지우기"}
+        </button>
+      </div>
+      {msg && (
+        <p className={styles.note} role="status">
+          {msg}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -207,7 +292,12 @@ export default function RecordsScreen() {
                     <span className={styles.rowRoute}>
                       {getStation(r.fromId).nameKo} → {getStation(r.toId).nameKo}
                       {r.partial && <em>중간 하차</em>}
-                      {r.task && <small>{r.task}</small>}
+                      {r.task && (
+                        <small>
+                          {r.taskDone ? "✓ " : ""}
+                          {r.task}
+                        </small>
+                      )}
                     </span>
                     <span className={styles.rowMeta}>
                       {fmtDuration(r.focusSec)} · {(r.distanceKm ?? 0).toFixed(1)}km
@@ -218,6 +308,7 @@ export default function RecordsScreen() {
             </ul>
           )}
         </section>
+        <DataPanel />
       </div>
       {open && <TicketDialog rec={open} onClose={() => setOpen(null)} />}
     </main>

@@ -339,3 +339,37 @@
     grid-column: span 2;
   }
 }
+
+.note {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #666;
+}
+
+.dataRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dataRow button:disabled {
+  opacity: 0.4;
+}
+
+.dangerLink {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b4532a;
+}
+
+.dialog .dangerLink {
+  display: block;
+  margin: 12px auto 0;
+  color: #f7d4c4;
+}
