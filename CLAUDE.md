@@ -29,8 +29,9 @@ npm run verify:behavior -- http://localhost:3000 [--pwa]           # 일시정�
 ## 구조
 
 ```
-src/data/line2.ts      실제 노선 데이터 (2호선 43개 역 순환). 사실만, 출처·검증상태 명시
-src/data/line2.official.ts  자동 생성 — 공식 운행시간·거리 (직접 수정 금지)
+src/data/lines.ts      노선 레지스트리 — getStation/getSegment/stationsBetween 등 조회는 여기로
+src/data/line2.ts, line3.ts  노선별 실제 데이터 (사실만, 출처·검증상태 명시), network.ts = 공용 타입·빌더
+src/data/line*.official.ts  자동 생성 — 공식 운행시간·거리 (직접 수정 금지)
 data/official/         공식 원본 CSV (공공누리 1유형, 출처표시)
 src/data/scenery.ts    연출 데이터 (구간별 풍경 순서·길이, 시뮬레이션 미터). 가상값
 src/sim/               시간 → 상태 순수 함수 엔진 (journey, profile, clock)

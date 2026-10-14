@@ -111,14 +111,20 @@ await page.screenshot({ path: ".verify/after-break.png" });
 
 // 5d) 노선도에서 출발/도착 직접 고르기
 await page.getByRole("tab", { name: "직접 고르기" }).click();
-await page.getByRole("button", { name: /^잠실역/ }).click();
+await page.getByRole("button", { name: /2호선 잠실역/ }).locator("circle").first().click();
 let hint = await page.locator("[aria-live=polite]").last().textContent();
 check(/합정 → 잠실/.test(hint) && /km/.test(hint), `continue ride: pick destination from 합정 (${hint.slice(0, 30)}…)`);
 await page.getByRole("checkbox", { name: /이어 타기/ }).uncheck();
-await page.getByRole("button", { name: /^당산역/ }).click();
-await page.getByRole("button", { name: /^잠실역/ }).click();
+await page.getByRole("button", { name: /2호선 당산역/ }).locator("circle").first().click();
+await page.getByRole("button", { name: /2호선 잠실역/ }).locator("circle").first().click();
 hint = await page.locator("[aria-live=polite]").last().textContent();
 check(/당산 → 잠실/.test(hint) && /km/.test(hint), `line map pick origin+destination (${hint.slice(0, 30)}…)`);
+// 3호선: 노선을 바꿔 동호대교 구간 고르기 → 출발
+await page.getByRole("radio", { name: "3호선" }).click();
+await page.getByRole("button", { name: /3호선 옥수역/ }).locator("circle").first().click();
+await page.getByRole("button", { name: /3호선 압구정역/ }).locator("circle").first().click();
+hint = await page.locator("[aria-live=polite]").last().textContent();
+check(/옥수 → 압구정/.test(hint) && /2\.1km/.test(hint), `line 3 pick 옥수 → 압구정 (${hint.slice(0, 28)}…)`);
 await page.screenshot({ path: ".verify/picker.png" });
 
 // 5e) 주행 중 탭 제목 = 남은 시간 · 다음 역
@@ -178,6 +184,13 @@ await page.locator("button", { hasText: "합정 → 시청" }).click();
 await page.waitForSelector("[role=dialog][aria-label='승차권']");
 check(true, "ticket re-open dialog");
 await page.keyboard.press("Escape");
+
+// 5g-2) 3호선 동호대교 주행: 노선 배지·색
+await page.goto(`${base}/?autostart=route&route=l3-oksu,l3-apgujeong&total=140&mode=focus&seek=55`, { waitUntil: "load" });
+await page.waitForSelector("[data-testid=timer]");
+const badge = await page.locator("header span").first().textContent();
+check(badge.trim() === "3", `line badge shows 3호선 (${badge})`);
+await page.evaluate(() => localStorage.clear());
 
 // 5h) 출발 화면 설정 · 할 일 완료 체크 · 기록 백업
 await page.evaluate(() => localStorage.clear());
