@@ -251,6 +251,26 @@ await mob.goto(`${base}/?tod=day`, { waitUntil: "networkidle" });
 await mob.waitForTimeout(1200);
 await mob.screenshot({ path: ".verify/mobile-setup.png" });
 
+// 깜짝 이벤트: URL 자동 시작은 기본적으로 없음, ?event= 로 강제 → 승객 등장·도착 기록에 남음·설정으로 끄기
+await page.goto(base, { waitUntil: "networkidle" });
+await page.evaluate(() => localStorage.setItem("metro-focus-v1", JSON.stringify({ version: 2, state: { seenRideTips: true } })));
+await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=100&mode=focus&seek=20`, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+check((await page.locator("[data-testid=cabin-passenger]").count()) === 0, "scripted ride has no surprise events by default");
+await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=100&mode=focus&event=sleeper&seek=94`, { waitUntil: "networkidle" });
+check((await page.locator("[data-testid=cabin-passenger][data-kind=sleeper]").count()) === 1, "forced event: sleeper sits across");
+await page.waitForSelector("text=이번 여행에서 만난", { timeout: 15000 });
+const encRec = (await store()).records.at(-1);
+check(JSON.stringify(encRec.encounters) === '["sleeper"]', `encounter recorded on ticket (${JSON.stringify(encRec.encounters)})`);
+await page.evaluate(() => {
+  const s = JSON.parse(localStorage.getItem("metro-focus-v1"));
+  s.state.surprises = false;
+  localStorage.setItem("metro-focus-v1", JSON.stringify(s));
+});
+await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=100&mode=focus&event=sleeper&seek=30`, { waitUntil: "networkidle" });
+await page.waitForTimeout(600);
+check((await page.locator("[data-testid=cabin-passenger]").count()) === 1, "forced event still shows for verification when surprises are off");
+
 check(errors.length === 0, `no page errors ${errors.join(" | ")}`);
 await browser.close();
 process.exit(failed ? 1 : 0);

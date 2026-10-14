@@ -19,13 +19,13 @@ npm run test:sim            # 시뮬레이션 엔진 불변식 + 공식 데이�
 npm run data:import         # 서울교통공사 공식 CSV 다운로드 → src/data/line2.official.ts 재생성
 npm run build               # 프로덕션 빌드 (정적)
 npm run verify:browser -- http://localhost:3000 [--full] [--tod]   # 실제 Chrome 스냅샷/FPS/110초 완주
-npm run visual:diff -- <기준 url> <변경 url>                       # 장면 14개 정지 화면 픽셀 비교 (PR CI 에서 main 대 PR 자동 실행)
+npm run visual:diff -- <기준 url> <변경 url>                       # 장면 22개 정지 화면 픽셀 비교 (PR CI 에서 main 대 PR 자동 실행)
 npm run verify:behavior -- http://localhost:3000 [--pwa]           # 일시정지·새로고침·중복기록·오디오·휴식·노선도 (--pwa: 프로덕션 서버에서 SW 확인)
 ```
 
 검증 스크립트는 로컬 Google Chrome(`channel: "chrome"`)을 headless 로 띄운다. 결과 이미지는 `.verify/`(gitignore).
 
-개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?weather=clear|cloudy|rain|snow|fog` `?season=spring|summer|autumn|winter` `?debug=1` `?still=45`(시간 고정)
+개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?weather=clear|cloudy|rain|snow|fog` `?season=spring|summer|autumn|winter` `?debug=1` `?still=45`(시간 고정) `?event=danso|vendor|puppy|sleeper|hiker|balloon|duckboat|cat|monster|ttorong`(깜짝 이벤트 강제 — URL 자동 시작 세션은 기본적으로 깜짝 이벤트 없음)
 
 ## 구조
 
@@ -35,9 +35,9 @@ src/data/line2.ts, line3.ts  노선별 실제 데이터 (사실만, 출처·검�
 src/data/line*.official.ts  자동 생성 — 공식 운행시간·거리 (직접 수정 금지)
 data/official/         공식 원본 CSV (공공누리 1유형, 출처표시)
 src/data/scenery.ts    연출 데이터 (구간별 풍경 순서·길이, 시뮬레이션 미터). 가상값
-src/sim/               시간 → 상태 순수 함수 엔진 (journey, profile, clock)
+src/sim/               시간 → 상태 순수 함수 엔진 (journey, profile, clock, rideEvents = 깜짝 이벤트 일정)
 src/render/            Canvas 2D 창밖 패럴랙스 (sprites = 캐시 오브젝트, palette = 시간대, conditions = 날씨·계절)
-src/render/scene/      레이어 모듈: core(좌표·공용) sky far water city station track passing effects, index = 합성
+src/render/scene/      레이어 모듈: core(좌표·공용) sky far water city station track passing effects surprise(창밖 깜짝 이벤트), index = 합성
 src/audio/             WebAudio 합성 사운드 (외부 음원 없음)
 src/store/             Zustand + localStorage (세션·기록·설정)
 src/components/        DOM UI (객실 실내, HUD, 출발/완료 화면)
@@ -53,6 +53,7 @@ docs/                  plan / architecture / design-system / phase-01
 - 집중시간 ≠ 실제 운행시간일 때는 재생 속도를 바꾸지 않고 연출 구간(stretch 가중치)을 늘리거나 줄인다. 실제 운행시간을 바꾼 것처럼 표시하지 않는다.
 - 렌더 루프에서 React state 를 매 프레임 갱신하지 않는다 (HUD 는 ≤4Hz, 손잡이 등은 ref 로 직접 style 갱신).
 - 창밖 오브젝트는 트랙 좌표 셀 + `hash2` 시드로 결정론적으로 생성한다. `Math.random()` 금지(오디오 노이즈 버퍼 제외).
+- 깜짝 이벤트는 `planRideEvents(journey, seedOf(session.id))` 로만 정한다 — 같은 세션은 새로고침해도 같은 이벤트. 놀래키지 않는다(갑툭튀·번쩍임 없음), 휴식 중엔 없음, 설정에서 끌 수 있다.
 - 비싼 드로잉(건물·나무·사람·역명판)은 `SpriteCache` 로 캐시한다. 캐시 키에 팔레트와 크기를 포함한다.
 - 이모지로 그래픽을 대체하지 않는다. 마스코트(또롱)·아이콘은 자체 SVG.
 - 실제 기관 로고/브랜드(서울교통공사 등)를 흉내 내지 않는다. 서비스명은 METRO.

@@ -39,6 +39,11 @@ const SCENES = [
   ["gj-riverside-west", route("gj-seobinggo,gj-ichon", 200, 95, "day")],
   ["gj-paldang", route("gj-paldang,gj-dosim", 200, 90, "day")],
   ["gj-rural", route("gj-yangpyeong,gj-wondeok", 200, 90, "day")],
+  ["event-balloon", route("dangsan,hapjeong", 200, 30, "day", "&event=balloon")],
+  ["event-duckboat", route("dangsan,hapjeong", 150, 52, "day", "&event=duckboat")],
+  ["event-monster-sunset", route("dangsan,hapjeong", 150, 50, "sunset", "&event=monster")],
+  ["event-cat", route("dangsan,hapjeong", 150, 3, "day", "&event=cat")],
+  ["event-ttorong", route("city-hall,euljiro-4ga", 300, 35.96, "day", "&event=ttorong")],
   ["rain", demo(30, "day", "&weather=rain")],
   ["snow-winter-night", demo(26, "night", "&weather=snow&season=winter")],
 ];
