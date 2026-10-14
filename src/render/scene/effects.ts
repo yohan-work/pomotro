@@ -1,5 +1,5 @@
 /** 창밖 장면 — 최근경 지지대·날씨·창 유리 */
-import { hash2 } from "../rng";
+import { hash2, rng } from "../rng";
 import { rrect } from "../sprites";
 import { SPEED, type Frame, sx, visRange, sectionAtM } from "./core";
 
@@ -129,6 +129,42 @@ export function drawDroplets(f: Frame) {
   ctx.globalAlpha = 1;
 }
 
+/**
+ * 유리에 비친 객실: 어두운 구간에서 맞은편 좌석에 앉은 승객들이 실루엣으로 비친다.
+ * 객실 안의 모습이라 풍경과 함께 흐르지 않고 화면에 고정된다. 밤엔 휴대폰 불빛.
+ */
+function drawCabinReflection(f: Frame) {
+  const { ctx, W, u, darkness, pal } = f;
+  const a = Math.max(0, darkness - 0.25) / 0.75;
+  if (a <= 0.01) return;
+  const r = rng(2025);
+  const seats = 7;
+  for (let k = 0; k < seats; k++) {
+    if (r() < 0.25) continue; // 빈자리
+    const x = W * (0.08 + (k + 0.15 + r() * 0.5) * (0.84 / seats));
+    const head = (3.4 + r() * 0.8) * u;
+    const y = (68 + r() * 3) * u;
+    const lean = (r() - 0.5) * 1.2 * u;
+    ctx.globalAlpha = a * 0.15;
+    ctx.fillStyle = "#e8dfcf";
+    // 어깨·몸
+    rrect(ctx, x - head * 1.7 + lean, y + head * 0.9, head * 3.4, 22 * u, head * 1.3);
+    ctx.fill();
+    // 머리
+    ctx.beginPath();
+    ctx.arc(x + lean * 1.4, y, head, 0, Math.PI * 2);
+    ctx.fill();
+    // 휴대폰 보는 사람: 얼굴 아래 작은 불빛
+    if (r() < 0.45) {
+      ctx.globalAlpha = a * (pal.night > 0.5 ? 0.5 : 0.32);
+      ctx.fillStyle = "#cfe6ff";
+      rrect(ctx, x - 1.1 * u + lean, y + head * 1.6, 2.2 * u, 3.4 * u, 0.4 * u);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
 export function drawGlass(f: Frame) {
   const { ctx, W, H, u, pal, darkness } = f;
   if (pal.tintAlpha > 0) {
@@ -158,6 +194,7 @@ export function drawGlass(f: Frame) {
     ctx.fill();
   }
   ctx.globalAlpha = 1;
+  drawCabinReflection(f);
   // 유리 광택
   const g = ctx.createLinearGradient(0, 0, W, H);
   g.addColorStop(0, "rgba(255,255,255,0.08)");
