@@ -136,6 +136,36 @@ if (process.argv.includes("--pwa")) {
   check(sw === true, "service worker active");
 }
 
+// 5g) 나의 서울 노선도: 지난 기록으로 달린 구간·통계·주간 차트·승차권 다시 보기
+await page.goto(base, { waitUntil: "networkidle" });
+await page.evaluate(() => {
+  const day = 86400000;
+  const now = Date.now();
+  const mk = (i, from, to, min, km, ago, partial = false) => ({
+    id: `seed-${i}`, mode: "focus", fromId: from, toId: to, stationCount: 3, focusSec: min * 60,
+    completedAt: now - ago * day, task: i === 0 ? "사이드 프로젝트" : "", partial, distanceKm: km,
+  });
+  const records = [
+    mk(1, "dangsan", "sinchon", 25, 4.4, 3),
+    mk(2, "wangsimni", "jamsil", 25, 9.4, 2),
+    mk(3, "jamsil", "gangnam", 40, 6.7, 1),
+    mk(0, "hapjeong", "city-hall", 25, 5.9, 0),
+    mk(4, "gangnam", "sadang", 15, 3.3, 0, true),
+  ];
+  localStorage.setItem("metro-focus-v1", JSON.stringify({ state: { records, activeSession: null, lastRecordId: null }, version: 2 }));
+});
+await page.reload({ waitUntil: "networkidle" });
+await page.getByRole("button", { name: "나의 노선도" }).click();
+await page.waitForSelector("text=나의 서울 노선도");
+const statTxt = await page.locator("section[aria-label='누적 기록']").textContent();
+check(/완주4회/.test(statTxt) && /연속4일/.test(statTxt), `records stats (${statTxt})`);
+check((await page.locator("tbody tr").count()) === 7, "week chart has 7 days + table fallback");
+await page.screenshot({ path: ".verify/records.png", fullPage: true });
+await page.locator("button", { hasText: "합정 → 시청" }).click();
+await page.waitForSelector("[role=dialog][aria-label='승차권']");
+check(true, "ticket re-open dialog");
+await page.keyboard.press("Escape");
+
 // 6) 시간대 렌더 스냅샷
 for (const tod of ["sunset", "night"]) {
   for (const [name, seek] of [["river", 50], ["city", 26], ["platform", 2], ["tunnel", 82]]) {
