@@ -58,3 +58,16 @@ export async function notifyIfHidden(title: string, body: string) {
     /* 알림 실패는 무시 — 사운드·탭 제목으로도 알 수 있다 */
   }
 }
+
+/** 알림 상태 — 출발 화면 안내용 */
+export type NotifyStatus = "granted" | "default" | "denied" | "unsupported" | "needs-install";
+
+export function notifyStatus(): NotifyStatus {
+  if (typeof window === "undefined") return "unsupported";
+  if (!notificationsSupported()) {
+    // iPhone/iPad Safari 는 홈 화면에 추가한 웹앱에서만 알림을 지원한다 (iOS 16.4+)
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    return ios ? "needs-install" : "unsupported";
+  }
+  return Notification.permission;
+}

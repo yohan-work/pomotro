@@ -331,6 +331,21 @@
   accent-color: var(--c-primary);
 }
 
+.longHint {
+  margin: -8px 0 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #9a6a2e;
+}
+
+.notifyHint {
+  margin: 6px 4px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #9a6a2e;
+  text-align: center;
+}
+
 .tabs {
   display: flex;
   gap: 4px;

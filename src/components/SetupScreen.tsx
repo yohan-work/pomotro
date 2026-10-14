@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { unlockAudio } from "@/audio/instance";
 import { LINE2_META, getStation, stationsBetween, type Station } from "@/data/line2";
-import { requestNotifyPermission } from "@/lib/background";
+import { notifyStatus, requestNotifyPermission, type NotifyStatus } from "@/lib/background";
 import { DATA_NOTICE, DEMO_ROUTE, describeRoute, formatMin, recommendRoutes } from "@/lib/recommend";
 import { Renderer } from "@/render/Renderer";
 import { timeOfDayKST } from "@/render/palette";
@@ -64,6 +64,8 @@ export default function SetupScreen() {
   const task = useAppStore((s) => s.task);
   const records = useAppStore((s) => s.records);
   const nextOriginId = useAppStore((s) => s.nextOriginId);
+  const [nStatus, setNStatus] = useState<NotifyStatus>("default");
+  useEffect(() => setNStatus(notifyStatus()), []);
   const breakJustEnded = useAppStore((s) => s.breakJustEnded);
   const notify = useAppStore((s) => s.notify);
   const { setFocusMinutes, setTask, startSession, setNotify } = useAppStore.getState();
@@ -99,7 +101,7 @@ export default function SetupScreen() {
   const depart = () => {
     if (!route || tooShort) return;
     unlockAudio();
-    if (notify) void requestNotifyPermission();
+    if (notify) void requestNotifyPermission().then(() => setNStatus(notifyStatus()));
     startSession({ mode: "focus", stationIds: route.stationIds, totalSec: focusSec, task: task.trim() });
   };
 
@@ -170,6 +172,12 @@ export default function SetupScreen() {
           )}
         </div>
 
+        {focusMinutes > 60 && (
+          <p className={styles.longHint} role="note">
+            긴 집중은 25분씩 나눠 타고 도착역에서 쉬어가길 추천해요. 2호선 한 바퀴는 약 85분이라, 그보다 길면 터널 구간이 길게 늘어나요.
+          </p>
+        )}
+
         <label className={styles.field}>
           <span className={styles.label}>
             오늘의 할 일 <em>(선택)</em>
@@ -206,9 +214,18 @@ export default function SetupScreen() {
           출발하기 <IconArrow width={18} height={18} />
         </button>
         <label className={styles.notify}>
-          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+          <input type="checkbox" checked={notify && nStatus !== "denied"} disabled={nStatus === "denied"} onChange={(e) => setNotify(e.target.checked)} />
           다른 창에서 작업할 때 도착하면 알림 받기
         </label>
+        {notify && nStatus !== "granted" && nStatus !== "default" && (
+          <p className={styles.notifyHint} role="note">
+            {nStatus === "denied"
+              ? "브라우저에서 이 사이트 알림이 차단돼 있어요. 주소창의 사이트 설정에서 허용하면 받을 수 있어요."
+              : nStatus === "needs-install"
+                ? "iPhone에서는 공유 → 홈 화면에 추가한 뒤 열면 알림을 받을 수 있어요. 탭 제목과 소리로도 도착을 알려드려요."
+                : "이 브라우저는 알림을 지원하지 않아요. 탭 제목과 소리로 도착을 알려드려요."}
+          </p>
+        )}
         <button className={styles.demo} onClick={demo}>
           1분 50초 체험 운행 · 당산 → 합정 (한강 철교)
         </button>
