@@ -11,6 +11,7 @@ const browser = await chromium.launch({ channel: "chrome", headless: true });
 const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
+page.on("response", (r) => r.status() >= 400 && errors.push(`HTTP ${r.status()} ${r.url()}`));
 let failed = 0;
 const check = (ok, msg) => {
   console.log(`${ok ? "✓" : "✗"} ${msg}`);
