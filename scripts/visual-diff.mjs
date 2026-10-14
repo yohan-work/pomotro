@@ -51,7 +51,7 @@ async function capture(url) {
   await page.goto(url.split("/?")[0] + "/", { waitUntil: "load" });
   await page.evaluate(() => localStorage.setItem("metro-focus-v1", JSON.stringify({ version: 2, state: { seenRideTips: true } })));
   await page.goto(url, { waitUntil: "load" });
-  await page.waitForSelector("canvas[aria-label='지하철 창밖 풍경']");
+  await page.waitForSelector("canvas[aria-label='지하철 창밖 풍경']", { timeout: 8000 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(900);
   return page.locator("canvas[aria-label='지하철 창밖 풍경']").screenshot();
@@ -113,9 +113,25 @@ async function compare(a, b) {
 }
 
 const rows = [];
+const tryCapture = (url) => capture(url).catch(() => null);
+let headFailed = 0;
 for (const [name, path] of SCENES) {
-  const a = await capture(base + path);
-  const b = await capture(head + path);
+  const b = await tryCapture(head + path);
+  if (!b) {
+    // 변경 쪽에서 장면이 안 뜨면 실패
+    headFailed++;
+    rows.push({ name, status: "error", ratio: 1, mean: 0 });
+    console.log(`✗ ${name.padEnd(22)} 변경 빌드에서 장면을 띄우지 못함`);
+    continue;
+  }
+  const a = await tryCapture(base + path);
+  if (!a) {
+    // 기준 빌드에 아직 없는 노선·장면 → 새 장면
+    writeFileSync(`${out}/${name}.new.png`, b);
+    rows.push({ name, status: "new", ratio: 0, mean: 0 });
+    console.log(`+ ${name.padEnd(22)} 새 장면 (기준 빌드에 없음)`);
+    continue;
+  }
   const r = await compare(a, b);
   const status = r.ratio > 0.005 ? "changed" : "same";
   if (status === "changed") writeFileSync(`${out}/${name}.png`, Buffer.from(r.sheet, "base64"));
@@ -128,8 +144,15 @@ const changed = rows.filter((r) => r.status === "changed");
 const md =
   `### 장면 시각 비교\n\n${changed.length ? `**${changed.length}개 장면이 달라졌어요** — 아티팩트 \`visual-diff\` 에서 기준 | 변경 | 차이 이미지를 확인하세요.` : "모든 장면이 같아요."}\n\n` +
   `| 장면 | 결과 | 바뀐 픽셀 | 평균 차이 |\n|---|---|---|---|\n` +
-  rows.map((r) => `| ${r.name} | ${r.status === "changed" ? "△ 달라짐" : "= 같음"} | ${(r.ratio * 100).toFixed(2)}% | ${r.mean.toFixed(2)} |`).join("\n") +
+  rows
+    .map((r) => {
+      const label = { changed: "△ 달라짐", same: "= 같음", new: "+ 새 장면", error: "✗ 변경 빌드 오류" }[r.status];
+      const pct = r.status === "new" || r.status === "error" ? "—" : `${(r.ratio * 100).toFixed(2)}%`;
+      return `| ${r.name} | ${label} | ${pct} | ${r.status === "new" || r.status === "error" ? "—" : r.mean.toFixed(2)} |`;
+    })
+    .join("\n") +
   "\n";
 writeFileSync(`${out}/report.md`, md);
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+if (headFailed) process.exit(1);
 if (strict && changed.length) process.exit(1);
