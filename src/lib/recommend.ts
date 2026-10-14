@@ -1,7 +1,7 @@
 /**
  * 집중시간 → 2호선 구간 추천 (환승 없음)
  *
- * 1. 후보: 출발역 후보 × 내선순환 방향 도착역 (순환 경계 포함, 최대 30개 역)
+ * 1. 후보: 출발역 후보 × 내선순환 방향 도착역 (순환 경계 포함, 한 바퀴 직전까지)
  * 2. 연출 가능한 최소 시간보다 집중시간이 짧은 경로 제외
  * 3. 점수 = 예상 소요시간 오차 비율 − 풍경 보너스(한강 횡단·지상 구간)
  * 4. 상위 3개 (출발역 중복은 최대 2개까지)
@@ -54,8 +54,8 @@ export function recommendRoutes(focusSec: number, limit = 3, originId?: string):
   const cands: Array<RouteSuggestion & { score: number }> = [];
   for (const o of originId ? [originId] : ORIGINS) {
     const oi = STATIONS.findIndex((s) => s.id === o);
-    // 순환선: 출발역에서 내선순환으로 최대 30개 역까지
-    for (let k = 1; k <= 30; k++) {
+    // 순환선: 출발역에서 내선순환으로 한 바퀴 직전(42개 역)까지
+    for (let k = 1; k < STATIONS.length; k++) {
       const stations = stationsBetween(o, STATIONS[(oi + k) % STATIONS.length].id);
       const ids = stations.map((s) => s.id);
       if (minJourneySec(ids) > focusSec) continue;

@@ -14,6 +14,11 @@ describe("recommendRoutes", () => {
     });
   }
 
+  it("offers almost a full loop for 90-minute sessions", () => {
+    const routes = recommendRoutes(90 * 60);
+    expect(routes[0].stops).toBeGreaterThanOrEqual(40);
+  });
+
   it("keeps every suggestion on the chosen origin when continuing a ride", () => {
     const routes = recommendRoutes(25 * 60, 3, "hapjeong");
     expect(routes.length).toBe(3);
