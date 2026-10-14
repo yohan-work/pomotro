@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
 import { LINE_BY_ID, getStation, stationsBetween, type LineId, type Station } from "@/data/lines";
 import { notifyStatus, requestNotifyPermission, type NotifyStatus } from "@/lib/background";
-import { DATA_NOTICE, DEMO_ROUTE, describeRoute, formatMin, recommendRoutes } from "@/lib/recommend";
+import { DEMO_ROUTE, describeRoute, recommendRoutes } from "@/lib/recommend";
+import { useT } from "@/i18n";
+import { LINE2_META } from "@/data/lines";
 import { Renderer } from "@/render/Renderer";
 import { timeOfDayKST } from "@/render/palette";
 import { buildJourney, minJourneySec } from "@/sim/journey";
@@ -79,6 +81,7 @@ function ScenePreview({ stationIds }: { stationIds: string[] }) {
 }
 
 export default function SetupScreen() {
+  const { t, name } = useT();
   const focusMinutes = useAppStore((s) => s.focusMinutes);
   const task = useAppStore((s) => s.task);
   const records = useAppStore((s) => s.records);
@@ -152,26 +155,26 @@ export default function SetupScreen() {
           </span>
           <span>
             <b>METRO</b>
-            <small>서울을 달리는 뽀모도로</small>
+            <small>{t("app.tagline")}</small>
           </span>
           <button className={styles.myMap} onClick={() => useAppStore.getState().setView("records")}>
-            나의 노선도
+            {t("setup.myMap")}
           </button>
-          <button className={styles.iconBtn} onClick={() => setShowSettings(true)} aria-label="설정">
+          <button className={styles.iconBtn} onClick={() => setShowSettings(true)} aria-label={t("common.settings")}>
             <IconSettings width={18} height={18} />
           </button>
         </div>
 
         <h1 className={styles.title}>
-          오늘은
+          {t("setup.title1")}
           <br />
-          어디로 떠날까요?
+          {t("setup.title2")}
         </h1>
-        <p className={styles.sub}>집중하는 동안, 서울의 한 구간을 함께 달려요.</p>
+        <p className={styles.sub}>{t("setup.sub")}</p>
 
         <div className={styles.field}>
-          <span className={styles.label}>집중 시간</span>
-          <div className={styles.chips} role="radiogroup" aria-label="집중 시간">
+          <span className={styles.label}>{t("setup.focusTime")}</span>
+          <div className={styles.chips} role="radiogroup" aria-label={t("setup.focusTime")}>
             {PRESETS.map((m) => (
               <button
                 key={m}
@@ -183,11 +186,11 @@ export default function SetupScreen() {
                   setFocusMinutes(m);
                 }}
               >
-                {m}분
+                {t("common.min", { n: m })}
               </button>
             ))}
             <button className={custom ? styles.chipOn : styles.chip} onClick={() => setCustom(true)} role="radio" aria-checked={custom}>
-              직접 입력
+              {t("setup.custom")}
             </button>
           </div>
           {custom && (
@@ -199,24 +202,24 @@ export default function SetupScreen() {
                 value={focusMinutes}
                 onChange={(e) => setFocusMinutes(Math.max(5, Math.min(120, Math.round(+e.target.value || 5))))}
               />
-              분 (5–120)
+              {t("setup.customUnit")}
             </label>
           )}
         </div>
 
         {focusMinutes > 60 && (
           <p className={styles.longHint} role="note">
-            긴 집중은 25분씩 나눠 타고 도착역에서 쉬어가길 추천해요. 2호선 한 바퀴는 약 85분, 3호선 끝에서 끝은 약 80분이라, 그보다 길면 터널 구간이 길게 늘어나요.
+            {t("setup.longHint")}
           </p>
         )}
 
         <label className={styles.field}>
           <span className={styles.label}>
-            오늘의 할 일 <em>(선택)</em>
+            {t("setup.task")} <em>{t("setup.optional")}</em>
           </span>
           <input
             className={styles.input}
-            placeholder="예: 사이드 프로젝트 개발하기"
+            placeholder={t("setup.taskPlaceholder")}
             value={task}
             maxLength={40}
             onChange={(e) => setTask(e.target.value)}
@@ -236,54 +239,54 @@ export default function SetupScreen() {
               }}
             />
             <span>
-              {breakJustEnded ? <b>휴식 끝! </b> : null}
-              <b>{getStation(nextOriginId).nameKo}</b>역에서 이어 타기
+              {breakJustEnded ? <b>{t("setup.breakOver")}</b> : null}
+              {t("setup.continueFrom", { station: name(getStation(nextOriginId)) })}
             </span>
           </label>
         )}
 
         <div className={styles.actionsBlock}>
         <button className={styles.depart} onClick={depart} disabled={!route || tooShort}>
-          출발하기 <IconArrow width={18} height={18} />
+          {t("setup.depart")} <IconArrow width={18} height={18} />
         </button>
         <label className={styles.notify}>
           <input type="checkbox" checked={notify && nStatus !== "denied"} disabled={nStatus === "denied"} onChange={(e) => setNotify(e.target.checked)} />
-          다른 창에서 작업할 때 도착하면 알림 받기
+          {t("setup.notify")}
         </label>
         {notify && nStatus !== "granted" && nStatus !== "default" && (
           <p className={styles.notifyHint} role="note">
             {nStatus === "denied"
-              ? "브라우저에서 이 사이트 알림이 차단돼 있어요. 주소창의 사이트 설정에서 허용하면 받을 수 있어요."
+              ? t("setup.notifyDenied")
               : nStatus === "needs-install"
-                ? "iPhone에서는 공유 → 홈 화면에 추가한 뒤 열면 알림을 받을 수 있어요. 탭 제목과 소리로도 도착을 알려드려요."
-                : "이 브라우저는 알림을 지원하지 않아요. 탭 제목과 소리로 도착을 알려드려요."}
+                ? t("setup.notifyInstall")
+                : t("setup.notifyUnsupported")}
           </p>
         )}
         <button className={styles.demo} onClick={demo}>
-          1분 50초 체험 운행 · 당산 → 합정 (한강 철교)
+          {t("setup.demo")}
         </button>
 
         <footer className={styles.foot}>
-          {today > 0 && <span>오늘 {Math.round(today / 60)}분 달렸어요 · </span>}
-          <span>{DATA_NOTICE}</span>
+          {today > 0 && <span>{t("setup.todayRode", { n: Math.round(today / 60) })}</span>}
+          <span>{t("setup.dataNotice", { date: LINE2_META.source.updated })}</span>
         </footer>
         </div>
         </div>
         <div className={styles.colRoute}>
         <div className={`${styles.field} ${styles.routeBlock}`}>
-          <div className={styles.tabs} role="tablist" aria-label="노선 고르기">
+          <div className={styles.tabs} role="tablist" aria-label={t("setup.routeTabs")}>
             <button role="tab" aria-selected={tab === "recommend"} className={tab === "recommend" ? styles.tabOn : styles.tab} onClick={() => setTab("recommend")}>
-              추천 노선
+              {t("setup.recommended")}
             </button>
             <button role="tab" aria-selected={tab === "pick"} className={tab === "pick" ? styles.tabOn : styles.tab} onClick={() => setTab("pick")}>
-              직접 고르기
+              {t("setup.pick")}
             </button>
           </div>
           {tab === "recommend" ? (
             <div className={styles.routes}>
               {routes[selected] && (
                 <div className={styles.mapPreview}>
-                  <LineMap originId={routes[selected].from.id} destId={routes[selected].to.id} label="선택한 추천 노선" />
+                  <LineMap originId={routes[selected].from.id} destId={routes[selected].to.id} label={t("setup.recMapLabel")} />
                 </div>
               )}
               {routes.map((r, i) => {
@@ -295,32 +298,32 @@ export default function SetupScreen() {
                         {r.from.line}
                       </span>
                       <b>
-                        {r.from.nameKo} → {r.to.nameKo}
+                        {name(r.from)} → {name(r.to)}
                       </b>
-                      <span className={styles.est}>예상 약 {formatMin(r.estSec)}</span>
+                      <span className={styles.est}>{t("common.minApprox", { n: Math.round(r.estSec / 60) })}</span>
                     </span>
-                    <span className={styles.tagline}>{r.tagline}</span>
+                    <span className={styles.tagline}>{t(r.tagline)}</span>
                     <span className={styles.routeMeta}>
-                      {r.stops}개 역 · {r.distanceKm}km
+                      {t("common.stopsKm", { n: r.stops, km: r.distanceKm })}
                       {r.keywords.map((k) => (
                         <span key={k} className={styles.kw}>
-                          {k}
+                          {t(k)}
                         </span>
                       ))}
                     </span>
                     {i === selected && diff !== 0 && (
                       <span className={styles.diff}>
-                        실제 예상 소요시간과 {Math.abs(diff)}분 차이 — 집중시간 {focusMinutes}분에 맞춰 터널·시가지 구간을 늘리거나 줄여 연출해요.
+                        {t("setup.diff", { d: Math.abs(diff), m: focusMinutes })}
                       </span>
                     )}
                   </button>
                 );
               })}
-              {routes.length === 0 && <p className={styles.empty}>이 시간에 맞는 구간이 아직 없어요. 집중 시간을 늘려보세요.</p>}
+              {routes.length === 0 && <p className={styles.empty}>{t("setup.noRoutes")}</p>}
             </div>
           ) : (
             <div className={styles.picker}>
-              <div className={styles.lineChips} role="radiogroup" aria-label="노선">
+              <div className={styles.lineChips} role="radiogroup" aria-label={t("setup.line")}>
                 {(["2", "3"] as LineId[]).map((l) => (
                   <button
                     key={l}
@@ -335,32 +338,33 @@ export default function SetupScreen() {
                       setPickTo(null);
                     }}
                   >
-                    {LINE_BY_ID[l].nameKo}
+                    {t("line.name", { n: l })}
                   </button>
                 ))}
               </div>
-              <LineMap originId={pickFrom} destId={pickTo} onPick={onPick} activeLine={pickLine} label="출발역과 도착역을 고르세요" />
+              <LineMap originId={pickFrom} destId={pickTo} onPick={onPick} activeLine={pickLine} label={t("setup.pickMapLabel")} />
               <p className={styles.pickHint} aria-live="polite">
                 {!pickFrom ? (
-                  "출발역을 눌러주세요"
+                  t("setup.pickOrigin")
                 ) : !picked ? (
                   <>
-                    <b>{getStation(pickFrom).nameKo}</b> 출발 · 도착역을 눌러주세요{pickLine === "2" ? " (내선순환)" : ""}
+                    {t("setup.pickDest", { station: name(getStation(pickFrom)) })}
+                    {pickLine === "2" ? t("setup.innerLoop") : ""}
                   </>
                 ) : (
                   <>
                     <b>
-                      {picked.from.nameKo} → {picked.to.nameKo}
+                      {name(picked.from)} → {name(picked.to)}
                     </b>{" "}
-                    · {picked.stops}개 역 · {picked.distanceKm}km · 예상 약 {formatMin(picked.estSec)}
+                    · {t("common.stopsKm", { n: picked.stops, km: picked.distanceKm })} · {t("common.minApprox", { n: Math.round(picked.estSec / 60) })}
                     {tooShort ? (
                       <span className={styles.warn}>
-                        이 구간은 연출에 최소 {Math.ceil(picked.minSec / 60)}분이 필요해요. 집중 시간을 늘리거나 가까운 역을 골라주세요.
+                        {t("setup.tooShort", { n: Math.ceil(picked.minSec / 60) })}
                       </span>
                     ) : (
                       Math.round((focusSec - picked.estSec) / 60) !== 0 && (
                         <span className={styles.diff}>
-                          실제 예상 소요시간과 {Math.abs(Math.round((focusSec - picked.estSec) / 60))}분 차이 — 집중시간에 맞춰 연출 구간을 조정해요.
+                          {t("setup.diffShort", { d: Math.abs(Math.round((focusSec - picked.estSec) / 60)) })}
                         </span>
                       )
                     )}
@@ -376,10 +380,10 @@ export default function SetupScreen() {
 
       {showSettings && (
         <div className={styles.dialogBack} onClick={() => setShowSettings(false)}>
-          <div className={styles.dialog} role="dialog" aria-modal="true" aria-label="설정" onClick={(e) => e.stopPropagation()}>
+          <div className={styles.dialog} role="dialog" aria-modal="true" aria-label={t("common.settings")} onClick={(e) => e.stopPropagation()}>
             <div className={styles.dialogHead}>
-              <strong>설정</strong>
-              <button className={styles.iconBtn} onClick={() => setShowSettings(false)} aria-label="닫기" autoFocus>
+              <strong>{t("common.settings")}</strong>
+              <button className={styles.iconBtn} onClick={() => setShowSettings(false)} aria-label={t("common.close")} autoFocus>
                 <IconClose width={18} height={18} />
               </button>
             </div>
@@ -402,8 +406,8 @@ export default function SetupScreen() {
         <Mascot size={72} />
         <span className={styles.bubble}>
           {records.length === 0
-            ? "처음이라면 1분 50초 체험 운행으로 한강부터 건너봐요."
-            : "집중하는 모든 순간이, 좋은 곳으로 데려다줄 거예요."}
+            ? t("setup.mascotFirst")
+            : t("setup.mascot")}
         </span>
       </div>
     </main>

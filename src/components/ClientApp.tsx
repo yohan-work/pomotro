@@ -5,6 +5,7 @@ import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { stationsBetween } from "@/data/lines";
 import { DEMO_ROUTE } from "@/lib/recommend";
 import { minJourneySec } from "@/sim/journey";
+import { tr, useLang } from "@/i18n";
 import { useAppStore } from "@/store/useAppStore";
 import CompleteScreen from "./CompleteScreen";
 import RecordsScreen from "./RecordsScreen";
@@ -29,6 +30,11 @@ export default function ClientApp() {
   const lastRecordId = useAppStore((s) => s.lastRecordId);
   const view = useAppStore((s) => s.view);
   const todPref = useAppStore((s) => s.timeOfDay);
+  const lang = useLang();
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    if (!useAppStore.getState().activeSession) document.title = tr(lang, "app.title");
+  }, [lang]);
 
   // 밤(한국 시간 또는 직접 고른 밤 풍경)이거나 시스템이 다크 모드면 화면 전체를 어둡게
   useEffect(() => {

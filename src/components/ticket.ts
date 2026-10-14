@@ -1,5 +1,6 @@
 /** 집중 완료 승차권 — 캔버스로 그려 화면 표시와 PNG 저장에 같은 결과를 쓴다 */
 import { getStation, LINE_BY_ID } from "@/data/lines";
+import { tr, type Lang, type StringKey } from "@/i18n";
 import type { RideRecord } from "@/store/useAppStore";
 
 export const TICKET_W = 1080;
@@ -42,7 +43,8 @@ function drawMascot(c: CanvasRenderingContext2D, x: number, y: number, s: number
   c.restore();
 }
 
-export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySec: number) {
+export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySec: number, lang: Lang = "ko") {
+  const T = (k: StringKey, v?: Record<string, string | number>) => tr(lang, k, v);
   const W = TICKET_W;
   const H = TICKET_H;
   const from = getStation(rec.fromId);
@@ -81,30 +83,39 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.fillText("METRO", 72, 67);
   c.font = "600 18px Pretendard, sans-serif";
   c.globalAlpha = 0.85;
-  c.fillText(`FOCUS TICKET · ${line.nameKo}`, 172, 68);
+  c.fillText(`FOCUS TICKET · ${T("line.name", { n: line.id })}`, 172, 68);
   c.globalAlpha = 1;
   const d = new Date(rec.completedAt);
-  const date = d.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });
+  const date = d.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });
   c.textAlign = "right";
   c.font = "600 20px Pretendard, sans-serif";
   c.fillText(date, W - 72, 68);
   c.textAlign = "left";
 
-  // 역명
+  // 역명 — 영어 화면은 영문이 크게. 출발·도착이 일러스트 앞까지 들어가도록 글자 크기를 맞춘다
+  const big = (st: typeof from) => (lang === "en" ? st.nameEn : st.nameKo);
+  const small = (st: typeof from) => (lang === "en" ? st.nameKo : st.nameEn);
+  let size = 72;
+  const room = W - 430 - 72;
+  for (; size > 34; size -= 2) {
+    c.font = `800 ${size}px Pretendard, sans-serif`;
+    const w = c.measureText(big(from)).width + c.measureText(big(to)).width;
+    if (w + 100 <= room) break;
+  }
   c.fillStyle = "#252525";
-  c.font = "800 72px Pretendard, sans-serif";
-  c.fillText(from.nameKo, 72, 190);
-  const fw = c.measureText(from.nameKo).width;
+  c.font = `800 ${size}px Pretendard, sans-serif`;
+  c.fillText(big(from), 72, 190);
+  const fw = c.measureText(big(from)).width;
   c.fillStyle = line.color;
   c.font = "700 44px Pretendard, sans-serif";
   c.fillText("→", 72 + fw + 30, 192);
   c.fillStyle = "#252525";
-  c.font = "800 72px Pretendard, sans-serif";
-  c.fillText(to.nameKo, 72 + fw + 100, 190);
+  c.font = `800 ${size}px Pretendard, sans-serif`;
+  c.fillText(big(to), 72 + fw + 100, 190);
   c.fillStyle = "#8A8A8A";
   c.font = "600 20px Pretendard, sans-serif";
-  c.fillText(from.nameEn, 74, 246);
-  c.fillText(to.nameEn, 72 + fw + 102, 246);
+  c.fillText(small(from), 74, 246);
+  c.fillText(small(to), 72 + fw + 102, 246);
 
   // 일러스트: 철교 트러스와 강
   c.save();
@@ -160,10 +171,10 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   // 통계
   const mins = Math.max(1, Math.round(rec.focusSec / 60));
   const stats: Array<[string, string]> = [
-    ["집중 시간", rec.focusSec < 60 ? `${rec.focusSec}초` : `${mins}분`],
-    ["이동한 역", `${rec.stationCount}개`],
-    ["이동 거리", rec.distanceKm ? `${rec.distanceKm.toFixed(1)}km` : "—"],
-    ["오늘 누적", todaySec > 0 ? `${Math.round(todaySec / 60)}분` : "—"],
+    [T("ticket.focus"), rec.focusSec < 60 ? T("ticket.sec", { n: rec.focusSec }) : T("common.min", { n: mins })],
+    [T("ticket.stops"), T("ticket.stopsVal", { n: rec.stationCount })],
+    [T("ticket.distance"), rec.distanceKm ? `${rec.distanceKm.toFixed(1)}km` : "—"],
+    [T("ticket.today"), todaySec > 0 ? T("common.min", { n: Math.round(todaySec / 60) }) : "—"],
   ];
   stats.forEach(([k, v], i) => {
     const x = 72 + i * 175;
@@ -181,10 +192,12 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
     if (rec.taskDone) {
       c.fillStyle = line.color;
       c.font = "800 20px Pretendard, sans-serif";
-      c.fillText("✓ 완료", 72, H - 78);
+      const done = T("ticket.done");
+      c.fillText(done, 72, H - 78);
+      const dw = c.measureText(done).width;
       c.fillStyle = "#6B6B6B";
       c.font = "600 20px Pretendard, sans-serif";
-      c.fillText(`“${t}”`, 72 + 78, H - 78);
+      c.fillText(`“${t}”`, 72 + dw + 12, H - 78);
     } else c.fillText(`“${t}”`, 72, H - 78);
   }
 
@@ -210,10 +223,10 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.restore();
 }
 
-export async function ticketBlob(rec: RideRecord, todaySec: number): Promise<Blob | null> {
+export async function ticketBlob(rec: RideRecord, todaySec: number, lang: Lang = "ko"): Promise<Blob | null> {
   const cv = document.createElement("canvas");
   cv.width = TICKET_W;
   cv.height = TICKET_H;
-  drawTicket(cv.getContext("2d")!, rec, todaySec);
+  drawTicket(cv.getContext("2d")!, rec, todaySec, lang);
   return new Promise((res) => cv.toBlob(res, "image/png"));
 }

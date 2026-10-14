@@ -4,20 +4,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getStation } from "@/data/lines";
 import { makeBackup, parseBackup } from "@/lib/backup";
 import { kstDay, lastWeek, totals, visited, type DayBar } from "@/lib/stats";
+import { tr, useT, type Lang } from "@/i18n";
 import { useAppStore, type RideRecord } from "@/store/useAppStore";
 import { IconArrow, IconClose, IconDownload } from "./Icons";
 import LineMap from "./LineMap";
 import styles from "./RecordsScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
 
-function fmtDuration(sec: number) {
+function fmtDuration(sec: number, lang: Lang) {
   const m = Math.round(sec / 60);
-  if (m < 60) return `${m}분`;
-  return `${Math.floor(m / 60)}시간 ${m % 60 ? `${m % 60}분` : ""}`.trim();
+  if (m < 60) return tr(lang, "common.min", { n: m });
+  return m % 60 ? tr(lang, "rec.hours", { h: Math.floor(m / 60), m: m % 60 }) : tr(lang, "rec.hoursOnly", { h: Math.floor(m / 60) });
 }
 
 /** 최근 7일 집중 시간 — 단일 시리즈 막대 (범례 없음, 막대별 툴팁, 표 대체 제공) */
 function WeekChart({ data }: { data: DayBar[] }) {
+  const { t, name, lang } = useT();
+  void name;
+  void lang;
   const [hover, setHover] = useState<number | null>(null);
   const wrap = useRef<HTMLElement>(null);
   const [W, setW] = useState(320);
@@ -36,8 +40,8 @@ function WeekChart({ data }: { data: DayBar[] }) {
   const bw = Math.min(28, col * 0.42);
   return (
     <figure className={styles.chart} ref={wrap}>
-      <figcaption className={styles.chartTitle}>최근 7일 집중 시간</figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label="최근 7일 일별 집중 시간 막대 그래프">
+      <figcaption className={styles.chartTitle}>{t("rec.week")}</figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={t("rec.weekAria")}>
         <line x1={0} x2={W} y1={base + 0.5} y2={base + 0.5} className={styles.axis} />
         {data.map((d, i) => {
           const h = d.minutes > 0 ? Math.max(4, ((base - top) * d.minutes) / max) : 0;
@@ -55,7 +59,7 @@ function WeekChart({ data }: { data: DayBar[] }) {
               )}
               {showValue && hover === null && (
                 <text x={x + bw / 2} y={base - h - 5} className={styles.value}>
-                  {d.minutes}분
+                  {t("common.min", { n: d.minutes })}
                 </text>
               )}
               <text x={col * i + col / 2} y={H - 6} className={d.isToday ? styles.dayToday : styles.day}>
@@ -67,17 +71,17 @@ function WeekChart({ data }: { data: DayBar[] }) {
       </svg>
       {hover !== null && (
         <div className={styles.tooltip} style={{ left: `${((hover + 0.5) / data.length) * 100}%` }} role="status">
-          <b>{data[hover].label}</b> {data[hover].minutes}분 · {data[hover].rides}회
+          <b>{data[hover].label}</b> {t("rec.weekTip", { min: data[hover].minutes, n: data[hover].rides })}
         </div>
       )}
       <table className={styles.srOnly}>
-        <caption>최근 7일 집중 시간</caption>
+        <caption>{t("rec.week")}</caption>
         <tbody>
           {data.map((d) => (
             <tr key={d.day}>
               <th scope="row">{d.label}</th>
               <td>
-                {d.minutes}분, {d.rides}회
+                {t("rec.weekTip", { min: d.minutes, n: d.rides })}
               </td>
             </tr>
           ))}
@@ -88,6 +92,9 @@ function WeekChart({ data }: { data: DayBar[] }) {
 }
 
 function TicketDialog({ rec, onClose }: { rec: RideRecord; onClose: () => void }) {
+  const { t, name, lang } = useT();
+  void name;
+  void lang;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const ref = useRef<HTMLCanvasElement>(null);
   const records = useAppStore((s) => s.records);
@@ -98,17 +105,17 @@ function TicketDialog({ rec, onClose }: { rec: RideRecord; onClose: () => void }
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const draw = () => drawTicket(cv.getContext("2d")!, rec, daySec);
+    const draw = () => drawTicket(cv.getContext("2d")!, rec, daySec, lang);
     draw();
     document.fonts?.ready.then(draw).catch(() => {});
-  }, [rec, daySec]);
+  }, [rec, daySec, lang]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const save = async () => {
-    const blob = await ticketBlob(rec, daySec);
+    const blob = await ticketBlob(rec, daySec, lang);
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -119,14 +126,14 @@ function TicketDialog({ rec, onClose }: { rec: RideRecord; onClose: () => void }
   };
   return (
     <div className={styles.dialogBack} onClick={onClose}>
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-label="승차권" onClick={(e) => e.stopPropagation()}>
+      <div className={styles.dialog} role="dialog" aria-modal="true" aria-label={t("rec.ticket")} onClick={(e) => e.stopPropagation()}>
         <canvas ref={ref} width={TICKET_W} height={TICKET_H} className={styles.ticket} />
         <div className={styles.dialogActions}>
           <button className={styles.ghost} onClick={save}>
-            <IconDownload width={16} height={16} /> 이미지로 저장
+            <IconDownload width={16} height={16} /> {t("common.saveImage")}
           </button>
           <button className={styles.primary} onClick={onClose} autoFocus>
-            닫기
+            {t("common.close")}
           </button>
         </div>
         <button
@@ -137,7 +144,7 @@ function TicketDialog({ rec, onClose }: { rec: RideRecord; onClose: () => void }
             onClose();
           }}
         >
-          {confirmDelete ? "한 번 더 누르면 이 기록을 지워요" : "이 기록 삭제"}
+          {confirmDelete ? t("rec.deleteOneConfirm") : t("rec.deleteOne")}
         </button>
       </div>
     </div>
@@ -146,6 +153,9 @@ function TicketDialog({ rec, onClose }: { rec: RideRecord; onClose: () => void }
 
 /** 기록 백업·복원·초기화 — 기록은 이 브라우저에만 저장된다 */
 function DataPanel() {
+  const { t, name, lang } = useT();
+  void name;
+  void lang;
   const records = useAppStore((s) => s.records);
   const [msg, setMsg] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
@@ -160,29 +170,34 @@ function DataPanel() {
     a.download = `metro-records-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    setMsg(`기록 ${records.length}개를 파일로 저장했어요.`);
+    setMsg(t("rec.exported", { n: records.length }));
   };
 
   const importFile = async (file: File) => {
     try {
       const { records: incoming, invalid } = parseBackup(await file.text());
       const added = useAppStore.getState().importRecords(incoming);
-      setMsg(`${added}개를 새로 가져왔어요.${incoming.length - added > 0 ? ` 이미 있던 ${incoming.length - added}개는 건너뛰었어요.` : ""}${invalid ? ` 형식이 맞지 않는 ${invalid}개는 제외했어요.` : ""}`);
+      setMsg(
+        t("rec.imported", { n: added }) +
+          (incoming.length - added > 0 ? t("rec.importSkipped", { n: incoming.length - added }) : "") +
+          (invalid ? t("rec.importInvalid", { n: invalid }) : ""),
+      );
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "가져오지 못했어요.");
+      const code = e instanceof Error ? e.message : "";
+      setMsg(code === "not-json" ? t("rec.importNotJson") : code === "not-metro" ? t("rec.importNotMetro") : t("rec.importFailed"));
     }
   };
 
   return (
     <section className={styles.panel}>
-      <h2 className={styles.h2}>기록 관리</h2>
-      <p className={styles.note}>기록은 이 브라우저에만 저장돼요. 다른 기기로 옮기거나 보관하려면 파일로 내보내세요.</p>
+      <h2 className={styles.h2}>{t("rec.manage")}</h2>
+      <p className={styles.note}>{t("rec.manageNote")}</p>
       <div className={styles.dataRow}>
         <button className={styles.ghost} onClick={exportFile} disabled={records.length === 0}>
-          내보내기
+          {t("rec.export")}
         </button>
         <button className={styles.ghost} onClick={() => fileRef.current?.click()}>
-          가져오기
+          {t("rec.import")}
         </button>
         <input
           ref={fileRef}
@@ -202,10 +217,10 @@ function DataPanel() {
             if (!confirmClear) return setConfirmClear(true);
             useAppStore.getState().clearRecords();
             setConfirmClear(false);
-            setMsg("모든 기록을 지웠어요.");
+            setMsg(t("rec.cleared"));
           }}
         >
-          {confirmClear ? "한 번 더 누르면 모든 기록을 지워요" : "모두 지우기"}
+          {confirmClear ? t("rec.clearConfirm") : t("rec.clearAll")}
         </button>
       </div>
       {msg && (
@@ -218,48 +233,51 @@ function DataPanel() {
 }
 
 export default function RecordsScreen() {
+  const { t, name, lang } = useT();
+  void name;
+  void lang;
   const records = useAppStore((s) => s.records);
   const setView = useAppStore((s) => s.setView);
   const [open, setOpen] = useState<RideRecord | null>(null);
-  const t = useMemo(() => totals(records), [records]);
+  const tot = useMemo(() => totals(records), [records]);
   const v = useMemo(() => visited(records), [records]);
-  const week = useMemo(() => lastWeek(records), [records]);
+  const week = useMemo(() => lastWeek(records, Date.now(), tr(lang, "rec.days").split(","), tr(lang, "rec.today")), [records, lang]);
   const list = useMemo(() => records.filter((r) => r.mode === "focus").slice().reverse().slice(0, 30), [records]);
 
   const stats: Array<[string, string]> = [
-    ["총 집중", fmtDuration(t.focusSec)],
-    ["달린 거리", `${t.km.toFixed(1)}km`],
-    ["완주", `${t.rides}회`],
-    ["방문한 역", `${t.stations} / ${t.stationsTotal}`],
-    ["연속", `${t.streak}일`],
+    [t("rec.totalFocus"), fmtDuration(tot.focusSec, lang)],
+    [t("rec.distance"), `${tot.km.toFixed(1)}km`],
+    [t("rec.rides"), t("rec.ridesVal", { n: tot.rides })],
+    [t("rec.stations"), `${tot.stations} / ${tot.stationsTotal}`],
+    [t("rec.streak"), t("rec.streakVal", { n: tot.streak })],
   ];
 
   return (
     <main className={styles.records}>
       <div className={styles.inner}>
         <header className={styles.head}>
-          <button className={styles.back} onClick={() => setView("home")} aria-label="출발 화면으로">
+          <button className={styles.back} onClick={() => setView("home")} aria-label={t("rec.back")}>
             <IconClose width={18} height={18} />
           </button>
           <div>
-            <h1 className={styles.title}>나의 서울 노선도</h1>
-            <p className={styles.sub}>집중하며 달린 구간이 노선도에 쌓여요.</p>
+            <h1 className={styles.title}>{t("rec.title")}</h1>
+            <p className={styles.sub}>{t("rec.sub")}</p>
           </div>
         </header>
 
         <section className={styles.mapCard}>
-          <LineMap visited={v.segments} visitedStations={v.stations} label="달린 구간이 표시된 2호선 노선도" />
+          <LineMap visited={v.segments} visitedStations={v.stations} label={t("rec.mapLabel")} />
           <div className={styles.legend}>
             <span>
-              <i className={styles.legendRun} /> 달린 구간
+              <i className={styles.legendRun} /> {t("rec.legendRun")}
             </span>
             <span>
-              <i className={styles.legendDot} /> 방문한 역
+              <i className={styles.legendDot} /> {t("rec.legendVisited")}
             </span>
           </div>
         </section>
 
-        <section className={styles.stats} aria-label="누적 기록">
+        <section className={styles.stats} aria-label={t("rec.statsLabel")}>
           {stats.map(([k, val]) => (
             <div key={k} className={styles.stat}>
               <span>{k}</span>
@@ -273,12 +291,12 @@ export default function RecordsScreen() {
         </section>
 
         <section className={styles.panel}>
-          <h2 className={styles.h2}>탑승 기록</h2>
+          <h2 className={styles.h2}>{t("rec.list")}</h2>
           {list.length === 0 ? (
             <div className={styles.empty}>
-              <p>아직 기록이 없어요. 첫 집중 여행을 떠나볼까요?</p>
+              <p>{t("rec.empty")}</p>
               <button className={styles.primary} onClick={() => setView("home")}>
-                출발하러 가기 <IconArrow width={16} height={16} />
+                {t("rec.goDepart")} <IconArrow width={16} height={16} />
               </button>
             </div>
           ) : (
@@ -287,11 +305,11 @@ export default function RecordsScreen() {
                 <li key={r.id}>
                   <button className={styles.row} onClick={() => setOpen(r)}>
                     <span className={styles.rowDate}>
-                      {new Date(r.completedAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" })}
+                      {new Date(r.completedAt).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" })}
                     </span>
                     <span className={styles.rowRoute}>
-                      {getStation(r.fromId).nameKo} → {getStation(r.toId).nameKo}
-                      {r.partial && <em>중간 하차</em>}
+                      {name(getStation(r.fromId))} → {name(getStation(r.toId))}
+                      {r.partial && <em>{t("rec.partial")}</em>}
                       {r.task && (
                         <small>
                           {r.taskDone ? "✓ " : ""}
@@ -300,7 +318,7 @@ export default function RecordsScreen() {
                       )}
                     </span>
                     <span className={styles.rowMeta}>
-                      {fmtDuration(r.focusSec)} · {(r.distanceKm ?? 0).toFixed(1)}km
+                      {fmtDuration(r.focusSec, lang)} · {(r.distanceKm ?? 0).toFixed(1)}km
                     </span>
                   </button>
                 </li>
