@@ -1,0 +1,22 @@
+name: 기능 / 풍경 제안
+description: 새 기능, 장면, 사운드 아이디어를 제안해 주세요
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 어떤 경험을 더 좋게 만들고 싶나요?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안
+      description: 실제 장소라면 위치와 참고 자료(사진·지도 링크)를 함께 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 고려한 대안

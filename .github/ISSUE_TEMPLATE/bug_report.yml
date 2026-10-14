@@ -1,0 +1,48 @@
+name: 버그 제보
+description: 예상과 다르게 동작하는 부분을 알려주세요
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 있었나요?
+      description: 실제로 일어난 일과 기대한 동작을 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 방법
+      description: 가능하면 URL 파라미터로 장면을 지정해 주세요 (예 `?autostart=demo&seek=45&tod=sunset&debug=1`).
+      placeholder: |
+        1. 25분 선택 후 출발하기
+        2. 한강 구간에서 일시정지
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역
+      options:
+        - 창밖 풍경 / 렌더링
+        - 타이머 / 시뮬레이션
+        - 사운드
+        - 출발 화면 / 노선 추천
+        - 승차권 / 기록
+        - 기타
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 환경
+      placeholder: macOS 15 · Chrome 141 · 1440×900
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: 스크린샷 / 녹화
+      description: "`?debug=1` 을 붙이면 FPS와 시뮬레이션 상태가 함께 보입니다."

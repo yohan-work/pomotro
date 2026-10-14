@@ -1,0 +1,25 @@
+name: 노선 데이터 정정
+description: 역 정보, 지상/지하 구조, 운행시간, 거리가 실제와 다를 때
+title: "[Data] "
+labels: ["data"]
+body:
+  - type: input
+    id: target
+    attributes:
+      label: 대상 역 또는 구간
+      placeholder: 예) 한양대역 구조, 강변→잠실나루 운행시간
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: 현재 값과 올바른 값
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: 근거 자료
+      description: 공식 출처 링크를 우선해 주세요 (서울교통공사, 서울 열린데이터광장, 공공데이터포털 등).
+    validations:
+      required: true

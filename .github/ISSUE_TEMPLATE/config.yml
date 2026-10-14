@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 보안 취약점 제보
+    url: https://github.com/yohan-work/pomotro/security/advisories/new
+    about: 보안 문제는 공개 이슈 대신 비공개로 알려주세요.
+  - name: 아키텍처 문서
+    url: https://github.com/yohan-work/pomotro/blob/main/docs/architecture.md
+    about: 동작 방식과 설계 결정을 먼저 확인해 보세요.
