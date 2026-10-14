@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { unlockAudio } from "@/audio/instance";
-import { LINE2_META } from "@/data/line2";
-import { DATA_NOTICE, DEMO_ROUTE, formatMin, recommendRoutes } from "@/lib/recommend";
+import { LINE2_META, getStation, stationsBetween, type Station } from "@/data/line2";
+import { requestNotifyPermission } from "@/lib/background";
+import { DATA_NOTICE, DEMO_ROUTE, describeRoute, formatMin, recommendRoutes } from "@/lib/recommend";
 import { Renderer } from "@/render/Renderer";
 import { timeOfDayKST } from "@/render/palette";
-import { buildJourney } from "@/sim/journey";
+import { buildJourney, minJourneySec } from "@/sim/journey";
 import { todayFocusSec, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconTrain, Mascot } from "./Icons";
+import LineMap from "./LineMap";
 import styles from "./SetupScreen.module.css";
 
 const PRESETS = [15, 25, 40, 60];
@@ -61,19 +63,44 @@ export default function SetupScreen() {
   const focusMinutes = useAppStore((s) => s.focusMinutes);
   const task = useAppStore((s) => s.task);
   const records = useAppStore((s) => s.records);
-  const { setFocusMinutes, setTask, startSession } = useAppStore.getState();
+  const nextOriginId = useAppStore((s) => s.nextOriginId);
+  const breakJustEnded = useAppStore((s) => s.breakJustEnded);
+  const notify = useAppStore((s) => s.notify);
+  const { setFocusMinutes, setTask, startSession, setNotify } = useAppStore.getState();
   const [custom, setCustom] = useState(!PRESETS.includes(focusMinutes));
   const [selected, setSelected] = useState(0);
+  const [tab, setTab] = useState<"recommend" | "pick">("recommend");
+  const [continueRide, setContinueRide] = useState(Boolean(nextOriginId));
+  const [pickFrom, setPickFrom] = useState<string | null>(nextOriginId);
+  const [pickTo, setPickTo] = useState<string | null>(null);
 
-  const routes = useMemo(() => recommendRoutes(focusMinutes * 60), [focusMinutes]);
-  useEffect(() => setSelected(0), [focusMinutes]);
-  const route = routes[selected];
+  const focusSec = focusMinutes * 60;
+  const origin = continueRide && nextOriginId ? nextOriginId : undefined;
+  const routes = useMemo(() => recommendRoutes(focusSec, 3, origin), [focusSec, origin]);
+  useEffect(() => setSelected(0), [focusMinutes, origin]);
   const today = todayFocusSec(records);
 
+  const picked = useMemo(() => {
+    if (!pickFrom || !pickTo) return null;
+    const ids = stationsBetween(pickFrom, pickTo).map((st) => st.id);
+    return { ...describeRoute(ids), minSec: minJourneySec(ids) };
+  }, [pickFrom, pickTo]);
+  const tooShort = tab === "pick" && picked !== null && focusSec < picked.minSec;
+  const route = tab === "pick" ? picked : routes[selected];
+
+  const onPick = (st: Station) => {
+    if (!pickFrom || pickTo) {
+      setPickFrom(st.id);
+      setPickTo(null);
+    } else if (st.id === pickFrom) setPickFrom(null);
+    else setPickTo(st.id);
+  };
+
   const depart = () => {
-    if (!route) return;
+    if (!route || tooShort) return;
     unlockAudio();
-    startSession({ mode: "focus", stationIds: route.stationIds, totalSec: focusMinutes * 60, task: task.trim() });
+    if (notify) void requestNotifyPermission();
+    startSession({ mode: "focus", stationIds: route.stationIds, totalSec: focusSec, task: task.trim() });
   };
 
   const demo = () => {
@@ -152,44 +179,106 @@ export default function SetupScreen() {
           />
         </label>
 
+        {nextOriginId && (
+          <label className={styles.continue}>
+            <input
+              type="checkbox"
+              checked={continueRide}
+              onChange={(e) => {
+                setContinueRide(e.target.checked);
+                setPickFrom(e.target.checked ? nextOriginId : null);
+                setPickTo(null);
+              }}
+            />
+            <span>
+              {breakJustEnded ? <b>휴식 끝! </b> : null}
+              <b>{getStation(nextOriginId).nameKo}</b>역에서 이어 타기
+            </span>
+          </label>
+        )}
+
         <div className={styles.field}>
-          <span className={styles.label}>추천 노선</span>
-          <div className={styles.routes}>
-            {routes.map((r, i) => {
-              const diff = Math.round((focusMinutes * 60 - r.estSec) / 60);
-              return (
-                <button key={r.stationIds.join(">")} className={i === selected ? styles.routeOn : styles.route} onClick={() => setSelected(i)}>
-                  <span className={styles.routeTop}>
-                    <span className={styles.lineDot}>{LINE2_META.line}</span>
-                    <b>
-                      {r.from.nameKo} → {r.to.nameKo}
-                    </b>
-                    <span className={styles.est}>예상 약 {formatMin(r.estSec)}</span>
-                  </span>
-                  <span className={styles.tagline}>{r.tagline}</span>
-                  <span className={styles.routeMeta}>
-                    {r.stops}개 역 · {r.distanceKm}km
-                    {r.keywords.map((k) => (
-                      <span key={k} className={styles.kw}>
-                        {k}
-                      </span>
-                    ))}
-                  </span>
-                  {i === selected && diff !== 0 && (
-                    <span className={styles.diff}>
-                      실제 예상 소요시간과 {Math.abs(diff)}분 차이 — 집중시간 {focusMinutes}분에 맞춰 터널·시가지 구간을 늘리거나 줄여 연출해요.
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            {routes.length === 0 && <p className={styles.empty}>이 시간에 맞는 구간이 아직 없어요.</p>}
+          <div className={styles.tabs} role="tablist" aria-label="노선 고르기">
+            <button role="tab" aria-selected={tab === "recommend"} className={tab === "recommend" ? styles.tabOn : styles.tab} onClick={() => setTab("recommend")}>
+              추천 노선
+            </button>
+            <button role="tab" aria-selected={tab === "pick"} className={tab === "pick" ? styles.tabOn : styles.tab} onClick={() => setTab("pick")}>
+              직접 고르기
+            </button>
           </div>
+          {tab === "recommend" ? (
+            <div className={styles.routes}>
+              {routes.map((r, i) => {
+                const diff = Math.round((focusSec - r.estSec) / 60);
+                return (
+                  <button key={r.stationIds.join(">")} className={i === selected ? styles.routeOn : styles.route} onClick={() => setSelected(i)}>
+                    <span className={styles.routeTop}>
+                      <span className={styles.lineDot}>{LINE2_META.line}</span>
+                      <b>
+                        {r.from.nameKo} → {r.to.nameKo}
+                      </b>
+                      <span className={styles.est}>예상 약 {formatMin(r.estSec)}</span>
+                    </span>
+                    <span className={styles.tagline}>{r.tagline}</span>
+                    <span className={styles.routeMeta}>
+                      {r.stops}개 역 · {r.distanceKm}km
+                      {r.keywords.map((k) => (
+                        <span key={k} className={styles.kw}>
+                          {k}
+                        </span>
+                      ))}
+                    </span>
+                    {i === selected && diff !== 0 && (
+                      <span className={styles.diff}>
+                        실제 예상 소요시간과 {Math.abs(diff)}분 차이 — 집중시간 {focusMinutes}분에 맞춰 터널·시가지 구간을 늘리거나 줄여 연출해요.
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              {routes.length === 0 && <p className={styles.empty}>이 시간에 맞는 구간이 아직 없어요. 집중 시간을 늘려보세요.</p>}
+            </div>
+          ) : (
+            <div className={styles.picker}>
+              <LineMap originId={pickFrom} destId={pickTo} onPick={onPick} label="출발역과 도착역을 고르세요" />
+              <p className={styles.pickHint} aria-live="polite">
+                {!pickFrom ? (
+                  "출발역을 눌러주세요"
+                ) : !picked ? (
+                  <>
+                    <b>{getStation(pickFrom).nameKo}</b> 출발 · 도착역을 눌러주세요 (내선순환)
+                  </>
+                ) : (
+                  <>
+                    <b>
+                      {picked.from.nameKo} → {picked.to.nameKo}
+                    </b>{" "}
+                    · {picked.stops}개 역 · {picked.distanceKm}km · 예상 약 {formatMin(picked.estSec)}
+                    {tooShort ? (
+                      <span className={styles.warn}>
+                        이 구간은 연출에 최소 {Math.ceil(picked.minSec / 60)}분이 필요해요. 집중 시간을 늘리거나 가까운 역을 골라주세요.
+                      </span>
+                    ) : (
+                      Math.round((focusSec - picked.estSec) / 60) !== 0 && (
+                        <span className={styles.diff}>
+                          실제 예상 소요시간과 {Math.abs(Math.round((focusSec - picked.estSec) / 60))}분 차이 — 집중시간에 맞춰 연출 구간을 조정해요.
+                        </span>
+                      )
+                    )}
+                  </>
+                )}
+              </p>
+            </div>
+          )}
         </div>
 
-        <button className={styles.depart} onClick={depart} disabled={!route}>
+        <button className={styles.depart} onClick={depart} disabled={!route || tooShort}>
           출발하기 <IconArrow width={18} height={18} />
         </button>
+        <label className={styles.notify}>
+          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+          다른 창에서 작업할 때 도착하면 알림 받기
+        </label>
         <button className={styles.demo} onClick={demo}>
           1분 50초 체험 운행 · 당산 → 합정 (한강 철교)
         </button>

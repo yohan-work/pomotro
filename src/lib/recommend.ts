@@ -6,7 +6,7 @@
  * 3. 점수 = 예상 소요시간 오차 비율 − 풍경 보너스(한강 횡단·지상 구간)
  * 4. 상위 3개 (출발역 중복은 최대 2개까지)
  */
-import { LINE2_META, STATIONS, estimateRouteSec, getSegment, routeDistanceKm, stationsBetween, type Station } from "../data/line2";
+import { LINE2_META, STATIONS, estimateRouteSec, getSegment, getStation, routeDistanceKm, stationsBetween, type Station } from "../data/line2";
 import { minJourneySec } from "../sim/journey";
 
 export interface RouteSuggestion {
@@ -50,9 +50,9 @@ function describe(stations: Station[]): { keywords: string[]; tagline: string; s
   return { keywords: keywords.slice(0, 3), tagline, scenic };
 }
 
-export function recommendRoutes(focusSec: number, limit = 3): RouteSuggestion[] {
+export function recommendRoutes(focusSec: number, limit = 3, originId?: string): RouteSuggestion[] {
   const cands: Array<RouteSuggestion & { score: number }> = [];
-  for (const o of ORIGINS) {
+  for (const o of originId ? [originId] : ORIGINS) {
     const oi = STATIONS.findIndex((s) => s.id === o);
     // 순환선: 출발역에서 내선순환으로 최대 30개 역까지
     for (let k = 1; k <= 30; k++) {
@@ -80,7 +80,7 @@ export function recommendRoutes(focusSec: number, limit = 3): RouteSuggestion[] 
   const perOrigin = new Map<string, number>();
   for (const c of cands) {
     const n = perOrigin.get(c.from.id) ?? 0;
-    if (n >= 2) continue;
+    if (!originId && n >= 2) continue;
     perOrigin.set(c.from.id, n + 1);
     const { score: _score, ...rest } = c;
     void _score;
@@ -91,6 +91,22 @@ export function recommendRoutes(focusSec: number, limit = 3): RouteSuggestion[] 
 }
 
 /** 체험 운행: 당산 → 합정 한 구간을 약 1분 50초로 */
+/** 직접 고른 구간 요약 */
+export function describeRoute(stationIds: string[]): RouteSuggestion {
+  const stations = stationIds.map(getStation);
+  const d = describe(stations);
+  return {
+    stationIds,
+    from: stations[0],
+    to: stations[stations.length - 1],
+    estSec: estimateRouteSec(stations),
+    distanceKm: routeDistanceKm(stations),
+    stops: stations.length - 1,
+    keywords: d.keywords,
+    tagline: d.tagline,
+  };
+}
+
 export const DEMO_ROUTE = { stationIds: ["dangsan", "hapjeong"], totalSec: 110 };
 
 export const DATA_NOTICE = `역 순서·운행시간·거리: ${LINE2_META.source.provider.replace(/ \(.*\)/, "")} 공식 데이터(${LINE2_META.source.updated} 갱신, ${LINE2_META.source.license}). 예상 소요시간에는 추정 정차시간이 포함됩니다.`;

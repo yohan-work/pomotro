@@ -1,0 +1,105 @@
+.map {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font);
+  user-select: none;
+}
+
+.river {
+  fill: none;
+  stroke: #d5e8ee;
+  stroke-width: 16;
+  stroke-linecap: round;
+}
+
+.riverLabel {
+  fill: #8fb5c2;
+  font-size: 9px;
+  font-weight: 700;
+  text-anchor: middle;
+  letter-spacing: 0.3em;
+}
+
+.loop {
+  fill: none;
+  stroke: #cfe3d9;
+  stroke-width: 6;
+}
+
+.visited {
+  fill: none;
+  stroke: #8cc7ad;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.route {
+  fill: none;
+  stroke: var(--c-primary);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.station {
+  outline: none;
+}
+
+.pickable {
+  cursor: pointer;
+}
+
+.hit {
+  fill: transparent;
+}
+
+.dot {
+  fill: #fff;
+  stroke: var(--c-primary);
+  stroke-width: 1.6;
+  transition: r 0.15s;
+}
+
+.dotVisited {
+  fill: var(--c-primary);
+  stroke: #fff;
+  stroke-width: 1.2;
+}
+
+.origin,
+.dest {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.origin {
+  fill: #252525;
+}
+
+.dest {
+  fill: var(--c-accent);
+}
+
+.station:focus-visible .dot,
+.station:focus-visible .dotVisited {
+  stroke: #252525;
+  stroke-width: 2.4;
+}
+
+.label,
+.labelStrong {
+  fill: #6b6b6b;
+  font-size: 9px;
+  font-weight: 600;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 3px;
+}
+
+.labelStrong {
+  fill: #252525;
+  font-size: 10.5px;
+  font-weight: 800;
+}
