@@ -89,3 +89,31 @@ export const LINE2_OFFICIAL_LOOP_KM = ${total};
 `;
 writeFileSync(OUT, body);
 console.log(`${segments.length} segments, ${total} km → ${OUT}`);
+
+/* ───────── 3호선 (서울교통공사 구간 지축 → 오금) ───────── */
+const rows3 = readFileSync(CSV_PATH, "utf8")
+  .trim()
+  .split("\n")
+  .slice(1)
+  .map((l) => l.split(","))
+  .filter((c) => c[1] === "3");
+if (rows3[0]?.[2] !== "지축" || rows3[rows3.length - 1]?.[2] !== "오금") throw new Error("Line 3 range changed");
+const seg3 = rows3.slice(1).map((c, i) => ({ from: rows3[i][2], to: c[2], runSec: toSec(c[3]), distanceKm: Number(c[4]) }));
+const total3 = Number(rows3[rows3.length - 1][5]);
+const sum3 = seg3.reduce((a, s) => a + s.distanceKm, 0);
+if (Math.abs(sum3 - total3) > 0.05) throw new Error(`line 3 distance sum ${sum3} != cumulative ${total3}`);
+const OUT3 = "src/data/line3.official.ts";
+writeFileSync(
+  OUT3,
+  `/**
+ * 자동 생성 파일 — 직접 수정하지 말 것. \`npm run data:import\` 로 다시 만든다.
+ * 출처·라이선스: line2.official.ts 와 같은 데이터셋 (${DATASET.title}, ${DATASET.updated} 갱신, ${DATASET.license})
+ */
+
+/** 3호선 지축 → 오금 인접 역간 표준 운행시간·거리 (서울교통공사 운영 구간) */
+export const LINE3_OFFICIAL_SEGMENTS: ReadonlyArray<{ from: string; to: string; runSec: number; distanceKm: number }> = ${JSON.stringify(seg3, null, 2)};
+
+export const LINE3_OFFICIAL_KM = ${total3};
+`,
+);
+console.log(`${seg3.length} segments, ${total3} km → ${OUT3}`);
