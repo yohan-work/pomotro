@@ -17,6 +17,7 @@ import type { Channel } from "../audio/AudioEngine";
 import { getStation, routeDistanceKm, stationsBetween } from "../data/line2";
 import { epochNow, pauseTiming, resumeTiming, type SessionTiming } from "../sim/clock";
 import type { TimeOfDay } from "../render/palette";
+import type { QualityMode } from "../render/Renderer";
 
 export type SessionMode = "demo" | "focus" | "break";
 export type BreakKind = "short" | "long";
@@ -58,6 +59,7 @@ export interface AppState {
   task: string;
   timeOfDay: TimeOfDay | "auto";
   reducedMotion: "system" | "on" | "off";
+  quality: QualityMode;
   volumes: Record<Channel, number>;
   masterVolume: number;
   muted: boolean;
@@ -78,6 +80,7 @@ export interface AppState {
   setTask: (t: string) => void;
   setTimeOfDay: (t: TimeOfDay | "auto") => void;
   setReducedMotion: (r: "system" | "on" | "off") => void;
+  setQuality: (q: QualityMode) => void;
   setVolume: (c: Channel, v: number) => void;
   setMasterVolume: (v: number) => void;
   setMuted: (m: boolean) => void;
@@ -120,6 +123,8 @@ export const useAppStore = create<AppState>()(
       setTask: (t) => set({ task: t }),
       setTimeOfDay: (t) => set({ timeOfDay: t }),
       setReducedMotion: (r) => set({ reducedMotion: r }),
+      quality: "auto",
+      setQuality: (q) => set({ quality: q }),
       setVolume: (c, v) => set({ volumes: { ...get().volumes, [c]: v } }),
       setMasterVolume: (v) => set({ masterVolume: v }),
       setMuted: (m) => set({ muted: m }),
@@ -233,6 +238,7 @@ export const useAppStore = create<AppState>()(
         task: s.task,
         timeOfDay: s.timeOfDay,
         reducedMotion: s.reducedMotion,
+        quality: s.quality,
         volumes: s.volumes,
         masterVolume: s.masterVolume,
         muted: s.muted,

@@ -91,6 +91,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
 
   const timeOfDayPref = useAppStore((s) => s.timeOfDay);
   const reducedPref = useAppStore((s) => s.reducedMotion);
+  const qualityPref = useAppStore((s) => s.quality);
   const muted = useAppStore((s) => s.muted);
   const [systemReduced, setSystemReduced] = useState(false);
   useEffect(() => {
@@ -104,8 +105,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const tod: TimeOfDay = debug.tod ?? (timeOfDayPref === "auto" ? timeOfDayKST(clock) : timeOfDayPref);
 
   // 렌더 루프에서 읽는 최신 설정
-  const live = useRef({ tod, reducedMotion });
-  live.current = { tod, reducedMotion };
+  const live = useRef({ tod, reducedMotion, quality: qualityPref });
+  live.current = { tod, reducedMotion, quality: qualityPref };
 
   useEffect(() => {
     const id = setInterval(() => setClock(new Date()), 10_000);
@@ -208,6 +209,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           time: nowP / 1000,
           timeOfDay: live.current.tod,
           reducedMotion: live.current.reducedMotion,
+          qualityMode: live.current.quality,
         });
         // 손잡이: 가감속 관성 + 주행 흔들림을 받는 감쇠 진자
         const rm = live.current.reducedMotion;
@@ -596,7 +598,13 @@ function SoundPanel({ onClose, onEnable, audioOn }: { onClose: () => void; onEna
 function SettingsPanel({ onClose }: { onClose: () => void }) {
   const tod = useAppStore((s) => s.timeOfDay);
   const rm = useAppStore((s) => s.reducedMotion);
-  const { setTimeOfDay, setReducedMotion } = useAppStore.getState();
+  const q = useAppStore((s) => s.quality);
+  const { setTimeOfDay, setReducedMotion, setQuality } = useAppStore.getState();
+  const qOpts: Array<[typeof q, string]> = [
+    ["auto", "자동"],
+    ["high", "높음"],
+    ["low", "낮음 (배터리 절약)"],
+  ];
   const todOpts: Array<[typeof tod, string]> = [
     ["auto", "자동 (한국 시간)"],
     ["day", "낮"],
@@ -626,6 +634,14 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
       <p className={styles.panelText} style={{ margin: "12px 0 0" }}>
         5초 동안 입력이 없으면 버튼이 사라져요. <b>H</b> 키로 집중 모드를 켜고 끌 수 있어요.
       </p>
+      <strong className={styles.panelSub}>그래픽 품질</strong>
+      <div className={styles.segment}>
+        {qOpts.map(([v, l]) => (
+          <button key={v} className={q === v ? styles.segOn : ""} onClick={() => setQuality(v)}>
+            {l}
+          </button>
+        ))}
+      </div>
       <strong className={styles.panelSub}>모션 줄이기</strong>
       <div className={styles.segment}>
         {rmOpts.map(([v, l]) => (

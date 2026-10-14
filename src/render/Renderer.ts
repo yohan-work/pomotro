@@ -13,7 +13,11 @@ export interface RenderInput {
   time: number;
   timeOfDay: TimeOfDay;
   reducedMotion: boolean;
+  /** auto: 프레임 시간에 따라 자동 / high: 항상 고해상도 / low: 저해상도·간소화 */
+  qualityMode?: QualityMode;
 }
+
+export type QualityMode = "auto" | "high" | "low";
 
 /**
  * 창밖 캔버스 렌더러.
@@ -33,6 +37,7 @@ export class Renderer {
   private lastTime = -1;
   private frameAvg = 16;
   private lastPalette: TimeOfDay | null = null;
+  private mode: QualityMode = "auto";
   fps = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -56,8 +61,17 @@ export class Renderer {
   }
 
   /** 렌더 시간 측정 기반 품질 자동 조절 */
+  private setMode(mode: QualityMode) {
+    if (mode === this.mode) return;
+    this.mode = mode;
+    this.quality = mode === "low" ? 0.6 : 1;
+    this.dpr = 0;
+    this.resize(this.W, this.H);
+  }
+
   private adapt(frameMs: number) {
     this.frameAvg = this.frameAvg * 0.95 + frameMs * 0.05;
+    if (this.mode !== "auto") return;
     if (this.frameAvg > 24 && this.quality > 0.6) {
       this.quality = 0.6;
       this.dpr = 0;
@@ -71,6 +85,7 @@ export class Renderer {
 
   render(input: RenderInput) {
     if (this.W === 0 || this.H === 0) return;
+    this.setMode(input.qualityMode ?? "auto");
     const t0 = performance.now();
     const dt = this.lastTime < 0 ? 0 : Math.min(0.1, Math.max(0, input.time - this.lastTime));
     this.lastTime = input.time;
