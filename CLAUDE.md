@@ -34,7 +34,8 @@ src/data/line2.official.ts  자동 생성 — 공식 운행시간·거리 (직�
 data/official/         공식 원본 CSV (공공누리 1유형, 출처표시)
 src/data/scenery.ts    연출 데이터 (구간별 풍경 순서·길이, 시뮬레이션 미터). 가상값
 src/sim/               시간 → 상태 순수 함수 엔진 (journey, profile, clock)
-src/render/            Canvas 2D 창밖 패럴랙스 (scene = 레이어, sprites = 캐시 오브젝트, palette = 시간대)
+src/render/            Canvas 2D 창밖 패럴랙스 (sprites = 캐시 오브젝트, palette = 시간대, conditions = 날씨·계절)
+src/render/scene/      레이어 모듈: core(좌표·공용) sky far water city station track passing effects, index = 합성
 src/audio/             WebAudio 합성 사운드 (외부 음원 없음)
 src/store/             Zustand + localStorage (세션·기록·설정)
 src/components/        DOM UI (객실 실내, HUD, 출발/완료 화면)
