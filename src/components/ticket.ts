@@ -1,5 +1,5 @@
 /** 집중 완료 승차권 — 캔버스로 그려 화면 표시와 PNG 저장에 같은 결과를 쓴다 */
-import { getStation } from "@/data/line2";
+import { getStation, LINE_BY_ID } from "@/data/lines";
 import type { RideRecord } from "@/store/useAppStore";
 
 export const TICKET_W = 1080;
@@ -46,6 +46,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   const W = TICKET_W;
   const H = TICKET_H;
   const from = getStation(rec.fromId);
+  const line = LINE_BY_ID[from.line];
   const to = getStation(rec.toId);
   c.clearRect(0, 0, W, H);
 
@@ -70,7 +71,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.save();
   rr(c, 30, 30, W - 60, H - 60, 28);
   c.clip();
-  c.fillStyle = "#2E946B";
+  c.fillStyle = line.color;
   c.fillRect(30, 30, W - 60, 74);
   c.restore();
 
@@ -80,7 +81,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.fillText("METRO", 72, 67);
   c.font = "600 18px Pretendard, sans-serif";
   c.globalAlpha = 0.85;
-  c.fillText("FOCUS TICKET · 2호선", 172, 68);
+  c.fillText(`FOCUS TICKET · ${line.nameKo}`, 172, 68);
   c.globalAlpha = 1;
   const d = new Date(rec.completedAt);
   const date = d.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });
@@ -94,7 +95,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.font = "800 72px Pretendard, sans-serif";
   c.fillText(from.nameKo, 72, 190);
   const fw = c.measureText(from.nameKo).width;
-  c.fillStyle = "#2E946B";
+  c.fillStyle = line.color;
   c.font = "700 44px Pretendard, sans-serif";
   c.fillText("→", 72 + fw + 30, 192);
   c.fillStyle = "#252525";
@@ -114,7 +115,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.moveTo(0, 100);
   c.lineTo(320, 100);
   c.stroke();
-  c.strokeStyle = "#2E946B";
+  c.strokeStyle = line.color;
   c.lineWidth = 4;
   c.beginPath();
   c.moveTo(0, 70);
@@ -140,7 +141,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   rr(c, 90, 38, 150, 30, 10);
   c.fill();
   c.stroke();
-  c.fillStyle = "#2E946B";
+  c.fillStyle = line.color;
   c.fillRect(92, 56, 146, 6);
   c.fillStyle = "#9DBBD0";
   for (let k = 0; k < 4; k++) c.fillRect(104 + k * 32, 44, 20, 9);
@@ -178,7 +179,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
     c.font = "600 20px Pretendard, sans-serif";
     const t = rec.task.length > 26 ? rec.task.slice(0, 26) + "…" : rec.task;
     if (rec.taskDone) {
-      c.fillStyle = "#2E946B";
+      c.fillStyle = line.color;
       c.font = "800 20px Pretendard, sans-serif";
       c.fillText("✓ 완료", 72, H - 78);
       c.fillStyle = "#6B6B6B";

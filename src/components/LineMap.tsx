@@ -1,12 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SEGMENTS, STATIONS, type Station } from "@/data/line2";
+import { SEGMENTS, STATIONS } from "@/data/line2";
+import { LINE3 } from "@/data/line3";
+import { LINE3_OFFICIAL_SEGMENTS } from "@/data/line3.official";
+import type { LineId, Station } from "@/data/lines";
 import styles from "./LineMap.module.css";
 
 /**
- * 2호선 순환 노선도 — 역 간격은 공식 역간 거리 비율.
- * 둥근 사각형 위를 시계 방향(내선순환)으로 돈다. 한강은 두 횡단 구간(당산→합정, 강변→잠실나루)을 잇는다.
+ * 노선도 — 역 간격은 공식 역간 거리 비율.
+ * 2호선: 둥근 사각형 위를 시계 방향(내선순환)으로 돈다. 한강은 두 횡단 구간(당산→합정, 강변→잠실나루)을 잇는다.
+ * 3호선: 2호선과 만나는 을지로3가·교대를 기준점으로, 그 사이를 공식 거리 비율로 잇는 개략 경로.
  */
 
 const VB_W = 400;
@@ -67,10 +71,80 @@ function pathBetween(s0: number, s1: number): string {
   return `M${pts.join("L")}`;
 }
 
+/* ───────── 한강 (2호선 횡단 지점 기준) ───────── */
+const idx2 = (id: string) => STATIONS.findIndex((s) => s.id === id);
+const midOf = (a: string, b: string) => at((sOf(idx2(a)) + sOf(idx2(b))) / 2);
+const RW = midOf("dangsan", "hapjeong");
+const RE = midOf("gangbyeon", "jamsillaru");
+const RIVER_MID_Y = (RW.y + RE.y) / 2 + 18;
+const RIVER_PATH = `M-10,${RW.y + 14} C${RW.x - 10},${RW.y + 6} ${RW.x + 40},${RW.y - 4} ${VB_W / 2},${RIVER_MID_Y} S${RE.x - 30},${RE.y + 6} ${VB_W + 10},${RE.y - 12}`;
+
+/* ───────── 3호선 개략 경로 ───────── */
+type Pt = { x: number; y: number; nx: number; ny: number };
+const L3_CUM = [0];
+for (const sg of LINE3_OFFICIAL_SEGMENTS) L3_CUM.push(L3_CUM[L3_CUM.length - 1] + sg.distanceKm);
+const E3 = posOf(idx2("euljiro-3ga"));
+const GY = posOf(idx2("seoul-natl-univ-of-education"));
+const L3_ANCHORS: Record<string, { x: number; y: number }> = {
+  "l3-jichuk": { x: E3.x - 112, y: -50 },
+  "l3-dongnimmun": { x: E3.x - 62, y: -4 },
+  "l3-euljiro-3ga": { x: E3.x, y: E3.y },
+  "l3-oksu": { x: VB_W / 2 + 4, y: RIVER_MID_Y - 18 },
+  "l3-apgujeong": { x: VB_W / 2 + 8, y: RIVER_MID_Y + 20 },
+  "l3-seoul-natl-univ-of-education": { x: GY.x, y: GY.y },
+  "l3-yangjae": { x: GY.x - 6, y: GY.y + 30 },
+  "l3-ogeum": { x: VB_W - 8, y: GY.y + 46 },
+};
+const L3_POS: Pt[] = (() => {
+  const st = LINE3.stations;
+  const anchorIdx = st.map((s, i) => (L3_ANCHORS[s.id] ? i : -1)).filter((i) => i >= 0);
+  const out: Pt[] = [];
+  for (let k = 0; k < anchorIdx.length - 1; k++) {
+    const i0 = anchorIdx[k];
+    const i1 = anchorIdx[k + 1];
+    const a = L3_ANCHORS[st[i0].id];
+    const b = L3_ANCHORS[st[i1].id];
+    for (let i = i0; i < i1 || (k === anchorIdx.length - 2 && i === i1); i++) {
+      const t = (L3_CUM[i] - L3_CUM[i0]) / (L3_CUM[i1] - L3_CUM[i0]);
+      out[i] = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, nx: 1, ny: 0 };
+    }
+  }
+  // 이름은 선의 진행 방향에 수직으로 (오른쪽·아래쪽 우선)
+  out.forEach((p, i) => {
+    const a = out[Math.max(0, i - 1)];
+    const b = out[Math.min(out.length - 1, i + 1)];
+    let nx = b.y - a.y;
+    let ny = -(b.x - a.x);
+    const len = Math.hypot(nx, ny) || 1;
+    nx /= len;
+    ny /= len;
+    if (nx + ny * 0.6 < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    p.nx = nx;
+    p.ny = ny;
+  });
+  return out;
+})();
+const L3_KEY = new Set(["l3-jichuk", "l3-gyeongbokgung", "l3-oksu", "l3-apgujeong", "l3-express-bus-terminal", "l3-yangjae", "l3-ogeum"]);
+const L3_COLOR = LINE3.color;
+
+const poly = (pts: Pt[]) => `M${pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join("L")}`;
+function l3Path(i: number, j: number): string {
+  const [a, b] = i < j ? [i, j] : [j, i];
+  return poly(L3_POS.slice(a, b + 1));
+}
+
+const VB_TOP = -62;
+const VB_BOTTOM = VB_H + 66;
+
 export interface LineMapProps {
   originId?: string | null;
   destId?: string | null;
   onPick?: (station: Station) => void;
+  /** 고르기 대상 노선 (다른 노선은 흐리게, 선택 불가) */
+  activeLine?: LineId;
   /** 이미 달린 구간 id (from__to) — 나의 노선도 */
   visited?: Set<string>;
   /** 방문한 역 id */
@@ -78,87 +152,112 @@ export interface LineMapProps {
   label?: string;
 }
 
-export default function LineMap({ originId, destId, onPick, visited, visitedStations, label = "2호선 노선도" }: LineMapProps) {
+interface Node {
+  st: Station;
+  p: Pt;
+  key: boolean;
+  /** 노선 안에서의 순서 */
+  i: number;
+}
+
+const NODES2: Node[] = STATIONS.map((st, i) => ({ st, p: posOf(i), key: KEY.has(st.id), i }));
+const NODES3: Node[] = LINE3.stations.map((st, i) => ({ st, p: L3_POS[i], key: L3_KEY.has(st.id), i }));
+
+export default function LineMap({ originId, destId, onPick, activeLine, visited, visitedStations, label = "서울 지하철 노선도" }: LineMapProps) {
   const [hover, setHover] = useState<string | null>(null);
-  const idx = (id?: string | null) => (id ? STATIONS.findIndex((s) => s.id === id) : -1);
-  const oi = idx(originId);
-  const di = idx(destId);
+  const nodeOf = (id?: string | null) => (id ? (NODES2.find((n) => n.st.id === id) ?? NODES3.find((n) => n.st.id === id) ?? null) : null);
+  const o = nodeOf(originId);
+  const d = nodeOf(destId);
 
   const loopPath = useMemo(() => pathBetween(0, P - 0.01) + "Z", []);
-  const route = oi >= 0 && di >= 0 && oi !== di ? pathBetween(sOf(oi), sOf(di)) : null;
-
-  // 한강: 두 횡단 구간의 중간점을 잇는 띠
-  const river = useMemo(() => {
-    const mid = (a: string, b: string) => {
-      const i = STATIONS.findIndex((s) => s.id === a);
-      const j = STATIONS.findIndex((s) => s.id === b);
-      return at((sOf(i) + sOf(j)) / 2);
-    };
-    const w = mid("dangsan", "hapjeong");
-    const e = mid("gangbyeon", "jamsillaru");
-    return `M-10,${w.y + 14} C${w.x - 10},${w.y + 6} ${w.x + 40},${w.y - 4} ${VB_W / 2},${(w.y + e.y) / 2 + 18} S${e.x - 30},${e.y + 6} ${VB_W + 10},${e.y - 12}`;
-  }, []);
+  const l3Full = useMemo(() => poly(L3_POS), []);
+  let route: { d: string; color: string } | null = null;
+  if (o && d && o.st.line === d.st.line && o.st.id !== d.st.id) {
+    route = o.st.line === "2" ? { d: pathBetween(sOf(o.i), sOf(d.i)), color: "var(--c-primary)" } : { d: l3Path(o.i, d.i), color: L3_COLOR };
+  }
 
   const visitedPaths = useMemo(() => {
     if (!visited?.size) return [];
-    return SEGMENTS.map((seg, i) => (visited.has(seg.id) ? pathBetween(sOf(i), sOf((i + 1) % STATIONS.length)) : null)).filter(Boolean) as string[];
+    const out: Array<{ d: string; line: LineId }> = [];
+    SEGMENTS.forEach((seg, i) => {
+      if (visited.has(seg.id)) out.push({ d: pathBetween(sOf(i), sOf((i + 1) % STATIONS.length)), line: "2" });
+    });
+    LINE3.stations.forEach((st, i) => {
+      const nx = LINE3.stations[i + 1];
+      if (nx && (visited.has(`${st.id}__${nx.id}`) || visited.has(`${nx.id}__${st.id}`))) out.push({ d: l3Path(i, i + 1), line: "3" });
+    });
+    return out;
   }, [visited]);
 
+  const dim = (line: LineId) => activeLine !== undefined && activeLine !== line;
+
+  const renderNode = (n: Node, all: Node[]) => {
+    const { st, p } = n;
+    const pickable = Boolean(onPick) && !dim(st.line);
+    const isEnd = st.id === o?.st.id || st.id === d?.st.id;
+    const near = [o, d].some((e) => e && e.st.line === st.line && !isEnd && Math.abs(e.i - n.i) <= 1);
+    const show = !dim(st.line) && (isEnd || hover === st.id || (n.key && !near));
+    const lx = p.x + p.nx * (isEnd ? 13 : 10);
+    const ly = p.y + p.ny * (isEnd ? 13 : 10);
+    const anchor = p.nx > 0.4 ? "start" : p.nx < -0.4 ? "end" : "middle";
+    void all;
+    return (
+      <g
+        key={st.id}
+        className={`${styles.station} ${pickable ? styles.pickable : ""}`}
+        opacity={dim(st.line) ? 0.35 : 1}
+        role={pickable ? "button" : undefined}
+        tabIndex={pickable ? 0 : undefined}
+        aria-label={pickable ? `${st.line}호선 ${st.nameKo}역${st.id === o?.st.id ? " (출발)" : st.id === d?.st.id ? " (도착)" : ""}` : undefined}
+        aria-hidden={pickable ? undefined : true}
+        aria-pressed={pickable ? isEnd : undefined}
+        onClick={() => pickable && onPick?.(st)}
+        onKeyDown={(e) => {
+          if (pickable && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onPick?.(st);
+          }
+        }}
+        onMouseEnter={() => setHover(st.id)}
+        onMouseLeave={() => setHover(null)}
+        onFocus={() => setHover(st.id)}
+        onBlur={() => setHover(null)}
+      >
+        {pickable && <circle cx={p.x} cy={p.y} r={st.line === "3" ? 7 : 10} className={styles.hit} />}
+        <circle
+          cx={p.x}
+          cy={p.y}
+          r={isEnd ? 6 : hover === st.id && pickable ? 4.6 : 3.1}
+          className={st.id === o?.st.id ? styles.origin : st.id === d?.st.id ? styles.dest : visitedStations?.has(st.id) ? styles.dotVisited : styles.dot}
+          style={st.line === "3" && !(isEnd || visitedStations?.has(st.id)) ? { stroke: L3_COLOR } : st.line === "3" && visitedStations?.has(st.id) && !isEnd ? { fill: L3_COLOR } : undefined}
+        />
+        {show && (
+          <text x={lx} y={ly + 3.2} textAnchor={anchor} className={isEnd ? styles.labelStrong : styles.label}>
+            {st.nameKo}
+          </text>
+        )}
+      </g>
+    );
+  };
+
   return (
-    <svg className={styles.map} viewBox={`0 0 ${VB_W} ${VB_H}`} role="group" aria-label={label}>
-      <path d={river} className={styles.river} />
-      <text x={VB_W / 2} y={VB_H / 2 + 34} className={styles.riverLabel}>
+    <svg className={styles.map} viewBox={`0 ${VB_TOP} ${VB_W} ${VB_BOTTOM - VB_TOP}`} role="group" aria-label={label}>
+      <path d={RIVER_PATH} className={styles.river} />
+      <text x={VB_W / 2 - 60} y={RIVER_MID_Y + 4} className={styles.riverLabel}>
         한강
       </text>
-      <path d={loopPath} className={styles.loop} />
-      {visitedPaths.map((d, i) => (
-        <path key={i} d={d} className={styles.visited} />
+      <g opacity={dim("2") ? 0.35 : 1}>
+        <path d={loopPath} className={styles.loop} />
+      </g>
+      <g opacity={dim("3") ? 0.35 : 1}>
+        <path d={l3Full} className={styles.loop} style={{ stroke: "#f6d3b4" }} />
+      </g>
+      {visitedPaths.map((v, i) => (
+        <path key={i} d={v.d} className={styles.visited} style={v.line === "3" ? { stroke: "#f2a96a" } : undefined} />
       ))}
-      {route && <path d={route} className={styles.route} />}
-      {STATIONS.map((st, i) => {
-        const p = posOf(i);
-        const isEnd = i === oi || i === di;
-        const n = STATIONS.length;
-        const nearEnd = [oi, di].some((e) => e >= 0 && !isEnd && (Math.abs(e - i) <= 1 || Math.abs(e - i) === n - 1));
-        const show = isEnd || hover === st.id || (KEY.has(st.id) && !nearEnd);
-        const lx = p.x + p.nx * (isEnd ? 13 : 10);
-        const ly = p.y + p.ny * (isEnd ? 13 : 10);
-        const anchor = p.nx > 0.4 ? "start" : p.nx < -0.4 ? "end" : "middle";
-        return (
-          <g
-            key={st.id}
-            className={`${styles.station} ${onPick ? styles.pickable : ""}`}
-            role={onPick ? "button" : undefined}
-            tabIndex={onPick ? 0 : undefined}
-            aria-label={`${st.nameKo}역${i === oi ? " (출발)" : i === di ? " (도착)" : ""}`}
-            aria-pressed={onPick ? isEnd : undefined}
-            onClick={() => onPick?.(st)}
-            onKeyDown={(e) => {
-              if (onPick && (e.key === "Enter" || e.key === " ")) {
-                e.preventDefault();
-                onPick(st);
-              }
-            }}
-            onMouseEnter={() => setHover(st.id)}
-            onMouseLeave={() => setHover(null)}
-            onFocus={() => setHover(st.id)}
-            onBlur={() => setHover(null)}
-          >
-            <circle cx={p.x} cy={p.y} r={12} className={styles.hit} />
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={isEnd ? 6 : hover === st.id ? 4.6 : 3.3}
-              className={i === oi ? styles.origin : i === di ? styles.dest : visitedStations?.has(st.id) ? styles.dotVisited : styles.dot}
-            />
-            {show && (
-              <text x={lx} y={ly + 3.2} textAnchor={anchor} className={isEnd ? styles.labelStrong : styles.label}>
-                {st.nameKo}
-              </text>
-            )}
-          </g>
-        );
-      })}
+      {route && <path d={route.d} className={styles.route} style={{ stroke: route.color }} />}
+      {NODES2.map((n) => renderNode(n, NODES2))}
+      {NODES3.map((n) => renderNode(n, NODES3))}
     </svg>
   );
 }

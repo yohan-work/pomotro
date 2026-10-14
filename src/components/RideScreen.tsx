@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
-import { LINE2_META, getSegment } from "@/data/line2";
+import { getSegment, lineOf } from "@/data/lines";
 import { Renderer } from "@/render/Renderer";
 import { WEATHER_LABEL } from "@/render/conditions";
 import { announce, stopAnnounce } from "@/audio/announce";
@@ -70,6 +70,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     [session.id],
   );
   const isBreak = session.mode === "break";
+  const line = lineOf(session.stationIds[0]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strapRefs = useRef<Array<HTMLDivElement | null>>([]);
   const statsRef = useRef<HTMLPreElement>(null);
@@ -412,7 +413,9 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           <Mascot size={56} mood={paused ? "sleepy" : "smile"} />
         </div>
         <div className={styles.decal} aria-hidden>
-          <span className={styles.decalBadge}>{LINE2_META.line}</span>
+          <span className={styles.decalBadge} style={{ background: line.color }}>
+            {line.id}
+          </span>
           기대지 마세요
         </div>
         {paused && (
@@ -457,7 +460,9 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
 
       {/* HUD */}
       <header className={styles.topLeft}>
-        <span className={styles.lineBadge}>{LINE2_META.line}</span>
+        <span className={styles.lineBadge} style={{ background: line.color }}>
+          {line.id}
+        </span>
         <span className={styles.routeName}>
           {isBreak ? (
             <>{dest.nameKo}역 정차 중</>

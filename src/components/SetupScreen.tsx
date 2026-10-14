@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
-import { LINE2_META, getStation, stationsBetween, type Station } from "@/data/line2";
+import { LINE_BY_ID, getStation, stationsBetween, type LineId, type Station } from "@/data/lines";
 import { notifyStatus, requestNotifyPermission, type NotifyStatus } from "@/lib/background";
 import { DATA_NOTICE, DEMO_ROUTE, describeRoute, formatMin, recommendRoutes } from "@/lib/recommend";
 import { Renderer } from "@/render/Renderer";
@@ -103,6 +103,7 @@ export default function SetupScreen() {
   const [continueRide, setContinueRide] = useState(Boolean(nextOriginId));
   const [pickFrom, setPickFrom] = useState<string | null>(nextOriginId);
   const [pickTo, setPickTo] = useState<string | null>(null);
+  const [pickLine, setPickLine] = useState<LineId>(() => (nextOriginId ? getStation(nextOriginId).line : "2"));
 
   const focusSec = focusMinutes * 60;
   const origin = continueRide && nextOriginId ? nextOriginId : undefined;
@@ -205,7 +206,7 @@ export default function SetupScreen() {
 
         {focusMinutes > 60 && (
           <p className={styles.longHint} role="note">
-            긴 집중은 25분씩 나눠 타고 도착역에서 쉬어가길 추천해요. 2호선 한 바퀴는 약 85분이라, 그보다 길면 터널 구간이 길게 늘어나요.
+            긴 집중은 25분씩 나눠 타고 도착역에서 쉬어가길 추천해요. 2호선 한 바퀴는 약 85분, 3호선 끝에서 끝은 약 80분이라, 그보다 길면 터널 구간이 길게 늘어나요.
           </p>
         )}
 
@@ -230,6 +231,7 @@ export default function SetupScreen() {
               onChange={(e) => {
                 setContinueRide(e.target.checked);
                 setPickFrom(e.target.checked ? nextOriginId : null);
+                if (e.target.checked && nextOriginId) setPickLine(getStation(nextOriginId).line);
                 setPickTo(null);
               }}
             />
@@ -289,7 +291,9 @@ export default function SetupScreen() {
                 return (
                   <button key={r.stationIds.join(">")} className={i === selected ? styles.routeOn : styles.route} onClick={() => setSelected(i)}>
                     <span className={styles.routeTop}>
-                      <span className={styles.lineDot}>{LINE2_META.line}</span>
+                      <span className={styles.lineDot} style={{ background: LINE_BY_ID[r.from.line].color }}>
+                        {r.from.line}
+                      </span>
                       <b>
                         {r.from.nameKo} → {r.to.nameKo}
                       </b>
@@ -316,13 +320,32 @@ export default function SetupScreen() {
             </div>
           ) : (
             <div className={styles.picker}>
-              <LineMap originId={pickFrom} destId={pickTo} onPick={onPick} label="출발역과 도착역을 고르세요" />
+              <div className={styles.lineChips} role="radiogroup" aria-label="노선">
+                {(["2", "3"] as LineId[]).map((l) => (
+                  <button
+                    key={l}
+                    role="radio"
+                    aria-checked={pickLine === l}
+                    className={pickLine === l ? styles.lineChipOn : styles.lineChip}
+                    style={pickLine === l ? { background: LINE_BY_ID[l].color, borderColor: LINE_BY_ID[l].color } : undefined}
+                    onClick={() => {
+                      if (l === pickLine) return;
+                      setPickLine(l);
+                      setPickFrom(null);
+                      setPickTo(null);
+                    }}
+                  >
+                    {LINE_BY_ID[l].nameKo}
+                  </button>
+                ))}
+              </div>
+              <LineMap originId={pickFrom} destId={pickTo} onPick={onPick} activeLine={pickLine} label="출발역과 도착역을 고르세요" />
               <p className={styles.pickHint} aria-live="polite">
                 {!pickFrom ? (
                   "출발역을 눌러주세요"
                 ) : !picked ? (
                   <>
-                    <b>{getStation(pickFrom).nameKo}</b> 출발 · 도착역을 눌러주세요 (내선순환)
+                    <b>{getStation(pickFrom).nameKo}</b> 출발 · 도착역을 눌러주세요{pickLine === "2" ? " (내선순환)" : ""}
                   </>
                 ) : (
                   <>
