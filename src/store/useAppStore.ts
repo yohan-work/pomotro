@@ -20,6 +20,7 @@ import { recommendRoutes } from "../lib/recommend";
 import { epochNow, pauseTiming, resumeTiming, type SessionTiming } from "../sim/clock";
 import type { TimeOfDay } from "../render/palette";
 import type { QualityMode } from "../render/Renderer";
+import type { Season, Weather } from "../render/conditions";
 
 export type SessionMode = "demo" | "focus" | "break";
 export type BreakKind = "short" | "long";
@@ -79,6 +80,13 @@ export interface AppState {
   timeOfDay: TimeOfDay | "auto";
   reducedMotion: "system" | "on" | "off";
   quality: QualityMode;
+  weatherPref: "auto" | Weather;
+  seasonPref: "auto" | Season;
+  /** 역 접근 시 한국어 안내방송 (음성 합성) */
+  announce: boolean;
+  setWeatherPref: (w: "auto" | Weather) => void;
+  setSeasonPref: (s: "auto" | Season) => void;
+  setAnnounce: (a: boolean) => void;
   pomodoro: PomodoroPrefs;
   setPomodoro: (p: Partial<PomodoroPrefs>) => void;
   /** 첫 주행 안내를 봤는지 */
@@ -155,6 +163,12 @@ export const useAppStore = create<AppState>()(
       setReducedMotion: (r) => set({ reducedMotion: r }),
       quality: "auto",
       setQuality: (q) => set({ quality: q }),
+      weatherPref: "auto",
+      seasonPref: "auto",
+      announce: false,
+      setWeatherPref: (w) => set({ weatherPref: w }),
+      setSeasonPref: (v) => set({ seasonPref: v }),
+      setAnnounce: (a) => set({ announce: a }),
       pomodoro: DEFAULT_POMODORO,
       setPomodoro: (p) => set({ pomodoro: { ...get().pomodoro, ...p } }),
       seenRideTips: false,
@@ -317,6 +331,9 @@ export const useAppStore = create<AppState>()(
         timeOfDay: s.timeOfDay,
         reducedMotion: s.reducedMotion,
         quality: s.quality,
+        weatherPref: s.weatherPref,
+        seasonPref: s.seasonPref,
+        announce: s.announce,
         pomodoro: s.pomodoro,
         seenRideTips: s.seenRideTips,
         volumes: s.volumes,

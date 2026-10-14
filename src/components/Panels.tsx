@@ -17,6 +17,7 @@ export function SoundSettings({ onClose, onEnable, audioOn }: { onClose?: () => 
   const volumes = useAppStore((s) => s.volumes);
   const master = useAppStore((s) => s.masterVolume);
   const muted = useAppStore((s) => s.muted);
+  const announceOn = useAppStore((s) => s.announce);
   const { setVolume, setMasterVolume, setMuted } = useAppStore.getState();
   return (
     <div>
@@ -64,6 +65,9 @@ export function SoundSettings({ onClose, onEnable, audioOn }: { onClose?: () => 
         </label>
       ))}
       <label className={styles.check}>
+        <input type="checkbox" checked={announceOn} onChange={(e) => useAppStore.getState().setAnnounce(e.target.checked)} /> 역 안내방송 (음성)
+      </label>
+      <label className={styles.check}>
         <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} /> 모두 음소거
       </label>
     </div>
@@ -74,6 +78,23 @@ export function ViewSettings({ onClose }: { onClose?: () => void }) {
   const tod = useAppStore((s) => s.timeOfDay);
   const rm = useAppStore((s) => s.reducedMotion);
   const q = useAppStore((s) => s.quality);
+  const weather = useAppStore((s) => s.weatherPref);
+  const season = useAppStore((s) => s.seasonPref);
+  const { setWeatherPref, setSeasonPref } = useAppStore.getState();
+  const weatherOpts: Array<[typeof weather, string]> = [
+    ["auto", "서울 실시간"],
+    ["clear", "맑음"],
+    ["cloudy", "흐림"],
+    ["rain", "비"],
+    ["snow", "눈"],
+  ];
+  const seasonOpts: Array<[typeof season, string]> = [
+    ["auto", "자동"],
+    ["spring", "봄"],
+    ["summer", "여름"],
+    ["autumn", "가을"],
+    ["winter", "겨울"],
+  ];
   const { setTimeOfDay, setReducedMotion, setQuality } = useAppStore.getState();
   const qOpts: Array<[typeof q, string]> = [
     ["auto", "자동"],
@@ -111,6 +132,22 @@ export function ViewSettings({ onClose }: { onClose?: () => void }) {
       <p className={styles.panelText} style={{ margin: "12px 0 0" }}>
         5초 동안 입력이 없으면 버튼이 사라져요. <b>H</b> 키로 집중 모드를 켜고 끌 수 있어요.
       </p>
+      <strong className={styles.panelSub}>날씨</strong>
+      <div className={styles.segment}>
+        {weatherOpts.map(([v, l]) => (
+          <button key={v} className={weather === v ? styles.segOn : ""} onClick={() => setWeatherPref(v)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      <strong className={styles.panelSub}>계절</strong>
+      <div className={styles.segment}>
+        {seasonOpts.map(([v, l]) => (
+          <button key={v} className={season === v ? styles.segOn : ""} onClick={() => setSeasonPref(v)}>
+            {l}
+          </button>
+        ))}
+      </div>
       <strong className={styles.panelSub}>그래픽 품질</strong>
       <div className={styles.segment}>
         {qOpts.map(([v, l]) => (

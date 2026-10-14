@@ -11,6 +11,7 @@ import { buildJourney, minJourneySec } from "@/sim/journey";
 import { todayFocusSec, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconClose, IconSettings, IconTrain, Mascot } from "./Icons";
 import { PomodoroSettings, SoundSettings, ViewSettings } from "./Panels";
+import { useConditions } from "@/lib/useConditions";
 import LineMap from "./LineMap";
 import styles from "./SetupScreen.module.css";
 
@@ -23,6 +24,7 @@ const PRESETS = [15, 25, 40, 60];
 function ScenePreview({ stationIds }: { stationIds: string[] }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const tod = useAppStore((s) => s.timeOfDay);
+  const { season, weather } = useConditions();
   const key = stationIds.join(">");
   useEffect(() => {
     const canvas = ref.current!;
@@ -60,6 +62,8 @@ function ScenePreview({ stationIds }: { stationIds: string[] }) {
         time: performance.now() / 1000,
         timeOfDay: tod === "auto" ? timeOfDayKST() : tod,
         reducedMotion: true,
+        season,
+        weather,
       });
       raf = requestAnimationFrame(loop);
     };
@@ -70,7 +74,7 @@ function ScenePreview({ stationIds }: { stationIds: string[] }) {
     };
     // 노선이 바뀔 때만 다시 만든다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, tod]);
+  }, [key, tod, season, weather]);
   return <canvas ref={ref} className={styles.preview} aria-hidden />;
 }
 
