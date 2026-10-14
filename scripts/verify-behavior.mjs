@@ -8,7 +8,7 @@ import { mkdirSync } from "node:fs";
 const base = process.argv[2] ?? "http://localhost:3123";
 mkdirSync(".verify", { recursive: true });
 const browser = await chromium.launch({ channel: "chrome", headless: true });
-const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+const page = await (await browser.newContext({ locale: "ko-KR",  viewport: { width: 1440, height: 900 } })).newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 page.on("response", (r) => r.status() >= 400 && errors.push(`HTTP ${r.status()} ${r.url()}`));
@@ -233,7 +233,7 @@ for (const tod of ["sunset", "night"]) {
 }
 
 // 7) 모바일 세로
-const mob = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
+const mob = await (await browser.newContext({ locale: "ko-KR",  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
 await mob.goto(`${base}/?autostart=demo&tod=day&seek=48`, { waitUntil: "networkidle" });
 await mob.waitForTimeout(1200);
 await mob.screenshot({ path: ".verify/mobile-ride.png" });

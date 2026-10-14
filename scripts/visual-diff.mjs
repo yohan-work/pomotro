@@ -41,7 +41,7 @@ const SCENES = [
 ];
 
 const browser = await chromium.launch({ channel: "chrome", headless: true });
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, reducedMotion: "reduce" });
+const ctx = await browser.newContext({ locale: "ko-KR",  viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, reducedMotion: "reduce" });
 const page = await ctx.newPage();
 
 async function capture(url) {

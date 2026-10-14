@@ -34,7 +34,7 @@ METRO는 집중 시간을 **작은 서울 여행**으로 바꾸는 웹 뽀모도
 > 집중하는 모든 순간이, 좋은 곳으로 데려다줄 거예요.
 
 <details>
-<summary><b>In English</b></summary>
+<summary><b>In English</b> — the app itself is available in English too</summary>
 
 METRO is a Pomodoro timer that turns a focus session into a ride on Seoul Subway Line 2. Pick a duration and it suggests a real route of matching length; then you sit by the window while the train departs, accelerates, crosses the Han River, and brakes into the next station — all simulated in real time in the browser (Canvas 2D parallax + WebAudio). Route order, run times and distances come from Seoul Metro's official open data.
 
@@ -62,6 +62,7 @@ METRO is a Pomodoro timer that turns a focus session into a ride on Seoul Subway
 - **나의 서울 노선도** — 달린 구간과 방문한 역이 노선도에 쌓이고, 누적 시간·거리·연속 일수·최근 7일 기록과 지난 승차권을 다시 볼 수 있음. 기록 내보내기·가져오기
 - **밤에는 어둡게** — 한국 시간 밤 또는 시스템 다크 모드에서 화면 전체가 어두운 테마로
 - **집중 모드** — 5초간 입력이 없으면 버튼이 사라지고 창밖과 시간만 남음 (`H` 키로 전환)
+- **한국어 · English** — 브라우저 언어를 따르고 설정에서 바꿀 수 있음. 영어 화면은 공식 영문 역명·영어 안내방송
 - **접근성** — 모션 줄이기, 키보드(Space 일시정지 · H 집중 모드), 키보드로 고르는 노선도, 모바일 세로 레이아웃
 
 ## 스크린샷
