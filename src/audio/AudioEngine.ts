@@ -54,6 +54,8 @@ export class AudioEngine {
   private passGain!: GainNode;
   private passFilter!: BiquadFilterNode;
   private ambientGain!: GainNode;
+  private rainGain: GainNode | null = null;
+  private rainOn = false;
   private white!: AudioBuffer;
   private reverb!: ConvolverNode;
   private reverbSend!: GainNode;
@@ -189,7 +191,32 @@ export class AudioEngine {
     }
     padG.connect(this.ambientGain);
     this.ambientGain.connect(this.ch.ambient);
+
+    // 빗소리: 지붕·창을 두드리는 고역 노이즈 (비 오는 날만)
+    const rain = ctx.createBufferSource();
+    rain.buffer = this.white;
+    rain.loop = true;
+    const rainHp = ctx.createBiquadFilter();
+    rainHp.type = "highpass";
+    rainHp.frequency.value = 1800;
+    const rainLp = ctx.createBiquadFilter();
+    rainLp.type = "lowpass";
+    rainLp.frequency.value = 7000;
+    this.rainGain = ctx.createGain();
+    this.rainGain.gain.value = this.rainOn ? 0.05 : 0;
+    rain.connect(rainHp).connect(rainLp).connect(this.rainGain).connect(this.ch.ambient);
+    rain.start();
     this.ambientGain.gain.setTargetAtTime(1, ctx.currentTime, 1.5);
+  }
+
+  setRain(on: boolean) {
+    this.rainOn = on;
+    if (this.ctx && this.rainGain) this.rainGain.gain.setTargetAtTime(on ? 0.05 : 0, this.ctx.currentTime, 1.2);
+  }
+
+  /** 안내방송 음량 = 전체 × 안내 차임 채널 (음소거면 0) */
+  speechVolume(): number {
+    return this.muted ? 0 : this.masterVol * this.volumes.chime;
   }
 
   setVolume(c: Channel, v: number) {

@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
 import { LINE2_META, getSegment } from "@/data/line2";
 import { Renderer } from "@/render/Renderer";
+import { WEATHER_LABEL } from "@/render/conditions";
+import { announce, stopAnnounce } from "@/audio/announce";
+import { useConditions } from "@/lib/useConditions";
 import { passingIntensity } from "@/render/scene";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { elapsedSec, epochNow } from "@/sim/clock";
@@ -112,8 +115,11 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const tod: TimeOfDay = debug.tod ?? (timeOfDayPref === "auto" ? timeOfDayKST(clock) : timeOfDayPref);
 
   // 렌더 루프에서 읽는 최신 설정
-  const live = useRef({ tod, reducedMotion, quality: qualityPref });
-  live.current = { tod, reducedMotion, quality: qualityPref };
+  const cond = useConditions();
+  const announceOn = useAppStore((s) => s.announce);
+  const live = useRef({ tod, reducedMotion, quality: qualityPref, season: cond.season, weather: cond.weather, announce: announceOn });
+  live.current = { tod, reducedMotion, quality: qualityPref, season: cond.season, weather: cond.weather, announce: announceOn };
+  useEffect(() => getAudio().setRain(cond.weather === "rain"), [cond.weather]);
 
   useEffect(() => {
     const id = setInterval(() => setClock(new Date()), 10_000);
@@ -153,9 +159,19 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         case "doorClose":
           audio.doorClose();
           break;
-        case "approach":
+        case "approach": {
           audio.arrivalChime();
+          if (live.current.announce && !isBreak) {
+            const st = journey.stations[e.stationIndex];
+            const last = e.stationIndex === journey.stations.length - 1;
+            // 차임이 끝난 뒤 읽는다
+            setTimeout(
+              () => announce(last ? `이번 역은 종착역인 ${st.nameKo}역입니다. 두고 내리는 물건 없이 안녕히 가십시오.` : `이번 역은 ${st.nameKo}, ${st.nameKo}역입니다.`, audio.speechVolume()),
+              1300,
+            );
+          }
           break;
+        }
         case "doorOpen":
           audio.doorOpen();
           break;
@@ -217,6 +233,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           timeOfDay: live.current.tod,
           reducedMotion: live.current.reducedMotion,
           qualityMode: live.current.quality,
+          season: live.current.season,
+          weather: live.current.weather,
         });
         // 손잡이: 가감속 관성 + 주행 흔들림을 받는 감쇠 진자
         const rm = live.current.reducedMotion;
@@ -269,6 +287,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     return () => {
       cancelAnimationFrame(raf);
       ticker.stop();
+      stopAnnounce();
       document.title = baseTitle.includes("·") ? "METRO — 서울을 달리는 뽀모도로" : baseTitle;
       ro.disconnect();
       audio.suspendMotion();
@@ -453,6 +472,11 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       </header>
       <div className={styles.topRight}>
         {session.task && <span className={styles.task}>{session.task}</span>}
+        {cond.live && (
+          <span className={styles.weatherChip} title="서울 실시간 날씨">
+            서울 {WEATHER_LABEL[cond.live.weather]} · {cond.live.tempC}°
+          </span>
+        )}
         <time className={styles.clock}>
           {clock.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Seoul" })}
         </time>

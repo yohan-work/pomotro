@@ -378,6 +378,16 @@
   color: #3a3a3a;
 }
 
+.weatherChip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: max(11.5px, 1.4vh);
+  font-weight: 600;
+  color: #3a3a3a;
+  white-space: nowrap;
+}
+
 .clock {
   font-size: max(14px, 2vh);
   font-weight: 700;
