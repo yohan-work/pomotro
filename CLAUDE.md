@@ -24,7 +24,7 @@ npm run verify:behavior -- http://localhost:3000 [--pwa]           # 일시정�
 
 검증 스크립트는 로컬 Google Chrome(`channel: "chrome"`)을 headless 로 띄운다. 결과 이미지는 `.verify/`(gitignore).
 
-개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?debug=1`
+개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?weather=clear|cloudy|rain|snow|fog` `?season=spring|summer|autumn|winter` `?debug=1`
 
 ## 구조
 
