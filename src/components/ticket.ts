@@ -83,7 +83,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.fillText("METRO", 72, 67);
   c.font = "600 18px Pretendard, sans-serif";
   c.globalAlpha = 0.85;
-  c.fillText(`FOCUS TICKET · ${T("line.name", { n: line.id })}`, 172, 68);
+  c.fillText(`FOCUS TICKET · ${lang === "en" ? line.nameEn : line.nameKo}`, 172, 68);
   c.globalAlpha = 1;
   const d = new Date(rec.completedAt);
   const date = d.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });

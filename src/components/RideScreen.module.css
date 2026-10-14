@@ -123,9 +123,10 @@
 .decalBadge {
   display: inline-grid;
   place-items: center;
-  width: 1.9vh;
+  min-width: 1.9vh;
+  padding: 0 0.35em;
   height: 1.9vh;
-  border-radius: 50%;
+  border-radius: 999px;
   background: var(--c-primary);
   color: #fff;
   font-size: max(9px, 1.1vh);
@@ -332,9 +333,12 @@
 .lineBadge {
   display: inline-grid;
   place-items: center;
-  width: max(24px, 3vh);
+  min-width: max(24px, 3vh);
+  padding: 0 0.5em;
   height: max(24px, 3vh);
-  border-radius: 50%;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 0.85em;
   background: var(--c-primary);
   color: #fff;
   font-weight: 800;
