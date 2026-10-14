@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { unlockAudio } from "@/audio/instance";
+import { getAudio, unlockAudio } from "@/audio/instance";
 import { LINE2_META, getStation, stationsBetween, type Station } from "@/data/line2";
 import { notifyStatus, requestNotifyPermission, type NotifyStatus } from "@/lib/background";
 import { DATA_NOTICE, DEMO_ROUTE, describeRoute, formatMin, recommendRoutes } from "@/lib/recommend";
@@ -9,21 +9,31 @@ import { Renderer } from "@/render/Renderer";
 import { timeOfDayKST } from "@/render/palette";
 import { buildJourney, minJourneySec } from "@/sim/journey";
 import { todayFocusSec, useAppStore } from "@/store/useAppStore";
-import { IconArrow, IconTrain, Mascot } from "./Icons";
+import { IconArrow, IconClose, IconSettings, IconTrain, Mascot } from "./Icons";
+import { SoundSettings, ViewSettings } from "./Panels";
 import LineMap from "./LineMap";
 import styles from "./SetupScreen.module.css";
 
 const PRESETS = [15, 25, 40, 60];
 
-/** 배경: 당산철교 위에서 천천히 흘러가는 한강 (실제 렌더러 재사용) */
-function RiverPreview() {
+/**
+ * 배경: 선택한 노선의 대표 장면 (실제 렌더러 재사용)
+ * 한강 철교 → 하천 → 고가 시가지 → 출발역 승강장 순으로 가장 인상적인 구간을 고른다.
+ */
+function ScenePreview({ stationIds }: { stationIds: string[] }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const tod = useAppStore((s) => s.timeOfDay);
+  const key = stationIds.join(">");
   useEffect(() => {
     const canvas = ref.current!;
     const renderer = new Renderer(canvas);
-    const journey = buildJourney({ stationIds: DEMO_ROUTE.stationIds, totalSec: DEMO_ROUTE.totalSec });
-    const river = journey.sections.find((s) => s.kind === "river")!;
+    const journey = buildJourney({ stationIds, totalSec: Math.max(minJourneySec(stationIds), 600) });
+    const inRoute = journey.sections.filter((s) => s.x0 >= 0 && s.x1 <= journey.stopX[journey.stopX.length - 1]);
+    const pick =
+      inRoute.find((s) => s.kind === "river" && s.variant !== "stream") ??
+      inRoute.find((s) => s.kind === "river") ??
+      inRoute.find((s) => s.kind === "city" && s.x1 - s.x0 > 160) ??
+      null;
     const fit = () => {
       const r = canvas.getBoundingClientRect();
       renderer.resize(r.width, r.height);
@@ -36,14 +46,17 @@ function RiverPreview() {
     let raf = 0;
     const loop = () => {
       const t = (performance.now() - t0) / 1000;
-      const span = river.x1 - river.x0 - 160;
-      const x = river.x0 + 80 + ((reduced ? 0.35 : 0) * span + t * 2.2) % span;
+      let x = 0;
+      if (pick) {
+        const span = Math.max(1, pick.x1 - pick.x0 - 160);
+        x = pick.x0 + 80 + (((reduced ? 0.35 : 0) * span + t * 2.2) % span);
+      }
       renderer.render({
         journey,
         x,
-        v: 2.2,
+        v: pick ? 2.2 : 0,
         a: 0,
-        doorsOpen: false,
+        doorsOpen: !pick,
         time: performance.now() / 1000,
         timeOfDay: tod === "auto" ? timeOfDayKST() : tod,
         reducedMotion: true,
@@ -55,7 +68,9 @@ function RiverPreview() {
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [tod]);
+    // 노선이 바뀔 때만 다시 만든다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, tod]);
   return <canvas ref={ref} className={styles.preview} aria-hidden />;
 }
 
@@ -72,6 +87,15 @@ export default function SetupScreen() {
   const [custom, setCustom] = useState(!PRESETS.includes(focusMinutes));
   const [selected, setSelected] = useState(0);
   const [tab, setTab] = useState<"recommend" | "pick">("recommend");
+  const [showSettings, setShowSettings] = useState(false);
+  const [audioOn, setAudioOn] = useState(false);
+  useEffect(() => {
+    if (!showSettings) return;
+    setAudioOn(getAudio().started);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setShowSettings(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showSettings]);
   const [continueRide, setContinueRide] = useState(Boolean(nextOriginId));
   const [pickFrom, setPickFrom] = useState<string | null>(nextOriginId);
   const [pickTo, setPickTo] = useState<string | null>(null);
@@ -112,7 +136,7 @@ export default function SetupScreen() {
 
   return (
     <main className={styles.setup}>
-      <RiverPreview />
+      <ScenePreview stationIds={route?.stationIds ?? DEMO_ROUTE.stationIds} />
       <div className={styles.scrim} />
 
       <section className={styles.card}>
@@ -127,6 +151,9 @@ export default function SetupScreen() {
           </span>
           <button className={styles.myMap} onClick={() => useAppStore.getState().setView("records")}>
             나의 노선도
+          </button>
+          <button className={styles.iconBtn} onClick={() => setShowSettings(true)} aria-label="설정">
+            <IconSettings width={18} height={18} />
           </button>
         </div>
 
@@ -319,6 +346,28 @@ export default function SetupScreen() {
 
         </div>
       </section>
+
+      {showSettings && (
+        <div className={styles.dialogBack} onClick={() => setShowSettings(false)}>
+          <div className={styles.dialog} role="dialog" aria-modal="true" aria-label="설정" onClick={(e) => e.stopPropagation()}>
+            <div className={styles.dialogHead}>
+              <strong>설정</strong>
+              <button className={styles.iconBtn} onClick={() => setShowSettings(false)} aria-label="닫기" autoFocus>
+                <IconClose width={18} height={18} />
+              </button>
+            </div>
+            <ViewSettings />
+            <hr className={styles.rule} />
+            <SoundSettings
+              audioOn={audioOn}
+              onEnable={() => {
+                unlockAudio();
+                setAudioOn(true);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className={styles.mascot} aria-hidden>
         <Mascot size={72} />
