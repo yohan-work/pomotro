@@ -11,7 +11,7 @@
   "bugs": {
     "url": "https://github.com/yohan-work/pomotro/issues"
   },
-  "homepage": "https://github.com/yohan-work/pomotro#readme",
+  "homepage": "https://pomotro.vercel.app",
   "engines": {
     "node": ">=24"
   },
