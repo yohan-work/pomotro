@@ -11,34 +11,7 @@
  * - ⚠️ 역 정차시간(`estDwellSec`): 추정치. 화면에는 "예상"으로 표시한다.
  */
 import { LINE2_OFFICIAL_SEGMENTS, OFFICIAL_SOURCE } from "./line2.official";
-
-export type StationStructure = "elevated" | "underground";
-export type Heading = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
-
-export interface Station {
-  id: string;
-  /** 역번호 (2호선 내 표기) — 미검증 */
-  code: string;
-  nameKo: string;
-  /** 미검증 */
-  nameEn: string;
-  /** 미검증 */
-  structure: StationStructure;
-}
-
-export interface LineSegment {
-  id: string;
-  fromStationId: string;
-  toStationId: string;
-  /** 역간 표준 운행시간(정차 제외, 초) — 공식 */
-  runSec: number;
-  /** 역간 거리(km) — 공식 */
-  distanceKm: number;
-  /** 미검증 */
-  landmarks: string[];
-  /** 열차 진행 방위 (대략, 미검증) */
-  heading: Heading;
-}
+import { buildLine, type RawStation } from "./network";
 
 export const LINE2_META = {
   line: "2",
@@ -51,7 +24,7 @@ export const LINE2_META = {
 } as const;
 
 /** 본선 순환 (내선순환 순서, 시청부터). [id, 역번호, 국문, 영문, 구조, 다음 역까지 방위, 랜드마크] */
-const RAW: Array<[string, string, string, string, StationStructure, Heading, string[]]> = [
+const RAW: RawStation[] = [
   ["city-hall", "201", "시청", "City Hall", "underground", "E", []],
   ["euljiro-1ga", "202", "을지로입구", "Euljiro 1(il)-ga", "underground", "E", []],
   ["euljiro-3ga", "203", "을지로3가", "Euljiro 3(sam)-ga", "underground", "E", []],
@@ -97,79 +70,6 @@ const RAW: Array<[string, string, string, string, StationStructure, Heading, str
   ["chungjeongno", "243", "충정로", "Chungjeongno", "underground", "E", []],
 ];
 
-export const STATIONS: Station[] = RAW.map(([id, code, nameKo, nameEn, structure]) => ({ id, code, nameKo, nameEn, structure }));
-
-/** 인접 역간 구간 (순환: 마지막 → 첫 역 포함). 운행시간·거리는 공식 데이터에서 역명으로 매칭 */
-export const SEGMENTS: LineSegment[] = RAW.map(([id, , nameKo, , , heading, landmarks], i) => {
-  const [nid, , nextKo] = RAW[(i + 1) % RAW.length];
-  const off = LINE2_OFFICIAL_SEGMENTS.find((s) => s.from === nameKo && s.to === nextKo);
-  if (!off) throw new Error(`Official data missing for ${nameKo} → ${nextKo}`);
-  return {
-    id: `${id}__${nid}`,
-    fromStationId: id,
-    toStationId: nid,
-    runSec: off.runSec,
-    distanceKm: off.distanceKm,
-    heading,
-    landmarks,
-  };
-});
-
-const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
-
-/**
- * 승객은 항상 "진행 방향 왼쪽 창"을 바라본다 (여정 내내 같은 자리).
- * 북쪽 진행 → 서쪽 창, 남쪽 진행 → 동쪽 창.
- */
-export function windowFacing(heading: Heading): Heading {
-  return COMPASS[(COMPASS.indexOf(heading) + 6) % 8];
-}
-
-const indexById = new Map(STATIONS.map((s, i) => [s.id, i]));
-const segmentByPair = new Map(SEGMENTS.map((s) => [`${s.fromStationId}>${s.toStationId}`, s]));
-
-export function getStation(id: string): Station {
-  const i = indexById.get(id);
-  if (i === undefined) throw new Error(`Unknown station: ${id}`);
-  return STATIONS[i];
-}
-
-export function getSegment(fromId: string, toId: string): LineSegment {
-  const s = segmentByPair.get(`${fromId}>${toId}`);
-  if (!s) throw new Error(`No direct segment ${fromId} → ${toId}`);
-  return s;
-}
-
-/** 내선순환 방향으로 from → to 역 순서 (환승 없음, 순환 경계를 넘어갈 수 있음) */
-export function stationsBetween(fromId: string, toId: string): Station[] {
-  const i = indexById.get(fromId);
-  const j = indexById.get(toId);
-  if (i === undefined || j === undefined || i === j) throw new Error(`Invalid route ${fromId} → ${toId}`);
-  const n = STATIONS.length;
-  const len = ((j - i + n) % n) + 1;
-  return Array.from({ length: len }, (_, k) => STATIONS[(i + k) % n]);
-}
-
-/** 경로의 예상 소요시간(초): 공식 표준 운행시간 합 + 중간역 정차(추정) */
-export function estimateRouteSec(stations: Station[]): number {
-  let sec = 0;
-  for (let k = 0; k < stations.length - 1; k++) {
-    sec += getSegment(stations[k].id, stations[k + 1].id).runSec;
-    if (k > 0) sec += LINE2_META.estDwellSec;
-  }
-  return sec;
-}
-
-/** 경로의 실제 거리(km) — 공식 역간 거리 합 */
-export function routeDistanceKm(stations: Station[]): number {
-  let km = 0;
-  for (let k = 0; k < stations.length - 1; k++) km += getSegment(stations[k].id, stations[k + 1].id).distanceKm;
-  return Math.round(km * 10) / 10;
-}
-
-/** 노선도상 이웃 역 (내선순환 기준 이전/다음, 순환) */
-export function neighbors(id: string): { prev: Station; next: Station } {
-  const i = indexById.get(id)!;
-  const n = STATIONS.length;
-  return { prev: STATIONS[(i - 1 + n) % n], next: STATIONS[(i + 1) % n] };
-}
+export const LINE2 = buildLine({ id: "2", nameKo: "2호선", color: "#2E946B", loop: true }, RAW, LINE2_OFFICIAL_SEGMENTS);
+export const STATIONS = LINE2.stations;
+export const SEGMENTS = LINE2.segments;

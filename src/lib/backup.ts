@@ -2,7 +2,7 @@
  * 기록 백업 — 기록은 브라우저 localStorage 에만 있으므로 사용자가 직접 내보내고 가져올 수 있게 한다.
  * 형식: { app: "metro", version: 1, exportedAt, records: RideRecord[] }
  */
-import { getStation } from "../data/line2";
+import { getStation } from "../data/lines";
 import type { RideRecord } from "../store/useAppStore";
 
 export const BACKUP_FORMAT = { app: "metro", version: 1 } as const;

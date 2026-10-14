@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
-import { stationsBetween } from "@/data/line2";
+import { stationsBetween } from "@/data/lines";
 import { DEMO_ROUTE } from "@/lib/recommend";
 import { minJourneySec } from "@/sim/journey";
 import { useAppStore } from "@/store/useAppStore";

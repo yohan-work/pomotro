@@ -5,8 +5,12 @@
  *  - 정차역 위치에서 속도 0, 역 순서 일치
  */
 import { buildJourney, sampleJourney, minJourneySec } from "../src/sim/journey";
-import { SEGMENTS, STATIONS, routeDistanceKm, stationsBetween } from "../src/data/line2";
+import { SEGMENTS, STATIONS } from "../src/data/line2";
+import { routeDistanceKm, stationsBetween } from "../src/data/lines";
 import { LINE2_OFFICIAL_LOOP_KM } from "../src/data/line2.official";
+import { LINE3 } from "../src/data/line3";
+import { LINE3_OFFICIAL_KM } from "../src/data/line3.official";
+import { getStation } from "../src/data/lines";
 
 let failures = 0;
 const check = (cond: boolean, msg: string) => {
@@ -64,6 +68,16 @@ const wrap = stationsBetween("chungjeongno", "euljiro-1ga").map((s) => s.nameKo)
 check(wrap === "충정로→시청→을지로입구", `circular route wrap: ${wrap}`);
 check(routeDistanceKm(stationsBetween("dangsan", "hapjeong")) === 2, "당산→합정 2.0km");
 
+// 3호선
+console.log(`▶ line 3: ${LINE3.stations.length} stations, ${LINE3.segments.length} directed segments`);
+check(LINE3.stations.length === 34 && LINE3.segments.length === 66, "Line 3 should have 34 stations and 33×2 segments");
+const l3km = LINE3.segments.filter((_, i) => i % 2 === 0).reduce((a, s) => a + s.distanceKm, 0);
+check(Math.abs(l3km - LINE3_OFFICIAL_KM) < 0.05, `line 3 km ${l3km} != official ${LINE3_OFFICIAL_KM}`);
+check(routeDistanceKm(stationsBetween("l3-oksu", "l3-apgujeong")) === 2.1, "옥수→압구정 2.1km");
+const back = stationsBetween("l3-apgujeong", "l3-geumho").map((s) => s.nameKo).join("→");
+check(back === "압구정→옥수→금호", `line 3 reverse route: ${back}`);
+check(getStation("l3-euljiro-3ga").nameKo === getStation("euljiro-3ga").nameKo, "transfer station names match");
+
 run("demo 당산→합정", ["dangsan", "hapjeong"], 100);
 run("demo 당산→합정 2분", ["dangsan", "hapjeong"], 120);
 run("15분", stationsBetween("dangsan", "city-hall").map((s) => s.id), 15 * 60);
@@ -72,6 +86,9 @@ run("잠실철교 단일 구간", ["gangbyeon", "jamsillaru"], 150);
 run("40분 왕십리→종합운동장", stationsBetween("wangsimni", "sports-complex").map((s) => s.id), 40 * 60);
 run("신림→당산 (지하→고가 진출)", stationsBetween("sillim", "dangsan").map((s) => s.id), 20 * 60);
 run("순환 경계 통과 (아현→을지로3가)", stationsBetween("ahyeon", "euljiro-3ga").map((s) => s.id), 10 * 60);
+run("동호대교 남행 옥수→압구정", ["l3-oksu", "l3-apgujeong"], 140);
+run("동호대교 북행 압구정→옥수", ["l3-apgujeong", "l3-oksu"], 140);
+run("3호선 25분 충무로→양재", stationsBetween("l3-chungmuro", "l3-yangjae").map((s) => s.id), 25 * 60);
 run("60분 (짧은 노선 늘이기)", stationsBetween("dangsan", "sinchon").map((s) => s.id), 60 * 60);
 
 // 휴식(한 역 정차) 여정

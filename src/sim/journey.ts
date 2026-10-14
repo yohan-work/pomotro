@@ -8,7 +8,7 @@
  *   늘리거나 줄여 맞춘다. 열차 속도/가속도는 항상 현실적인 범위로 유지된다.
  *   실제 예상 운행시간은 노선 데이터(line2.ts)에서 별도로 표시한다.
  */
-import { getSegment, getStation, neighbors, windowFacing, type LineSegment, type Station } from "../data/line2";
+import { getSegment, getStation, neighbors, windowFacing, type LineSegment, type Station } from "../data/lines";
 import { PLATFORM_HALF, cityStyle, leadSection, middleSections, type CityStyle, type SectionKind, type WaterVariant } from "../data/scenery";
 import { ACCEL, DECEL, lookup } from "./profile";
 
@@ -121,7 +121,8 @@ export function minJourneySec(stationIds: string[]): number {
  */
 function buildStayJourney(stationId: string, totalSec: number): Journey {
   const station = getStation(stationId);
-  const view = windowFacing(getSegment(station.id, neighbors(station.id).next.id).heading);
+  const nb = neighbors(station.id);
+  const view = nb.next ? windowFacing(getSegment(station.id, nb.next.id).heading) : windowFacing(getSegment(station.id, nb.prev!.id).heading);
   return {
     stations: [station],
     segments: [],

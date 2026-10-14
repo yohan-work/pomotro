@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getStation } from "@/data/line2";
+import { getStation } from "@/data/lines";
 import { makeBackup, parseBackup } from "@/lib/backup";
 import { kstDay, lastWeek, totals, visited, type DayBar } from "@/lib/stats";
 import { useAppStore, type RideRecord } from "@/store/useAppStore";

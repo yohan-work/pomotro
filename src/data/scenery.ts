@@ -4,7 +4,7 @@
  * 창밖 풍경을 어떤 순서·길이로 보여줄지 정의한다. 여기의 길이(m)는 실제 측량값이 아니라
  * 화면 연출용 "시뮬레이션 미터"다. 실제 노선 데이터는 `line2.ts` 를 본다.
  */
-import type { Station } from "./line2";
+import type { Station } from "./network";
 
 export type SectionKind =
   | "platform" // 역 승강장 (지상/지하는 station.structure 로 구분)
@@ -19,6 +19,7 @@ export type SectionKind =
 export type WaterVariant =
   | "hangang-yanghwa" // 당산철교: 서쪽 창 → 양화대교·선유도·하류 노을
   | "hangang-jamsil" // 잠실철교: 동쪽 창 → 올림픽대교·롯데월드타워·아차산
+  | "hangang-dongho" // 동호대교(도로 겸용 교량 한가운데): 남행 동쪽 창 → 성수대교·응봉산 / 북행 서쪽 창 → 한남대교·남산
   | "stream"; // 중랑천 등 하천
 
 export interface SectionSpec {
@@ -74,6 +75,16 @@ const CUSTOM: Record<string, SectionSpec[]> = {
     { kind: "bank", length: 70, stretch: 0 },
     { kind: "city", length: 50, stretch: 0.2 },
   ],
+  // 3호선 옥수(고가) → 동호대교로 한강 횡단 → 압구정(지하)
+  "l3-oksu__l3-apgujeong": [
+    { kind: "city", length: 80, stretch: 0.2 },
+    { kind: "bank", length: 60, stretch: 0 },
+    { kind: "river", length: 720, stretch: 0, variant: "hangang-dongho" },
+    { kind: "bank", length: 60, stretch: 0 },
+    { kind: "city", length: 50, stretch: 0.1 },
+    { kind: "portal-in", length: 140, stretch: 0 },
+    { kind: "tunnel", length: 90, stretch: 1 },
+  ],
   // 한양대 → 중랑천 교량 → 뚝섬
   "hanyang-univ__ttukseom": [
     { kind: "city", length: 110, stretch: 0.5 },
@@ -88,6 +99,13 @@ const CUSTOM: Record<string, SectionSpec[]> = {
 export function middleSections(segmentId: string, from: Station, to: Station): SectionSpec[] {
   const custom = CUSTOM[segmentId];
   if (custom) return custom;
+  // 직선 노선의 반대 방향: 정방향 연출을 거꾸로 (진입/진출 갱문도 뒤집는다)
+  const [a0, b0] = segmentId.split("__");
+  const fwd = CUSTOM[`${b0}__${a0}`];
+  if (fwd) {
+    const flip: Partial<Record<SectionKind, SectionKind>> = { "portal-in": "portal-out", "portal-out": "portal-in" };
+    return [...fwd].reverse().map((sp) => ({ ...sp, kind: flip[sp.kind] ?? sp.kind }));
+  }
   const a = from.structure;
   const b = to.structure;
   if (a === "underground" && b === "underground") return [{ kind: "tunnel", length: 160, stretch: 1 }];

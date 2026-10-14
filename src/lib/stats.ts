@@ -1,5 +1,5 @@
 /** 기록 통계 — 집중(focus) 기록만 센다. 체험 운행·휴식은 제외 */
-import { STATIONS, stationsBetween } from "../data/line2";
+import { ALL_STATIONS, stationsBetween } from "../data/lines";
 import type { RideRecord } from "../store/useAppStore";
 
 const DAY = 86400000;
@@ -55,7 +55,7 @@ export function totals(records: RideRecord[], now = Date.now()): Totals {
     focusSec: list.reduce((a, r) => a + r.focusSec, 0),
     km: Math.round(list.reduce((a, r) => a + (r.distanceKm ?? 0), 0) * 10) / 10,
     stations: visited(records).stations.size,
-    stationsTotal: STATIONS.length,
+    stationsTotal: ALL_STATIONS.length,
     streak,
   };
 }
