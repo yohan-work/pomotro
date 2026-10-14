@@ -13,12 +13,12 @@ npm run test:sim            # 시뮬레이션 엔진 불변식 + 공식 데이�
 npm run data:import         # 서울교통공사 공식 CSV 다운로드 → src/data/line2.official.ts 재생성
 npm run build               # 프로덕션 빌드 (정적)
 npm run verify:browser -- http://localhost:3000 [--full] [--tod]   # 실제 Chrome 스냅샷/FPS/110초 완주
-npm run verify:behavior -- http://localhost:3000                   # 일시정지·새로고침·중복기록·오디오
+npm run verify:behavior -- http://localhost:3000 [--pwa]           # 일시정지·새로고침·중복기록·오디오·휴식·노선도 (--pwa: 프로덕션 서버에서 SW 확인)
 ```
 
 검증 스크립트는 로컬 Google Chrome(`channel: "chrome"`)을 headless 로 띄운다. 결과 이미지는 `.verify/`(gitignore).
 
-개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150` `?seek=40` `?tod=day|sunset|night` `?debug=1`
+개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?debug=1`
 
 ## 구조
 
@@ -49,6 +49,8 @@ docs/                  plan / architecture / design-system / phase-01
 - 실제 기관 로고/브랜드(서울교통공사 등)를 흉내 내지 않는다. 서비스명은 METRO.
 - 모션 감소(`prefers-reduced-motion` + 설정) 시 흔들림·손잡이 진자·주변 애니메이션을 끈다. 번쩍임 금지.
 - 작동하지 않는 버튼을 실제 기능처럼 두지 않는다.
+- 숨겨진 탭에서 돌아야 하는 판정은 `createTicker`(Worker) 로. 알림 권한은 사용자 클릭 안에서만 요청한다.
+- 서비스 워커는 프로덕션에서만 등록된다. `public/sw.js` 캐시 정책을 바꾸면 `VERSION` 을 올린다.
 
 ## 스타일
 
