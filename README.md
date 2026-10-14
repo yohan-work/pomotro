@@ -13,6 +13,9 @@
 [![Data: KOGL Type 1](https://img.shields.io/badge/data-공공누리%201유형-F4B36B.svg)](#데이터와-출처)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000?logo=nextdotjs)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
+[![Deploy](https://img.shields.io/badge/demo-pomotro.vercel.app-000?logo=vercel)](https://pomotro.vercel.app)
+
+**[▶ 지금 타보기 — pomotro.vercel.app](https://pomotro.vercel.app)**
 
 [빠른 시작](#빠른-시작) · [동작 방식](#동작-방식) · [아키텍처](docs/architecture.md) · [기여하기](CONTRIBUTING.md) · [이슈](https://github.com/yohan-work/pomotro/issues)
 
@@ -69,7 +72,9 @@ METRO is a Pomodoro timer that turns a focus session into a ride on Seoul Subway
 
 ## 빠른 시작
 
-Node.js 24 이상이 필요합니다.
+설치 없이 **[pomotro.vercel.app](https://pomotro.vercel.app)** 에서 바로 써볼 수 있습니다. 홈 화면에 추가하면 앱처럼 쓸 수 있어요.
+
+로컬에서 실행하려면 Node.js 24 이상이 필요합니다.
 
 ```bash
 git clone https://github.com/yohan-work/pomotro.git
@@ -158,6 +163,7 @@ docs/              기획·아키텍처·디자인 시스템·단계별 기록
 - [x] 뽀모도로 휴식 사이클 · 이어 타기 · 도착 알림 · PWA
 - [x] 출발역·도착역 직접 선택
 - [x] 집중 모드와 화면 다듬기
+- [x] Vercel 배포 (main 푸시 시 자동 배포)
 - [x] 나의 서울 노선도 · 기록 화면
 - [x] 터널 교행 열차, 동네별 풍경
 - [ ] 다른 노선과 환승

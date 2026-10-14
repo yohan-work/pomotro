@@ -4,6 +4,11 @@
 
 @AGENTS.md
 
+## 배포
+
+- 프로덕션: https://pomotro.vercel.app — Vercel 프로젝트 `yohan-works-projects/pomotro`, GitHub 연결로 **main 푸시 = 프로덕션 배포**, PR = 미리보기 배포
+- 배포 후 확인: `npm run verify:behavior -- https://pomotro.vercel.app --pwa`
+
 ## 실행
 
 ```bash
