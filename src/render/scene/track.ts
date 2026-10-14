@@ -21,6 +21,7 @@ export function drawTrack(f: Frame) {
     ctx.clip();
     switch (sec.kind) {
       case "city":
+      case "riverside":
         drawNoiseBarrier(f, sp);
         drawCatenaryWire(f, sp);
         break;

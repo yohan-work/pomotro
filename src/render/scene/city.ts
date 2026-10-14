@@ -1,7 +1,7 @@
 /** 창밖 장면 — 중경·근경 시가지 */
 import { type Palette } from "../palette";
 import { fbm, hash2, rng } from "../rng";
-import { apartmentSpec, drawApartment, drawPerson, drawFactory, drawShop, drawTower, factorySpec, drawTree, mix, rrect, shopSpec, towerSpec } from "../sprites";
+import { apartmentSpec, drawApartment, drawGreenhouse, drawPerson, drawFactory, drawShop, drawTower, factorySpec, drawTree, mix, rrect, shopSpec, towerSpec } from "../sprites";
 import { SPEED, type Frame, landOf, sx, mAt, visRange, spans, sectionAtM, forCells } from "./core";
 
 /* ═════════════════════════════ 중경: 아파트 단지·빌딩 ═════════════════════════════ */
@@ -14,7 +14,8 @@ export function drawMid(f: Frame) {
   for (const sp of spans(f, s, 20)) {
     const land = landOf(sp.sec, "mid");
     if (land === "city") {
-      ctx.fillStyle = mix(pal.groundFar, pal.haze, 0.2);
+      // 교외는 밭·풀밭
+      ctx.fillStyle = sp.sec.style === "rural" ? mix(mix(pal.grass, pal.groundFar, 0.35), pal.haze, 0.2) : mix(pal.groundFar, pal.haze, 0.2);
       ctx.fillRect(sp.xa, groundY, sp.xb - sp.xa, H - groundY);
     } else if (land === "bank") {
       // 둔치: 강 쪽 끝은 완만한 경사로 물에 닿는다
@@ -61,6 +62,21 @@ export function drawMid(f: Frame) {
     const seed = Math.floor(r() * 64);
     // 동네 분위기별 구성: 아파트 비율, 크기
     const style = bank ? "residential" : (sec.style ?? "residential");
+    if (style === "rural") {
+      // 교외: 넓은 밭 사이로 비닐하우스와 낮은 집이 드문드문
+      if (roll < 0.45) return;
+      if (roll < 0.8) {
+        const gw = (14 + r() * 10) * u;
+        const gh = 3.4 * u;
+        const sp = f.sprites.get(`gh:${(gw / u) | 0}:${pal.key}:${u.toFixed(2)}`, gw, gh, (c) => drawGreenhouse(c, gw, gh, pal));
+        ctx.drawImage(sp.img, x, base - gh, sp.w, sp.h);
+      } else {
+        const hs = shopSpec(seed, u * 0.8, pal);
+        const sp = f.sprites.get(`house:${seed}:${pal.key}:${u.toFixed(2)}`, hs.w, hs.h, (c) => drawShop(c, { ...hs, floors: 2, kind: "villa" }, pal, u * 0.8));
+        ctx.drawImage(sp.img, x, base - hs.h, sp.w, sp.h);
+      }
+      return;
+    }
     const aptRatio = bank ? 0.95 : { residential: 0.66, highrise: 0.82, office: 0.22, brick: 0.4 }[style];
     const aptScale = bank ? 0.82 : style === "highrise" ? 1.32 : 1;
     if (style === "brick" && roll > 0.75) return; // 성수: 낮은 건물 사이로 하늘이 트인다
@@ -191,7 +207,7 @@ export function drawNear(f: Frame) {
     const anchor = m + r() * 2;
     const sec = sectionAtM(f, anchor);
     const land = landOf(sec);
-    if (land !== "city" || r() < (sec.style === "office" ? 0.45 : 0.18)) return;
+    if (land !== "city" || r() < (sec.style === "office" ? 0.45 : sec.style === "rural" ? 0.8 : 0.18)) return;
     const seed = Math.floor(r() * 48);
     const x = sx(f, anchor, s);
     if (sec.style === "brick" && r() < 0.65) {
@@ -224,7 +240,7 @@ export function drawNear(f: Frame) {
     const anchor = m + r() * 4;
     const land = landOf(sectionAtM(f, anchor));
     if (land === "river" || land === "none") return;
-    if (r() < (land === "bank" ? 0.25 : 0.55)) return;
+    if (r() < (land === "bank" ? 0.25 : sectionAtM(f, anchor).style === "rural" ? 0.2 : 0.55)) return;
     const seed = Math.floor(r() * 40);
     const w = (land === "bank" ? 5 + r() * 3 : 4 + r() * 2) * u;
     const h = w * (1.35 + r() * 0.2);

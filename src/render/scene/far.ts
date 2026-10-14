@@ -1,7 +1,7 @@
 /** 창밖 장면 — 원경: 산·스카이라인 */
 import { fbm, pick } from "../rng";
 import { mix, shadeColor } from "../sprites";
-import { SPEED, HZ, WATER_Y, type Frame, sx, mAt, forCells } from "./core";
+import { SPEED, HZ, WATER_Y, type Frame, sx, mAt, forCells, sectionAtM } from "./core";
 
 /* ═════════════════════════════ 원경: 산·스카이라인 ═════════════════════════════ */
 
@@ -24,12 +24,15 @@ export function ridge(f: Frame, s: number, seed: number, base: number, amp: numb
 
 export function drawFar(f: Frame) {
   const { ctx, W, u, pal } = f;
-  ridge(f, SPEED.mountainFar, 11, HZ + 0.5, 17, mix(pal.mountainFar, pal.haze, 0.3));
-  ridge(f, SPEED.mountainNear, 23, HZ + 1, 10, mix(pal.mountainNear, pal.haze, 0.18));
+  // 교외(팔당·양평·파주)는 산이 가깝고 높다
+  const rural = sectionAtM(f, f.cam).style === "rural";
+  ridge(f, SPEED.mountainFar, 11, HZ + 0.5, rural ? 26 : 17, mix(pal.mountainFar, pal.haze, rural ? 0.22 : 0.3));
+  ridge(f, SPEED.mountainNear, 23, HZ + 1, rural ? 19 : 10, mix(rural ? mix(pal.mountainNear, pal.tree[0], 0.35) : pal.mountainNear, pal.haze, 0.18));
 
   // 원경 시가지 (강 건너 / 멀리 보이는 아파트 숲)
   const s = SPEED.skyline;
   forCells(f, s, 40, 60, 501, (m, r) => {
+    if (sectionAtM(f, m).style === "rural" && r() < 0.85) return;
     const n = 1 + Math.floor(r() * 3);
     for (let k = 0; k < n; k++) {
       const bm = m + r() * 40;

@@ -8,6 +8,7 @@ import { drawMid, drawNear } from "./city";
 import { drawPlatformBack, drawPlatformFront } from "./station";
 import { drawTrack } from "./track";
 import { drawDonghoFar, drawDonghoNeighbor } from "./dongho";
+import { drawCrossingBridges } from "./gyeongui";
 import { drawPassingTrain } from "./passing";
 import { drawFore, drawPrecip, drawDroplets, drawGlass } from "./effects";
 
@@ -62,6 +63,7 @@ export function renderScene(f: Frame) {
           drawDonghoNeighbor(f, sec);
         }
       }
+      for (const sec of f.journey.sections) if (sec.kind === "riverside") drawCrossingBridges(f, sec);
     } else {
       ctx.fillStyle = f.pal.groundFar;
       ctx.fillRect(0, WATER_Y * f.u, f.W, f.H);

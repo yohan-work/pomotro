@@ -2,14 +2,17 @@
 import { sectionsInRange, type Section } from "../../sim/journey";
 import { hash2, pick, rng } from "../rng";
 import { mix, rrect, shadeColor } from "../sprites";
-import { SPEED, HZ, WATER_Y, type Frame, sx, visRange, sectionAtM } from "./core";
+import { SPEED, HZ, WATER_Y, type Frame, sx, visRange, sectionAtM, riverSideView } from "./core";
 
 /* ═════════════════════════════ 한강 ═════════════════════════════ */
 
 export function riverNearby(f: Frame): boolean {
   const [m0, m1] = visRange(f, SPEED.mid * 0.6, 200);
   return sectionsInRange(f.journey, m0, m1).some(
-    (s) => (s.kind === "river" && s.variant !== "stream") || (s.kind === "bank" && !nearStream(f, s)),
+    (s) =>
+      (s.kind === "river" && s.variant !== "stream") ||
+      (s.kind === "bank" && !nearStream(f, s)) ||
+      (s.kind === "riverside" && riverSideView(s)),
   );
 }
 

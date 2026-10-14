@@ -518,6 +518,36 @@ export function drawFactory(ctx: CanvasRenderingContext2D, s: FactorySpec, pal: 
   }
 }
 
+/* ───────────────────────── 비닐하우스 (교외) ───────────────────────── */
+
+export function drawGreenhouse(ctx: CanvasRenderingContext2D, w: number, h: number, pal: Palette) {
+  const night = pal.night > 0.5;
+  // 반투명 아치형 비닐
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, night ? "rgba(170,180,200,0.75)" : "rgba(245,248,250,0.95)");
+  g.addColorStop(1, night ? "rgba(120,130,150,0.75)" : "rgba(205,214,220,0.95)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  ctx.quadraticCurveTo(0, 0, w * 0.06, 0);
+  ctx.lineTo(w * 0.94, 0);
+  ctx.quadraticCurveTo(w, 0, w, h);
+  ctx.closePath();
+  ctx.fill();
+  // 골조 줄
+  ctx.strokeStyle = night ? "rgba(90,96,110,0.6)" : "rgba(150,160,166,0.6)";
+  ctx.lineWidth = 1;
+  for (let x = w * 0.08; x < w * 0.95; x += h * 0.9) {
+    ctx.beginPath();
+    ctx.moveTo(x, 1);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  // 안쪽 작물 초록
+  ctx.fillStyle = night ? "rgba(40,70,50,0.35)" : "rgba(120,170,110,0.35)";
+  ctx.fillRect(w * 0.04, h * 0.65, w * 0.92, h * 0.35);
+}
+
 /* ───────────────────────── 나무 ───────────────────────── */
 
 export function drawTree(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number, pal: Palette) {
