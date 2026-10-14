@@ -70,6 +70,6 @@ const RAW: RawStation[] = [
   ["chungjeongno", "243", "충정로", "Chungjeongno", "underground", "E", []],
 ];
 
-export const LINE2 = buildLine({ id: "2", nameKo: "2호선", color: "#2E946B", loop: true }, RAW, LINE2_OFFICIAL_SEGMENTS);
+export const LINE2 = buildLine({ id: "2", nameKo: "2호선", nameEn: "Line 2", badge: { ko: "2", en: "2" }, color: "#2E946B", loop: true }, RAW, LINE2_OFFICIAL_SEGMENTS);
 export const STATIONS = LINE2.stations;
 export const SEGMENTS = LINE2.segments;

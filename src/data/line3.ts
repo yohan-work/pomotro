@@ -47,4 +47,4 @@ const RAW: RawStation[] = [
   ["l3-ogeum", "352", "오금", "Ogeum", "underground", "E", []],
 ];
 
-export const LINE3 = buildLine({ id: "3", nameKo: "3호선", color: "#EF7C1C", loop: false }, RAW, LINE3_OFFICIAL_SEGMENTS);
+export const LINE3 = buildLine({ id: "3", nameKo: "3호선", nameEn: "Line 3", badge: { ko: "3", en: "3" }, color: "#EF7C1C", loop: false }, RAW, LINE3_OFFICIAL_SEGMENTS);

@@ -13,14 +13,18 @@ export type SectionKind =
   | "river" // 한강 위 철교
   | "portal-in" // 지상 → 터널 진입 (옹벽이 차오름)
   | "portal-out" // 터널 → 지상 진출
-  | "tunnel";
+  | "tunnel"
+  | "riverside"; // 강을 따라 달리는 강변 선로 — 강이 남쪽에 있어 남향 창일 때만 강이 보인다
 
 /** 물 구간의 실제 장소 — 랜드마크 연출을 결정한다 */
 export type WaterVariant =
   | "hangang-yanghwa" // 당산철교: 서쪽 창 → 양화대교·선유도·하류 노을
   | "hangang-jamsil" // 잠실철교: 동쪽 창 → 올림픽대교·롯데월드타워·아차산
   | "hangang-dongho" // 동호대교(도로 겸용 교량 한가운데): 남행 동쪽 창 → 성수대교·응봉산 / 북행 서쪽 창 → 한남대교·남산
-  | "stream"; // 중랑천 등 하천
+  | "stream" // 중랑천 등 하천
+  | "hangang-north" // 경의중앙선 용산~응봉: 한강 북안, 건너편 강남 스카이라인·한강 다리들
+  | "paldang" // 경의중앙선 덕소~운길산: 팔당호 강변, 가까운 산
+  | "bukhangang"; // 경의중앙선 운길산→양수: 북한강 횡단
 
 export interface SectionSpec {
   kind: SectionKind;
@@ -32,7 +36,7 @@ export interface SectionSpec {
 }
 
 /** 지상 시가지의 동네 분위기 (연출) */
-export type CityStyle = "residential" | "brick" | "office" | "highrise";
+export type CityStyle = "residential" | "brick" | "office" | "highrise" | "rural";
 
 const AREA_STYLE: Record<string, CityStyle> = {
   // 성수동 붉은 벽돌 공장·창고 카페 지대
@@ -45,6 +49,26 @@ const AREA_STYLE: Record<string, CityStyle> = {
   sindorim: "highrise",
   daerim: "highrise",
   jamsillaru: "highrise",
+  // 경의중앙선: 일산 신도시 고층, 파주·양평 쪽 교외
+  "gj-ilsan": "highrise",
+  "gj-tanhyeon": "highrise",
+  "gj-baengma": "highrise",
+  "gj-munsan": "rural",
+  "gj-paju": "rural",
+  "gj-wollong": "rural",
+  "gj-deokso": "rural",
+  "gj-dosim": "rural",
+  "gj-paldang": "rural",
+  "gj-ungilsan": "rural",
+  "gj-yangsu": "rural",
+  "gj-sinwon": "rural",
+  "gj-guksu": "rural",
+  "gj-asin": "rural",
+  "gj-obin": "rural",
+  "gj-yangpyeong": "rural",
+  "gj-wondeok": "rural",
+  "gj-yongmun": "rural",
+  "gj-jipyeong": "rural",
 };
 
 /** 구간의 시가지 스타일 — 양 끝 역 중 특색 있는 쪽을 따른다 */
@@ -84,6 +108,24 @@ const CUSTOM: Record<string, SectionSpec[]> = {
     { kind: "city", length: 50, stretch: 0.1 },
     { kind: "portal-in", length: 140, stretch: 0 },
     { kind: "tunnel", length: 90, stretch: 1 },
+  ],
+  // 경의중앙선 한강 북안 (용산 ~ 응봉)
+  "gj-yongsan__gj-ichon": [{ kind: "riverside", length: 220, stretch: 1, variant: "hangang-north" }],
+  "gj-ichon__gj-seobinggo": [{ kind: "riverside", length: 220, stretch: 1, variant: "hangang-north" }],
+  "gj-seobinggo__gj-hannam": [{ kind: "riverside", length: 220, stretch: 1, variant: "hangang-north" }],
+  "gj-hannam__gj-oksu": [{ kind: "riverside", length: 220, stretch: 1, variant: "hangang-north" }],
+  "gj-oksu__gj-eungbong": [{ kind: "riverside", length: 200, stretch: 1, variant: "hangang-north" }],
+  // 팔당호 강변
+  "gj-deokso__gj-dosim": [{ kind: "riverside", length: 240, stretch: 1, variant: "paldang" }],
+  "gj-dosim__gj-paldang": [{ kind: "riverside", length: 300, stretch: 1, variant: "paldang" }],
+  "gj-paldang__gj-ungilsan": [{ kind: "riverside", length: 260, stretch: 1, variant: "paldang" }],
+  // 운길산 → 북한강 철교 → 양수
+  "gj-ungilsan__gj-yangsu": [
+    { kind: "city", length: 80, stretch: 0.5 },
+    { kind: "bank", length: 40, stretch: 0 },
+    { kind: "river", length: 480, stretch: 0, variant: "bukhangang" },
+    { kind: "bank", length: 40, stretch: 0 },
+    { kind: "city", length: 80, stretch: 0.5 },
   ],
   // 한양대 → 중랑천 교량 → 뚝섬
   "hanyang-univ__ttukseom": [

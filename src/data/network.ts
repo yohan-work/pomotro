@@ -1,7 +1,7 @@
 /**
  * 노선망 공용 타입과 빌더. 각 노선 파일(line2.ts, line3.ts)은 사실 데이터만 두고 이 빌더로 LineDef 를 만든다.
  */
-export type LineId = "2" | "3";
+export type LineId = "2" | "3" | "GJ";
 export type StationStructure = "elevated" | "underground";
 export type Heading = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
 
@@ -34,7 +34,12 @@ export interface LineSegment {
 export interface LineDef {
   id: LineId;
   nameKo: string;
+  nameEn: string;
+  /** 노선 배지 글자 (원 안에 들어갈 짧은 표기) */
+  badge: { ko: string; en: string };
   color: string;
+  /** 운행시간이 공식 데이터가 아닌 추정이면 true (화면에 "추정" 표기) */
+  runTimeEstimated?: boolean;
   /** 순환선이면 내선순환 한 방향, 아니면 양방향 */
   loop: boolean;
   stations: Station[];
@@ -62,7 +67,11 @@ export function windowFacing(heading: Heading): Heading {
 }
 
 /** 역 목록 + 공식 구간 데이터 → 노선. 공식 데이터와는 국문 역명으로 매칭하며, 없으면 즉시 실패 */
-export function buildLine(meta: { id: LineId; nameKo: string; color: string; loop: boolean }, raw: RawStation[], official: ReadonlyArray<OfficialSegment>): LineDef {
+export function buildLine(
+  meta: { id: LineId; nameKo: string; nameEn: string; badge: { ko: string; en: string }; color: string; loop: boolean; runTimeEstimated?: boolean },
+  raw: RawStation[],
+  official: ReadonlyArray<OfficialSegment>,
+): LineDef {
   const stations: Station[] = raw.map(([id, code, nameKo, nameEn, structure]) => ({ id, line: meta.id, code, nameKo, nameEn, structure }));
   const count = meta.loop ? raw.length : raw.length - 1;
   const segments: LineSegment[] = [];

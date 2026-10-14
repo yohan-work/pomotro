@@ -78,6 +78,17 @@ const back = stationsBetween("l3-apgujeong", "l3-geumho").map((s) => s.nameKo).j
 check(back === "압구정→옥수→금호", `line 3 reverse route: ${back}`);
 check(getStation("l3-euljiro-3ga").nameKo === getStation("euljiro-3ga").nameKo, "transfer station names match");
 
+// 경의중앙선 (국가철도공단 데이터, 운행시간 추정)
+{
+  const { LINE_GJ } = await import("../src/data/lineGJ");
+  console.log(`▶ Gyeongui–Jungang: ${LINE_GJ.stations.length} stations, ${LINE_GJ.segments.length} directed segments`);
+  check(LINE_GJ.stations.length === 53 && LINE_GJ.runTimeEstimated === true, "GJ 53 stations (문산~지평), run times flagged as estimated");
+  const km = LINE_GJ.segments.filter((_, i) => i % 2 === 0).reduce((a, s) => a + s.distanceKm, 0);
+  check(Math.abs(km - 122.3) < 0.05, `GJ total km ${km}`);
+  const west = stationsBetween("gj-hannam", "gj-seobinggo");
+  check(west.length === 2 && getStation("gj-hannam").nameEn === "Hannam", "GJ westbound riverside route");
+}
+
 run("demo 당산→합정", ["dangsan", "hapjeong"], 100);
 run("demo 당산→합정 2분", ["dangsan", "hapjeong"], 120);
 run("15분", stationsBetween("dangsan", "city-hall").map((s) => s.id), 15 * 60);
@@ -89,6 +100,8 @@ run("순환 경계 통과 (아현→을지로3가)", stationsBetween("ahyeon", "
 run("동호대교 남행 옥수→압구정", ["l3-oksu", "l3-apgujeong"], 140);
 run("동호대교 북행 압구정→옥수", ["l3-apgujeong", "l3-oksu"], 140);
 run("3호선 25분 충무로→양재", stationsBetween("l3-chungmuro", "l3-yangjae").map((s) => s.id), 25 * 60);
+run("경의중앙 강변 서행 왕십리→용산", stationsBetween("gj-wangsimni", "gj-yongsan").map((s) => s.id), 15 * 60);
+run("경의중앙 팔당 덕소→양수", stationsBetween("gj-deokso", "gj-yangsu").map((s) => s.id), 15 * 60);
 run("60분 (짧은 노선 늘이기)", stationsBetween("dangsan", "sinchon").map((s) => s.id), 60 * 60);
 
 // 휴식(한 역 정차) 여정
