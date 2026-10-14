@@ -36,6 +36,9 @@ const SCENES = [
   ["seongsu-brick", route("ttukseom,seongsu", 150, 50, "day")],
   ["dongho-south", route("l3-oksu,l3-apgujeong", 140, 55, "day")],
   ["dongho-north-sunset", route("l3-apgujeong,l3-oksu", 140, 80, "sunset")],
+  ["gj-riverside-west", route("gj-seobinggo,gj-ichon", 200, 95, "day")],
+  ["gj-paldang", route("gj-paldang,gj-dosim", 200, 90, "day")],
+  ["gj-rural", route("gj-yangpyeong,gj-wondeok", 200, 90, "day")],
   ["rain", demo(30, "day", "&weather=rain")],
   ["snow-winter-night", demo(26, "night", "&weather=snow&season=winter")],
 ];

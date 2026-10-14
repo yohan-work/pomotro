@@ -185,6 +185,15 @@ await page.waitForSelector("[role=dialog][aria-label='승차권']");
 check(true, "ticket re-open dialog");
 await page.keyboard.press("Escape");
 
+// 5g-1) 경의중앙선: 노선도에서 고르기, 운행시간 추정 표시
+await page.goto(base, { waitUntil: "load" });
+await page.getByRole("tab", { name: "직접 고르기" }).click();
+await page.getByRole("radio", { name: "경의중앙선" }).click();
+await page.getByRole("button", { name: /경의중앙선 청량리역/ }).locator("circle").first().click();
+await page.getByRole("button", { name: /경의중앙선 용산역/ }).locator("circle").first().click();
+const gjHint = await page.locator("[aria-live=polite]").last().textContent();
+check(/청량리 → 용산/.test(gjHint) && /추정/.test(gjHint), `GJ pick shows estimated run time (${gjHint.slice(0, 40)}…)`);
+
 // 5g-2) 3호선 동호대교 주행: 노선 배지·색
 await page.goto(`${base}/?autostart=route&route=l3-oksu,l3-apgujeong&total=140&mode=focus&seek=55`, { waitUntil: "load" });
 await page.waitForSelector("[data-testid=timer]");
