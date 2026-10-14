@@ -60,8 +60,15 @@ export interface Frame {
 
 export type Land = "city" | "bank" | "river" | "none";
 
+/** 강변 선로에서 강 쪽(남쪽)을 보고 있는지 */
+export const riverSideView = (sec: Section) => sec.view === "S" || sec.view === "SE" || sec.view === "SW";
+
 export function landOf(sec: Section, layer: "mid" | "near" = "near"): Land {
   switch (sec.kind) {
+    case "riverside":
+      // 강 쪽 창: 근경은 강변 공원, 중경은 강물 / 반대쪽 창: 평범한 시가지
+      if (!riverSideView(sec)) return "city";
+      return layer === "mid" ? "river" : "bank";
     case "river":
       // 좁은 하천은 중경에서는 건너편 둑(강변도로·아파트)이 바로 보인다
       if (sec.variant === "stream" && layer === "mid") return "bank";
