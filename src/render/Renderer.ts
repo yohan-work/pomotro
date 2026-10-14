@@ -147,6 +147,7 @@ export class Renderer {
       time: input.time,
       pal: applyConditions(PALETTES[input.timeOfDay], season, weather),
       weather,
+      season,
       journey: input.journey,
       sprites: this.sprites,
       quality: this.quality,

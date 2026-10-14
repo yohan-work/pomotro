@@ -7,6 +7,7 @@ import { riverNearby, drawWater, drawIsland, drawYanghwa, drawBoat, drawBirds, d
 import { drawMid, drawNear } from "./city";
 import { drawPlatformBack, drawPlatformFront } from "./station";
 import { drawTrack } from "./track";
+import { drawDonghoFar, drawDonghoNeighbor } from "./dongho";
 import { drawPassingTrain } from "./passing";
 import { drawFore, drawPrecip, drawDroplets, drawGlass } from "./effects";
 
@@ -39,7 +40,11 @@ export function renderScene(f: Frame) {
   if (!outdoorHidden(f)) {
     drawSky(f);
     drawFar(f);
-    for (const sec of f.journey.sections) if (sec.kind === "river" && sec.variant === "hangang-jamsil") drawLotteTower(f, sec);
+    for (const sec of f.journey.sections) {
+      if (sec.kind !== "river") continue;
+      if (sec.variant === "hangang-jamsil") drawLotteTower(f, sec);
+      else if (sec.variant === "hangang-dongho") drawDonghoFar(f, sec);
+    }
     if (riverNearby(f)) {
       drawWater(f);
       drawBirds(f);
@@ -52,6 +57,9 @@ export function renderScene(f: Frame) {
         } else if (sec.variant === "hangang-jamsil") {
           drawBoat(f, sec);
           drawOlympicBridge(f, sec);
+        } else if (sec.variant === "hangang-dongho") {
+          drawBoat(f, sec);
+          drawDonghoNeighbor(f, sec);
         }
       }
     } else {

@@ -1,5 +1,5 @@
 /** 창밖 장면 — 역 승강장 */
-import { neighbors, type Station } from "../../data/line2";
+import { LINE_BY_ID, neighbors, type Station } from "../../data/lines";
 import { hash2, pick } from "../rng";
 import { drawPerson, mix, rrect, shadeColor } from "../sprites";
 import { SPEED, type Frame, sx, spans, sectionAtM, forCells } from "./core";
@@ -16,7 +16,7 @@ export function stationSign(f: Frame, station: Station, w: number, h: number) {
     c.fillStyle = "#FBFBF8";
     rrect(c, 0, 0, w - 2, h - 3, h * 0.12);
     c.fill();
-    c.fillStyle = "#2E946B";
+    c.fillStyle = LINE_BY_ID[station.line].color;
     c.fillRect(0, h * 0.7, w - 2, h * 0.27);
     // 역번호 원
     c.beginPath();
@@ -37,9 +37,9 @@ export function stationSign(f: Frame, station: Station, w: number, h: number) {
     c.fillStyle = "#FFFFFF";
     c.font = `600 ${h * 0.14}px Pretendard, sans-serif`;
     c.textAlign = "left";
-    c.fillText(`‹ ${nb.prev.nameKo}`, h * 0.2, h * 0.84);
+    if (nb.prev) c.fillText(`‹ ${nb.prev.nameKo}`, h * 0.2, h * 0.84);
     c.textAlign = "right";
-    c.fillText(`${nb.next.nameKo} ›`, w - h * 0.2, h * 0.84);
+    if (nb.next) c.fillText(`${nb.next.nameKo} ›`, w - h * 0.2, h * 0.84);
   });
 }
 

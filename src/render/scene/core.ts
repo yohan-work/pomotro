@@ -11,7 +11,7 @@
  */
 import { sectionsInRange, type Journey, type Section } from "../../sim/journey";
 import { type Palette } from "../palette";
-import { type Weather } from "../conditions";
+import { type Season, type Weather } from "../conditions";
 import { hash2, rng } from "../rng";
 import { type SpriteCache } from "../sprites";
 
@@ -55,6 +55,7 @@ export interface Frame {
   sunAlpha: number;
   reducedMotion: boolean;
   weather: Weather;
+  season: Season;
 }
 
 export type Land = "city" | "bank" | "river" | "none";

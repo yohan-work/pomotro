@@ -1,6 +1,7 @@
 /** 창밖 장면 — 선로 구조물: 방음벽·트러스·스크린도어·옹벽·터널 */
 import { hash2, rng } from "../rng";
 import { rrect, shadeColor } from "../sprites";
+import { drawDonghoDeck, onDongho } from "./dongho";
 import { SPEED, type Frame, sx, mAt, visRange, type Span, spans } from "./core";
 
 /* ═════════════════════════════ 선로 구조물 (방음벽 / 트러스 / 스크린도어 / 옹벽 / 터널) ═════════════════════════════ */
@@ -25,7 +26,9 @@ export function drawTrack(f: Frame) {
         break;
       case "bank":
       case "river":
-        drawTruss(f, sp);
+        // 동호대교: 트러스 없이 도로 한가운데 — 옆 차로와 중앙분리 난간
+        if (onDongho(f, sec)) drawDonghoDeck(f, sp);
+        else drawTruss(f, sp);
         drawCatenaryWire(f, sp);
         break;
       case "platform":
