@@ -10,7 +10,7 @@ import { timeOfDayKST } from "@/render/palette";
 import { buildJourney, minJourneySec } from "@/sim/journey";
 import { todayFocusSec, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconClose, IconSettings, IconTrain, Mascot } from "./Icons";
-import { SoundSettings, ViewSettings } from "./Panels";
+import { PomodoroSettings, SoundSettings, ViewSettings } from "./Panels";
 import LineMap from "./LineMap";
 import styles from "./SetupScreen.module.css";
 
@@ -358,6 +358,8 @@ export default function SetupScreen() {
             </div>
             <ViewSettings />
             <hr className={styles.rule} />
+            <PomodoroSettings />
+            <hr className={styles.rule} />
             <SoundSettings
               audioOn={audioOn}
               onEnable={() => {
@@ -371,7 +373,11 @@ export default function SetupScreen() {
 
       <div className={styles.mascot} aria-hidden>
         <Mascot size={72} />
-        <span className={styles.bubble}>집중하는 모든 순간이, 좋은 곳으로 데려다줄 거예요.</span>
+        <span className={styles.bubble}>
+          {records.length === 0
+            ? "처음이라면 1분 50초 체험 운행으로 한강부터 건너봐요."
+            : "집중하는 모든 순간이, 좋은 곳으로 데려다줄 거예요."}
+        </span>
       </div>
     </main>
   );

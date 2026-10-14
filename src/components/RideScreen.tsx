@@ -80,6 +80,19 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const [zen, setZen] = useState(false);
   const [ledPart, setLedPart] = useState(0);
   const [canFullscreen, setCanFullscreen] = useState(false);
+  const seenTips = useAppStore((s) => s.seenRideTips);
+  const [showTips, setShowTips] = useState(false);
+  // 첫 주행에서만 8초간 짧은 안내
+  useEffect(() => {
+    if (seenTips || debug.enabled) return;
+    setShowTips(true);
+    const id = setTimeout(() => {
+      setShowTips(false);
+      useAppStore.getState().setSeenRideTips();
+    }, 8000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => setCanFullscreen(Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen)), []);
   const [clock, setClock] = useState(() => new Date());
 
@@ -469,6 +482,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
                 key={stations[i].id}
                 className={`${styles.stop} ${i <= sample.stationIndex && (atStation || i < sample.nextIndex) ? styles.stopDone : ""}`}
                 style={{ left: `${(x / totalX) * 100}%` }}
+                data-name={stations[i].nameKo}
+                title={stations[i].nameKo}
               />
             ))}
             <span className={styles.trainDot} style={{ left: `${sample.progress * 100}%` }} />
@@ -549,6 +564,22 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
               내리기
             </button>
           </div>
+        </div>
+      )}
+
+      {showTips && (
+        <div className={styles.tips} role="status">
+          <span>
+            <b>Space</b> 일시정지 · <b>H</b> 집중 모드 · 도착하면 그 역에서 쉬어갈 수 있어요
+          </span>
+          <button
+            onClick={() => {
+              setShowTips(false);
+              useAppStore.getState().setSeenRideTips();
+            }}
+          >
+            알겠어요
+          </button>
         </div>
       )}
 
