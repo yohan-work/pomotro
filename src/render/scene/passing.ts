@@ -3,6 +3,7 @@ import { type Journey } from "../../sim/journey";
 import { hash2, rng } from "../rng";
 import { rrect } from "../sprites";
 import { type Frame, sx, visRange } from "./core";
+import { drawTtorong, ttorongAt } from "./surprise";
 
 /* ═════════════════════════════ 교행 열차 (터널) ═════════════════════════════ */
 
@@ -48,6 +49,7 @@ export function drawPassingTrain(f: Frame) {
   for (const a of passingTrains(f.journey)) {
     if (a > m1 || a + PASSING.len < m0) continue;
     const car = PASSING.car;
+    const ttorong = ttorongAt(f, a);
     const top = 5 * u;
     const bottom = 97 * u;
     for (let c = 0; c < PASSING.len / car; c++) {
@@ -80,8 +82,11 @@ export function drawPassingTrain(f: Frame) {
           ctx.fillStyle = "rgba(255,228,182,0.78)";
           rrect(ctx, wx, 20 * u, 2.1 * unit, 30 * u, 1.2 * u);
           ctx.fill();
-          // 승객 실루엣
-          if (r() < 0.7) {
+          // 승객 실루엣 — 아주 드물게 셋째 칸 가운데 창에 또롱이 타고 있다
+          if (ttorong && c === 2 && k === 1) {
+            drawTtorong(ctx, wx + 1.05 * unit, 37 * u, 20 * u);
+            r();
+          } else if (r() < 0.7) {
             ctx.fillStyle = "rgba(70,60,60,0.45)";
             const px = wx + (0.2 + r() * 0.6) * 2.1 * unit;
             ctx.beginPath();

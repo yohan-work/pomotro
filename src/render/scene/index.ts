@@ -10,6 +10,7 @@ import { drawTrack } from "./track";
 import { drawDonghoFar, drawDonghoNeighbor } from "./dongho";
 import { drawCrossingBridges } from "./gyeongui";
 import { drawPassingTrain } from "./passing";
+import { drawBalloons, drawDuckboats, drawMonster, drawPlatformCat } from "./surprise";
 import { drawFore, drawPrecip, drawDroplets, drawGlass } from "./effects";
 
 /* ═════════════════════════════ 합성 ═════════════════════════════ */
@@ -41,6 +42,7 @@ export function renderScene(f: Frame) {
   if (!outdoorHidden(f)) {
     drawSky(f);
     drawFar(f);
+    drawBalloons(f);
     for (const sec of f.journey.sections) {
       if (sec.kind !== "river") continue;
       if (sec.variant === "hangang-jamsil") drawLotteTower(f, sec);
@@ -63,6 +65,8 @@ export function renderScene(f: Frame) {
           drawDonghoNeighbor(f, sec);
         }
       }
+      drawMonster(f);
+      drawDuckboats(f);
       for (const sec of f.journey.sections) if (sec.kind === "riverside") drawCrossingBridges(f, sec);
     } else {
       ctx.fillStyle = f.pal.groundFar;
@@ -74,6 +78,7 @@ export function renderScene(f: Frame) {
   }
   drawPlatformBack(f);
   drawPlatformFront(f);
+  drawPlatformCat(f);
   drawTrack(f);
   drawPassingTrain(f);
   drawFore(f);
