@@ -123,6 +123,9 @@ export default function SetupScreen() {
             <b>METRO</b>
             <small>서울을 달리는 뽀모도로</small>
           </span>
+          <button className={styles.myMap} onClick={() => useAppStore.getState().setView("records")}>
+            나의 노선도
+          </button>
         </div>
 
         <h1 className={styles.title}>

@@ -70,6 +70,9 @@ export interface AppState {
   nextOriginId: string | null;
   /** 방금 휴식을 마쳤는지 (출발 화면 안내) */
   breakJustEnded: boolean;
+  /** 진행 중 세션·완료 화면이 없을 때 보이는 화면 (저장하지 않음) */
+  view: "home" | "records";
+  setView: (v: "home" | "records") => void;
 
   setFocusMinutes: (m: number) => void;
   setTask: (t: string) => void;
@@ -110,6 +113,8 @@ export const useAppStore = create<AppState>()(
       lastFocusAt: 0,
       nextOriginId: null,
       breakJustEnded: false,
+      view: "home",
+      setView: (v) => set({ view: v }),
 
       setFocusMinutes: (m) => set({ focusMinutes: m }),
       setTask: (t) => set({ task: t }),

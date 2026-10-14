@@ -94,6 +94,16 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
             <IconDownload width={18} height={18} /> 이미지로 저장
           </button>
         </div>
+        <button
+          className={styles.link}
+          onClick={() => {
+            const st = useAppStore.getState();
+            st.closeCompletion();
+            st.setView("records");
+          }}
+        >
+          나의 서울 노선도 보기
+        </button>
         {shareMsg && <p className={styles.msg}>{shareMsg}</p>}
       </div>
     </main>

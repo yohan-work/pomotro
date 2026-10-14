@@ -7,6 +7,7 @@ import { DEMO_ROUTE } from "@/lib/recommend";
 import { minJourneySec } from "@/sim/journey";
 import { useAppStore } from "@/store/useAppStore";
 import CompleteScreen from "./CompleteScreen";
+import RecordsScreen from "./RecordsScreen";
 import RideScreen, { type RideDebug } from "./RideScreen";
 import SetupScreen from "./SetupScreen";
 
@@ -25,6 +26,7 @@ export default function ClientApp() {
   const [debug, setDebug] = useState<RideDebug>({ enabled: false, tod: null });
   const active = useAppStore((s) => s.activeSession);
   const lastRecordId = useAppStore((s) => s.lastRecordId);
+  const view = useAppStore((s) => s.view);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -59,5 +61,6 @@ export default function ClientApp() {
   if (!ready) return null;
   if (active) return <RideScreen key={active.id} session={active} debug={debug} />;
   if (lastRecordId) return <CompleteScreen recordId={lastRecordId} />;
+  if (view === "records") return <RecordsScreen />;
   return <SetupScreen />;
 }
