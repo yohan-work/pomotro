@@ -117,3 +117,90 @@ export const LINE3_OFFICIAL_KM = ${total3};
 `,
 );
 console.log(`${seg3.length} segments, ${total3} km → ${OUT3}`);
+
+/* ───────── 경의중앙선 (코레일 운영, 국가철도공단 데이터) ─────────
+ * - 역간거리: 국가철도공단_경의중앙선_역간거리 (data.go.kr 15041327) — 값은 "다음 역까지" 거리.
+ *   역 위치로 구한 직선거리와 대조해 확인했다 (반대 해석은 오차가 5배 이상).
+ * - 역위치: 국가철도공단_경의중앙선_역위치 (15041487) — 위도·경도 → 진행 방위 계산
+ * - 영문역명: 국가철도공단_RAFIS_역 정보 (15132601)
+ * - 운행시간은 공개 데이터가 없어 이 파일에 넣지 않는다 (lineGJ.ts 에서 거리 기반 추정, 화면에 "추정" 표기)
+ */
+const GJ_FILES = [
+  { id: "15041327", file: "data/official/krna-gyeongui-jungang-distance.csv", atch: "FILE_000000007709572" },
+  { id: "15041487", file: "data/official/krna-gyeongui-jungang-position.csv", atch: "FILE_000000003510121" },
+  { id: "15132601", file: "data/official/krna-rafis-stations.csv", atch: "FILE_000000002993444" },
+];
+if (!process.argv.includes("--offline")) {
+  for (const f of GJ_FILES) {
+    const raw = execFileSync("curl", ["-sfL", `https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=${f.atch}&fileDetailSn=1&insertDataPrcus=N`]);
+    // 국가철도공단 파일은 CP949 — UTF-8 로 저장
+    let text = new TextDecoder("euc-kr").decode(raw);
+    if (!text.includes("역명")) text = new TextDecoder("utf-8").decode(raw);
+    writeFileSync(f.file, text.replace(/\r\n/g, "\n"));
+    console.log(`downloaded → ${f.file}`);
+  }
+}
+const csvRows = (path: string) => {
+  const [head, ...rest] = readFileSync(path, "utf8").trim().split("\n");
+  const cols = head.split(",");
+  return rest.map((l) => Object.fromEntries(l.split(",").map((v, i) => [cols[i], v])) as Record<string, string>);
+};
+const gjDist = csvRows(GJ_FILES[0].file);
+const gjPos = csvRows(GJ_FILES[1].file);
+const rafis = csvRows(GJ_FILES[2].file);
+const names = gjDist.map((r) => r["역명"]);
+// 본선 문산 → 지평 (도라산·임진강·운천 DMZ 셔틀 구간과 서울역 지선 제외)
+const i0 = names.indexOf("문산");
+const i1 = names.indexOf("지평");
+if (i0 < 0 || i1 < 0) throw new Error("Gyeongui–Jungang range changed");
+const main = gjDist.slice(i0, i1 + 1);
+const posOf = (n: string) => {
+  const p = gjPos.find((r) => r["역명"] === n);
+  if (!p) throw new Error(`position missing: ${n}`);
+  return { lat: Number(p["위도"]), lon: Number(p["경도"]) };
+};
+const enOf = (n: string) => rafis.find((r) => r["역명"] === n || r["역명"] === n.split("(")[0])?.["영문역명"] ?? null;
+const haversine = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
+  const R = 6371;
+  const r = Math.PI / 180;
+  const h = Math.sin(((b.lat - a.lat) * r) / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lon - a.lon) * r) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+const gjStations = main.map((r) => ({ nameKo: r["역명"], nameEnOfficial: enOf(r["역명"]), ...posOf(r["역명"]), positionSuspect: false }));
+// 선로 거리는 직선거리보다 짧을 수 없다 (0.1km 반올림 여유). 어긋나는 구간을 찾는다
+const short = main.slice(0, -1).map((r, i) => Number(r["역간거리(km)"]) < haversine(gjStations[i], gjStations[i + 1]) * 0.75 - 0.15);
+// 어긋난 구간의 두 끝 중, 반대쪽 이웃 구간 비율도 낮은(직선거리가 너무 긴) 역의 좌표가 틀린 것
+// (예: 한국항공대 — 실제와 약 5km 차이) → 방위 계산에서 제외
+const ratio = (i: number) =>
+  i < 0 || i >= main.length - 1 ? 1 : Number(main[i]["역간거리(km)"]) / Math.max(0.01, haversine(gjStations[i], gjStations[i + 1]));
+short.forEach((bad, i) => {
+  if (!bad) return;
+  const suspect = ratio(i - 1) < ratio(i + 1) ? i : i + 1;
+  gjStations[suspect].positionSuspect = true;
+});
+const suspects = gjStations.filter((s) => s.positionSuspect).map((s) => s.nameKo);
+const unexplained = short.filter((x, i) => x && !gjStations[i].positionSuspect && !gjStations[i + 1].positionSuspect).length;
+if (unexplained > 0 || suspects.length > 3) throw new Error(`distance/position check failed: ${unexplained} unexplained, suspects ${suspects}`);
+if (suspects.length) console.warn(`position suspect (excluded from headings): ${suspects.join(", ")}`);
+const gjSegments = main.slice(0, -1).map((r, i) => ({ from: r["역명"], to: main[i + 1]["역명"], distanceKm: Number(r["역간거리(km)"]) }));
+const OUTGJ = "src/data/lineGJ.official.ts";
+writeFileSync(
+  OUTGJ,
+  `/**
+ * 자동 생성 파일 — 직접 수정하지 말 것. \`npm run data:import\` 로 다시 만든다.
+ *
+ * 출처: 국가철도공단 (이용허락범위 제한 없음)
+ *  - 「국가철도공단_경의중앙선_역간거리」 https://www.data.go.kr/data/15041327/fileData.do
+ *  - 「국가철도공단_경의중앙선_역위치」 https://www.data.go.kr/data/15041487/fileData.do
+ *  - 「국가철도공단_RAFIS_역 정보」(영문역명) https://www.data.go.kr/data/15132601/fileData.do
+ * 운행시간은 포함하지 않는다 (공개 데이터 없음).
+ */
+
+/** 문산 → 지평 본선 역 (영문역명은 RAFIS, 없으면 null). positionSuspect = 좌표가 역간거리와 모순 (방위 계산에서 제외) */
+export const GJ_OFFICIAL_STATIONS: ReadonlyArray<{ nameKo: string; nameEnOfficial: string | null; lat: number; lon: number; positionSuspect: boolean }> = ${JSON.stringify(gjStations, null, 2)};
+
+/** 인접 역간 거리 (km) */
+export const GJ_OFFICIAL_SEGMENTS: ReadonlyArray<{ from: string; to: string; distanceKm: number }> = ${JSON.stringify(gjSegments, null, 2)};
+`,
+);
+console.log(`${gjSegments.length} segments, ${gjSegments.reduce((a, s) => a + s.distanceKm, 0).toFixed(1)} km → ${OUTGJ}`);
