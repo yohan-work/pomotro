@@ -17,3 +17,14 @@
 ## 글꼴
 
 Pretendard — SIL Open Font License 1.1.
+
+## 생성 이미지 (`public/art/*.webp`) — 실험
+
+로컬에서 [FLUX.1-schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell) (Apache 2.0, 4bit 양자화본 `dhairyashil/FLUX.1-schnell-mflux-4bit`)을 [mflux](https://github.com/filipstrand/mflux) 로 실행해 생성했다. 생성물 사용에 제한 없음.
+
+| 파일 | 내용 | 가공 |
+|---|---|---|
+| `interior.webp` | 지하철 객실 실내 (창은 크로마키로 투명) | 초록 창 크로마키·번짐 제거 |
+| `far-sunset-west.webp` | 노을 진 강 너머 도시 원경 (서향) | 수면 위까지 크롭 |
+
+생성 도구·스크립트는 저장소 밖(`~/.local/share/pomotro-artgen`)에 있다. 원경은 실제 지형을 재현하지 않은 분위기용 이미지다.

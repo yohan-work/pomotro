@@ -12,6 +12,7 @@
 import { neighbors, type Station } from "../data/line2";
 import { sectionsInRange, type Journey, type Section } from "../sim/journey";
 import type { Palette } from "./palette";
+import { FAR_ART, type FarArt } from "./art";
 import { fbm, hash2, pick, rng } from "./rng";
 import {
   apartmentSpec,
@@ -75,6 +76,10 @@ export interface Frame {
   scratch?: HTMLCanvasElement;
   /** 필름 그레인 패턴 */
   grain?: CanvasPattern | null;
+  /** 원경 판을 그렸다면 그 안의 해 위치 (물 위 반사 정렬용) */
+  sunScreenX?: number;
+  /** 원경 판 모드: 물 색을 판에서 가져오고 중경을 역광 실루엣으로 */
+  plate?: { water: [string, string] };
 }
 
 type Land = "city" | "bank" | "river" | "none";
@@ -158,6 +163,66 @@ function skyPhoto(key: Palette["key"]): HTMLImageElement | null {
     skyImages.set(key, img);
   }
   return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+const farImages = new Map<string, HTMLImageElement>();
+const plateWater = new Map<string, [string, string]>();
+
+/** 판의 수평선 근처 색으로 물빛을 정한다 (위: 밝은 반사, 아래: 깊은 물) */
+function samplePlateWater(img: HTMLImageElement, art: FarArt): [string, string] {
+  const hit = plateWater.get(art.src);
+  if (hit) return hit;
+  const c = document.createElement("canvas");
+  c.width = 32;
+  c.height = 1;
+  const cx = c.getContext("2d")!;
+  cx.drawImage(img, 0, art.horizonRow - 40, art.size[0], 30, 0, 0, 32, 1);
+  const d = cx.getImageData(0, 0, 32, 1).data;
+  let r = 0, g = 0, b = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    r += d[i];
+    g += d[i + 1];
+    b += d[i + 2];
+  }
+  const n = d.length / 4;
+  const top = `rgb(${(r / n) | 0},${(g / n) | 0},${(b / n) | 0})`;
+  const deep = `rgb(${(r / n * 0.38) | 0},${(g / n * 0.34) | 0},${(b / n * 0.4) | 0})`;
+  const out: [string, string] = [top, deep];
+  plateWater.set(art.src, out);
+  return out;
+}
+function farPlate(key: Palette["key"]): { img: HTMLImageElement; art: FarArt } | null {
+  const art = FAR_ART[key];
+  if (!art || typeof Image === "undefined") return null;
+  let img = farImages.get(art.src);
+  if (!img) {
+    img = new Image();
+    img.decoding = "async";
+    img.src = art.src;
+    farImages.set(art.src, img);
+  }
+  return img.complete && img.naturalWidth > 0 ? { img, art } : null;
+}
+
+/**
+ * 원경 판(생성 이미지): 수면 경계를 WATER_Y 에 맞추고, 창 폭을 덮도록 확대한다.
+ * 먼 풍경은 거의 움직이지 않으므로 고정하고, 해를 노을 해 위치 근처에 맞춘다.
+ */
+function drawFarPlate(f: Frame, img: HTMLImageElement, art: FarArt): void {
+  const { ctx, W, u, pal } = f;
+  const [iw] = art.size;
+  const scale = Math.max((W * 1.04) / iw, (WATER_Y * u) / art.horizonRow);
+  const pw = iw * scale;
+  const top = WATER_Y * u - art.horizonRow * scale;
+  const want = pal.sun.x * W - art.sunU * pw;
+  const x = Math.min(0, Math.max(W - pw, want));
+  // 판 위쪽이 창 위보다 아래면 판의 첫 행 색으로 하늘을 이어 칠한다
+  if (top > 0) {
+    ctx.drawImage(img, 0, 0, iw, 2, x, 0, pw, top + 2);
+  }
+  ctx.drawImage(img, x, top, pw, art.size[1] * scale);
+  f.sunScreenX = x + art.sunU * pw;
+  f.plate = { water: samplePlateWater(img, art) };
 }
 
 /** 사진 띠를 창에 맞춰 그린다: 띠 아래쪽 = 수평선, 창 위쪽까지 약 25°가 보인다 */
@@ -349,10 +414,11 @@ function nearStream(f: Frame, bank: Section): boolean {
 function drawWater(f: Frame) {
   const { ctx, W, H, u, pal, time } = f;
   const y0 = WATER_Y * u;
+  const [wTop, wBot] = f.plate?.water ?? [pal.waterTop, pal.waterBottom];
   const g = ctx.createLinearGradient(0, y0, 0, H);
-  g.addColorStop(0, pal.waterTop);
-  g.addColorStop(0.35, mix(pal.waterTop, pal.waterBottom, 0.55));
-  g.addColorStop(1, pal.waterBottom);
+  g.addColorStop(0, wTop);
+  g.addColorStop(0.35, mix(wTop, wBot, 0.55));
+  g.addColorStop(1, wBot);
   ctx.fillStyle = g;
   ctx.fillRect(0, y0, W, H - y0);
 
@@ -391,7 +457,7 @@ function drawWater(f: Frame) {
       // 물빛으로 살짝 덮어 반사가 물속에 잠긴 느낌
       const tint = ctx.createLinearGradient(0, y0, 0, H);
       tint.addColorStop(0, "rgba(0,0,0,0)");
-      tint.addColorStop(1, pal.waterBottom);
+      tint.addColorStop(1, wBot);
       ctx.globalAlpha = 0.55;
       ctx.fillStyle = tint;
       ctx.fillRect(0, y0, W, H - y0);
@@ -425,7 +491,7 @@ function drawWater(f: Frame) {
 
   // 태양 반사 기둥
   if (pal.sun.visible && f.sunAlpha > 0.01) {
-    const cx = pal.sun.x * W;
+    const cx = f.sunScreenX ?? pal.sun.x * W;
     const strength = (pal.key === "sunset" ? 1 : 0.45) * f.sunAlpha;
     for (let k = 0; k < 90 * f.quality; k++) {
       const r = rng(hash2(k, 4242));
@@ -515,8 +581,9 @@ function drawYanghwa(f: Frame, river: Section) {
   const deckTop = 60.5 * u;
   const deckH = 2 * u;
   const pierBottom = 68 * u;
-  const col = mix("#C8D3CC", pal.haze, 0.15);
-  const colDark = shadeColor(col, pal.night > 0.5 ? -0.55 : -0.25);
+  // 원경 판(해를 마주 보는 역광)에서는 어두운 실루엣
+  const col = f.plate ? "#4a3b34" : mix("#C8D3CC", pal.haze, 0.15);
+  const colDark = f.plate ? "#2e2420" : shadeColor(col, pal.night > 0.5 ? -0.55 : -0.25);
   const span = 64;
   const firstPier = Math.ceil(m0 / span) * span;
   // 교각 + 물 반사
@@ -538,7 +605,7 @@ function drawYanghwa(f: Frame, river: Section) {
     ctx.globalAlpha = 1;
   }
   // 아치 (중앙 경간들)
-  ctx.strokeStyle = mix(pal.steel, "#C9D8CF", 0.3);
+  ctx.strokeStyle = f.plate ? "#3d322d" : mix(pal.steel, "#C9D8CF", 0.3);
   ctx.lineWidth = Math.max(1.5, 0.85 * u);
   const archH = 11 * u;
   for (let m = firstPier; m + span <= m1; m += span) {
@@ -580,6 +647,15 @@ function drawYanghwa(f: Frame, river: Section) {
     const x = sx(f, m0 + m, s);
     if (x < -10 || x > f.W + 10) continue;
     const cw = (k % 7 === 0 ? 3.4 : 1.9) * u;
+    if (f.plate) {
+      // 역광 속 차량: 어두운 몸체 + 작은 전조등/미등
+      ctx.fillStyle = "#2a221f";
+      rrect(ctx, x, deckTop - 1.1 * u, cw, 1.1 * u, 0.4 * u);
+      ctx.fill();
+      ctx.fillStyle = dir > 0 ? "rgba(255,235,190,0.9)" : "rgba(255,110,80,0.85)";
+      ctx.fillRect(dir > 0 ? x + cw - 1.5 : x, deckTop - 0.7 * u, 1.5, 0.3 * u);
+      continue;
+    }
     ctx.fillStyle = carColors[k % carColors.length];
     rrect(ctx, x, deckTop - 1.2 * u, cw, 1.2 * u, 0.45 * u);
     ctx.fill();
@@ -2044,8 +2120,12 @@ export function darknessAt(j: Journey, x: number): number {
 export function renderScene(f: Frame) {
   const { ctx } = f;
   if (!outdoorHidden(f)) {
-    drawSky(f);
-    drawFar(f);
+    const plate = f.sunAlpha > 0.5 ? farPlate(f.pal.key) : null;
+    if (plate) drawFarPlate(f, plate.img, plate.art);
+    else {
+      drawSky(f);
+      drawFar(f);
+    }
     for (const sec of f.journey.sections) if (sec.kind === "river" && sec.variant === "hangang-jamsil") drawLotteTower(f, sec);
     if (riverNearby(f)) {
       drawWater(f);
@@ -2053,8 +2133,10 @@ export function renderScene(f: Frame) {
       for (const sec of f.journey.sections) {
         if (sec.kind !== "river") continue;
         if (sec.variant === "hangang-yanghwa") {
-          drawIsland(f, sec);
-          drawBoat(f, sec);
+          if (!f.plate) {
+            drawIsland(f, sec);
+            drawBoat(f, sec);
+          }
           drawYanghwa(f, sec);
         } else if (sec.variant === "hangang-jamsil") {
           drawBoat(f, sec);

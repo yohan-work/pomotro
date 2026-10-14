@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
 import { LINE2_META, getSegment } from "@/data/line2";
 import { Renderer } from "@/render/Renderer";
+import { INTERIOR_ART, windowRect } from "@/render/art";
 import { passingIntensity } from "@/render/scene";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { elapsedSec, epochNow } from "@/sim/clock";
@@ -67,6 +68,33 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     [session.id],
   );
   const isBreak = session.mode === "break";
+  // 사진 실내는 가로형 화면에서만 (세로 모바일은 지나치게 확대돼 실내가 보이지 않음)
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-aspect-ratio: 5/4)");
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  const art = wide ? INTERIOR_ART : null;
+  const rootRef = useRef<HTMLDivElement>(null);
+  // 사진 실내: 이미지 속 창 위치에 캔버스를 맞춘다
+  useEffect(() => {
+    if (!art) return;
+    const fit = () => {
+      const r = windowRect(art, window.innerWidth, window.innerHeight);
+      const el = rootRef.current;
+      if (!el) return;
+      el.style.setProperty("--win-left", `${r.left}px`);
+      el.style.setProperty("--win-top", `${r.top}px`);
+      el.style.setProperty("--win-w", `${r.width}px`);
+      el.style.setProperty("--win-h", `${r.height}px`);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [art]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strapRefs = useRef<Array<HTMLDivElement | null>>([]);
   const statsRef = useRef<HTMLPreElement>(null);
@@ -362,6 +390,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
 
   return (
     <div
+      ref={rootRef}
+      data-interior={art ? "photo" : "css"}
       className={`${styles.ride} ${styles[`tod_${tod}`]} ${focusMode ? styles.zen : ""}`}
       data-phase={sample.phase}
       data-focus={focusMode ? "on" : "off"}
@@ -384,6 +414,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           </span>
         </div>
       </div>
+
+      {art && <img className={styles.interiorImg} src={art.src} alt="" aria-hidden draggable={false} />}
 
       {/* 창 */}
       <div className={styles.window}>

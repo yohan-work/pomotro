@@ -938,3 +938,63 @@
   font-size: 12.5px;
   font-weight: 700;
 }
+
+/* ───────── 사진 실내 (생성 이미지) ───────── */
+.interiorImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ride[data-interior="photo"] .window {
+  left: var(--win-left);
+  transform: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.ride[data-interior="photo"] .glassEdge,
+.ride[data-interior="photo"] .wall,
+.ride[data-interior="photo"] .ceiling,
+.ride[data-interior="photo"] .strapBar,
+.ride[data-interior="photo"] .straps,
+.ride[data-interior="photo"] .pole,
+.ride[data-interior="photo"] .seatBack,
+.ride[data-interior="photo"] .seatCushion,
+.ride[data-interior="photo"] .decal {
+  display: none;
+}
+
+.ride[data-interior="photo"] .sticker,
+.ride[data-interior="photo"] .pausedVeil {
+  z-index: 3;
+}
+
+.ride[data-interior="photo"] .timerBlock {
+  z-index: 5;
+}
+
+/* 사진 실내 위 HUD: 이미지 위에서도 읽히도록 반투명 칩 */
+.ride[data-interior="photo"] .topLeft,
+.ride[data-interior="photo"] .topRight {
+  padding: 5px 12px 5px 6px;
+  border-radius: 999px;
+  background: rgba(255, 252, 245, 0.86);
+  box-shadow: var(--shadow-1);
+  backdrop-filter: blur(6px);
+}
+
+.ride[data-interior="photo"] .topRight {
+  padding: 5px 12px;
+}
+
+.ride[data-interior="photo"] .led {
+  z-index: 3;
+  top: 1vh;
+  height: 3.8vh;
+}
