@@ -181,5 +181,6 @@ docs/              기획·아키텍처·디자인 시스템·단계별 기록
 - 소스 코드: [MIT](LICENSE)
 - 노선 데이터: 서울교통공사, 공공누리 제1유형 (출처표시)
 - 글꼴: [Pretendard](https://github.com/orioncactus/pretendard) (SIL Open Font License 1.1, CDN 로드)
+- 하늘 사진: [Poly Haven](https://polyhaven.com) CC0 — [docs/credits.md](docs/credits.md)
 
 METRO는 서울교통공사·서울특별시와 관련이 없는 개인 프로젝트입니다. 화면 속 역명판과 안내 표시는 이해를 돕기 위한 자체 디자인입니다.
