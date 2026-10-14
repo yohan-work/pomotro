@@ -62,7 +62,9 @@ function bridgeAt(j: Journey, x: number) {
   return j.sections.some((s) => (s.kind === "river" || s.kind === "bank") && x >= s.x0 && x <= s.x1) ? 1 : 0;
 }
 
-const STRAPS = 7;
+const STRAPS = 6;
+/** 입력이 없으면 이 시간 뒤 집중 모드(HUD 숨김) */
+const IDLE_MS = 5000;
 
 export default function RideScreen({ session, debug }: { session: ActiveSession; debug: RideDebug }) {
   const journey = useMemo(
@@ -81,6 +83,9 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   });
   const [audioOn, setAudioOn] = useState(() => getAudio().started);
   const [panel, setPanel] = useState<"none" | "sound" | "settings" | "exit">("none");
+  const [idle, setIdle] = useState(false);
+  const [zen, setZen] = useState(false);
+  const [ledPart, setLedPart] = useState(0);
   const [clock, setClock] = useState(() => new Date());
 
   const timeOfDayPref = useAppStore((s) => s.timeOfDay);
@@ -269,10 +274,34 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         e.preventDefault();
         togglePause();
       } else if (e.key === "Escape") setPanel("none");
+      else if (e.key === "h" || e.key === "H" || e.key === "ㅗ") setZen((z) => !z);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // 입력이 없으면 HUD 를 숨겨 창밖에 집중 (마우스·터치·키 입력 시 다시 보임)
+  useEffect(() => {
+    let t = setTimeout(() => setIdle(true), IDLE_MS);
+    const wake = () => {
+      setIdle(false);
+      clearTimeout(t);
+      t = setTimeout(() => setIdle(true), IDLE_MS);
+    };
+    const evs = ["pointermove", "pointerdown", "keydown", "touchstart"] as const;
+    evs.forEach((ev) => window.addEventListener(ev, wake, { passive: true }));
+    return () => {
+      clearTimeout(t);
+      evs.forEach((ev) => window.removeEventListener(ev, wake));
+    };
+  }, []);
+
+  // LED: 국문/영문 문구를 4초마다 번갈아 고정 표시 (실제 객실 안내기 방식)
+  useEffect(() => {
+    setLedPart(0);
+    const id = setInterval(() => setLedPart((p) => p + 1), 4000);
+    return () => clearInterval(id);
+  }, [hud.led]);
 
   const enableAudio = () => {
     unlockAudio();
@@ -307,9 +336,18 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const dest = stations[last];
   const atStation = sample.v === 0;
   const totalX = journey.stopX[last];
+  const focusMode = (idle || zen) && !paused && panel === "none";
+  const ledParts = led.split("  ·  ");
+  const ledShown = ledParts[ledPart % ledParts.length];
+  const remainingStops = last - (atStation ? sample.stationIndex : sample.nextIndex - 1);
 
   return (
-    <div className={`${styles.ride} ${styles[`tod_${tod}`]}`} data-phase={sample.phase} data-testid="ride">
+    <div
+      className={`${styles.ride} ${styles[`tod_${tod}`]} ${focusMode ? styles.zen : ""}`}
+      data-phase={sample.phase}
+      data-focus={focusMode ? "on" : "off"}
+      data-testid="ride"
+    >
       <div className={styles.wall} />
       <div className={styles.ceiling}>
         <div className={styles.lightStrip} />
@@ -318,8 +356,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       {/* 객실 LED 안내기 */}
       <div className={styles.led} aria-live="polite">
         <div className={styles.ledInner}>
-          <span key={led} className={led.length > 22 ? styles.ledScroll : styles.ledStatic}>
-            {led}
+          <span key={ledShown} className={styles.ledStatic}>
+            {ledShown}
           </span>
         </div>
       </div>
@@ -358,7 +396,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
               strapRefs.current[k] = el;
             }}
             className={styles.strap}
-            style={{ left: `${11 + k * 13}%` }}
+            style={{ left: `${14 + k * 14.4}%` }}
           >
             <div className={styles.belt} />
             <svg className={styles.handle} viewBox="0 0 40 40">
@@ -407,7 +445,9 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
               ? "다시 출발까지 · 창밖을 보며 잠시 쉬어요"
               : atStation && sample.stationIndex === last
                 ? "도착했어요"
-                : "목적지까지 남은 시간"}
+                : last >= 4 && remainingStops > 0
+                  ? `목적지까지 남은 시간 · ${remainingStops}개 역`
+                  : "목적지까지 남은 시간"}
         </div>
         {!isBreak && (
         <div className={styles.progress} aria-label={`진행률 ${Math.round(sample.progress * 100)}%`}>
@@ -573,6 +613,9 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
           </button>
         ))}
       </div>
+      <p className={styles.panelText} style={{ margin: "12px 0 0" }}>
+        5초 동안 입력이 없으면 버튼이 사라져요. <b>H</b> 키로 집중 모드를 켜고 끌 수 있어요.
+      </p>
       <strong className={styles.panelSub}>모션 줄이기</strong>
       <div className={styles.segment}>
         {rmOpts.map(([v, l]) => (

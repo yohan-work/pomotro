@@ -190,8 +190,7 @@
   align-items: center;
 }
 
-.ledStatic,
-.ledScroll {
+.ledStatic {
   white-space: nowrap;
   color: #ffb547;
   font-size: max(13px, 1.9vh);
@@ -203,21 +202,22 @@
 .ledStatic {
   width: 100%;
   text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: ledIn 0.45s ease-out;
 }
 
-.ledScroll {
-  padding-left: 100%;
-  animation: ledScroll 11s linear infinite;
-}
-
-@keyframes ledScroll {
+@keyframes ledIn {
   from {
-    transform: translateX(0);
+    opacity: 0;
+    transform: translateY(35%);
   }
   to {
-    transform: translateX(-100%);
+    opacity: 1;
+    transform: none;
   }
 }
+
 
 /* ───────── 손잡이 / 기둥 ───────── */
 .strapBar {
@@ -257,7 +257,7 @@
 
 .belt {
   width: 1.1vh;
-  height: 6.4vh;
+  height: 4.6vh;
   border-radius: 0.3vh;
   background: linear-gradient(90deg, #2a7a5a, #3aa37a 50%, #2a7a5a);
 }
@@ -485,6 +485,33 @@
 .nextLabel b {
   font-weight: 800;
   margin-left: 4px;
+}
+
+/* 집중 모드: 창밖과 시간만 남긴다 */
+.topLeft,
+.topRight,
+.controls,
+.exitBtn,
+.audioPrompt,
+.timerBlock {
+  transition: opacity 0.8s var(--ease-out);
+}
+
+.zen {
+  cursor: none;
+}
+
+.zen .topLeft,
+.zen .topRight,
+.zen .controls,
+.zen .exitBtn,
+.zen .audioPrompt {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.zen .timerBlock {
+  opacity: 0.72;
 }
 
 .controls {
