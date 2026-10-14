@@ -18,7 +18,11 @@ import { getStation, routeDistanceKm, stationsBetween } from "../data/line2";
 import { epochNow, pauseTiming, resumeTiming, type SessionTiming } from "../sim/clock";
 import type { TimeOfDay } from "../render/palette";
 
-export type SessionMode = "demo" | "focus";
+export type SessionMode = "demo" | "focus" | "break";
+export type BreakKind = "short" | "long";
+
+/** 뽀모도로 기본값: 짧은 휴식 5분, 4회마다 긴 휴식 15분 */
+export const POMODORO = { shortBreakMin: 5, longBreakMin: 15, longEvery: 4, staleCycleMs: 2 * 3600_000 };
 
 export interface ActiveSession extends SessionTiming {
   id: string;
@@ -27,6 +31,7 @@ export interface ActiveSession extends SessionTiming {
   /** 목표 시간 = 타이머 총 시간 (초) */
   totalSec: number;
   task: string;
+  breakKind?: BreakKind;
 }
 
 export interface RideRecord {
@@ -56,6 +61,15 @@ export interface AppState {
   volumes: Record<Channel, number>;
   masterVolume: number;
   muted: boolean;
+  /** 도착 시 브라우저 알림 (탭이 숨겨져 있을 때만) */
+  notify: boolean;
+  /** 긴 휴식 이후 완료한 집중 회차 */
+  cycleCount: number;
+  lastFocusAt: number;
+  /** 다음 여행 출발역 (방금 도착한 역에서 이어 타기) */
+  nextOriginId: string | null;
+  /** 방금 휴식을 마쳤는지 (출발 화면 안내) */
+  breakJustEnded: boolean;
 
   setFocusMinutes: (m: number) => void;
   setTask: (t: string) => void;
@@ -64,6 +78,10 @@ export interface AppState {
   setVolume: (c: Channel, v: number) => void;
   setMasterVolume: (v: number) => void;
   setMuted: (m: boolean) => void;
+  setNotify: (n: boolean) => void;
+  setNextOrigin: (id: string | null) => void;
+  /** 방금 도착한 역에서 휴식 시작 */
+  startBreak: (stationId: string) => void;
 
   startSession: (s: { mode: SessionMode; stationIds: string[]; totalSec: number; task: string; seekSec?: number }) => void;
   pause: () => void;
@@ -87,6 +105,11 @@ export const useAppStore = create<AppState>()(
       volumes: { rolling: 0.8, rail: 0.7, chime: 0.7, door: 0.6, ambient: 0.35 },
       masterVolume: 0.8,
       muted: false,
+      notify: true,
+      cycleCount: 0,
+      lastFocusAt: 0,
+      nextOriginId: null,
+      breakJustEnded: false,
 
       setFocusMinutes: (m) => set({ focusMinutes: m }),
       setTask: (t) => set({ task: t }),
@@ -95,10 +118,32 @@ export const useAppStore = create<AppState>()(
       setVolume: (c, v) => set({ volumes: { ...get().volumes, [c]: v } }),
       setMasterVolume: (v) => set({ masterVolume: v }),
       setMuted: (m) => set({ muted: m }),
+      setNotify: (n) => set({ notify: n }),
+      setNextOrigin: (id) => set({ nextOriginId: id }),
+
+      startBreak: (stationId) => {
+        const kind = nextBreakKind(get().cycleCount);
+        set({
+          lastRecordId: null,
+          cycleCount: kind === "long" ? 0 : get().cycleCount,
+          activeSession: {
+            id: uid(),
+            mode: "break",
+            breakKind: kind,
+            stationIds: [stationId],
+            totalSec: (kind === "long" ? POMODORO.longBreakMin : POMODORO.shortBreakMin) * 60,
+            task: "",
+            startedAt: epochNow(),
+            pausedAccumMs: 0,
+            pausedAt: null,
+          },
+        });
+      },
 
       startSession: ({ mode, stationIds, totalSec, task, seekSec = 0 }) =>
         set({
           lastRecordId: null,
+          breakJustEnded: false,
           activeSession: {
             id: uid(),
             mode,
@@ -123,6 +168,11 @@ export const useAppStore = create<AppState>()(
       completeSession: (opts) => {
         const s = get().activeSession;
         if (!s) return;
+        if (s.mode === "break") {
+          // 휴식은 기록하지 않는다. 같은 역에서 이어 탈 수 있게 출발 화면으로.
+          set({ activeSession: null, nextOriginId: s.stationIds[0], breakJustEnded: true });
+          return;
+        }
         if (get().records.some((r) => r.id === s.id)) {
           set({ activeSession: null, lastRecordId: s.id });
           return;
@@ -140,7 +190,17 @@ export const useAppStore = create<AppState>()(
           partial,
           distanceKm: partial ? (opts!.partialDistanceKm ?? 0) : routeDistanceKm(s.stationIds.map(getStation)),
         };
-        set({ activeSession: null, records: [...get().records, rec].slice(-500), lastRecordId: s.id });
+        const now = Date.now();
+        const counts = s.mode === "focus" && !partial;
+        const stale = now - get().lastFocusAt > POMODORO.staleCycleMs;
+        set({
+          activeSession: null,
+          records: [...get().records, rec].slice(-500),
+          lastRecordId: s.id,
+          nextOriginId: counts ? rec.toId : get().nextOriginId,
+          cycleCount: counts ? (stale ? 1 : get().cycleCount + 1) : get().cycleCount,
+          lastFocusAt: counts ? now : get().lastFocusAt,
+        });
       },
 
       closeCompletion: () => set({ lastRecordId: null }),
@@ -171,6 +231,11 @@ export const useAppStore = create<AppState>()(
         volumes: s.volumes,
         masterVolume: s.masterVolume,
         muted: s.muted,
+        notify: s.notify,
+        cycleCount: s.cycleCount,
+        lastFocusAt: s.lastFocusAt,
+        nextOriginId: s.nextOriginId,
+        breakJustEnded: s.breakJustEnded,
       }),
     },
   ),
@@ -182,6 +247,11 @@ function safeDistance(fromId: string, toId: string): number {
   } catch {
     return 0;
   }
+}
+
+/** 지금까지 회차로 다음 휴식 종류 결정 (완료 직후 cycleCount 기준) */
+export function nextBreakKind(cycleCount: number): BreakKind {
+  return cycleCount >= POMODORO.longEvery ? "long" : "short";
 }
 
 /** 오늘(KST) 누적 집중 시간 (초) */
