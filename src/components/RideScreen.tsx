@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CHANNELS, type Channel } from "@/audio/AudioEngine";
 import { getAudio, unlockAudio } from "@/audio/instance";
-import { LINE2_META } from "@/data/line2";
+import { LINE2_META, getSegment } from "@/data/line2";
 import { Renderer } from "@/render/Renderer";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { elapsedSec, epochNow } from "@/sim/clock";
@@ -271,7 +271,16 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     const st = useAppStore.getState();
     const s = st.activeSession;
     if (!s) return;
-    st.completeSession({ partialElapsedSec: elapsedSec(s) });
+    const t = elapsedSec(s);
+    const smp = sampleJourney(journey, t);
+    // 지나온 구간의 공식 거리 + 현재 구간은 연출 거리 진행 비율로 환산
+    let km = 0;
+    for (const seg of journey.segments) {
+      const official = getSegment(seg.from.id, seg.to.id).distanceKm;
+      if (smp.x >= seg.xTo) km += official;
+      else if (smp.x > seg.xFrom) km += (official * (smp.x - seg.xFrom)) / seg.distance;
+    }
+    st.completeSession({ partialElapsedSec: t, partialDistanceKm: Math.round(km * 10) / 10 });
   };
 
   const { sample, led, paused } = hud;

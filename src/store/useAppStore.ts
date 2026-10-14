@@ -14,6 +14,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { Channel } from "../audio/AudioEngine";
+import { getStation, routeDistanceKm, stationsBetween } from "../data/line2";
 import { epochNow, pauseTiming, resumeTiming, type SessionTiming } from "../sim/clock";
 import type { TimeOfDay } from "../render/palette";
 
@@ -39,6 +40,8 @@ export interface RideRecord {
   task: string;
   /** 도착 전 하차(중단)한 경우 */
   partial: boolean;
+  /** 실제 이동 거리(km) — 공식 역간 거리 기준. 중도 하차 시 구간 진행 비율로 환산 */
+  distanceKm: number;
 }
 
 export interface AppState {
@@ -65,7 +68,7 @@ export interface AppState {
   startSession: (s: { mode: SessionMode; stationIds: string[]; totalSec: number; task: string; seekSec?: number }) => void;
   pause: () => void;
   resume: () => void;
-  completeSession: (opts?: { partialElapsedSec?: number }) => void;
+  completeSession: (opts?: { partialElapsedSec?: number; partialDistanceKm?: number }) => void;
   closeCompletion: () => void;
 }
 
@@ -135,6 +138,7 @@ export const useAppStore = create<AppState>()(
           completedAt: Date.now(),
           task: s.task,
           partial,
+          distanceKm: partial ? (opts!.partialDistanceKm ?? 0) : routeDistanceKm(s.stationIds.map(getStation)),
         };
         set({ activeSession: null, records: [...get().records, rec].slice(-500), lastRecordId: s.id });
       },
@@ -144,7 +148,18 @@ export const useAppStore = create<AppState>()(
     {
       name: "metro-focus-v1",
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
+      // v1 기록에는 거리가 없다 → 공식 거리로 채운다 (중도 하차 기록은 0)
+      migrate: (persisted, version) => {
+        const st = persisted as { records?: RideRecord[] };
+        if (version < 2 && st.records) {
+          st.records = st.records.map((r) => ({
+            ...r,
+            distanceKm: r.distanceKm ?? (r.partial ? 0 : safeDistance(r.fromId, r.toId)),
+          }));
+        }
+        return st as AppState;
+      },
       partialize: (s) => ({
         activeSession: s.activeSession,
         records: s.records,
@@ -160,6 +175,14 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
+
+function safeDistance(fromId: string, toId: string): number {
+  try {
+    return routeDistanceKm(stationsBetween(fromId, toId));
+  } catch {
+    return 0;
+  }
+}
 
 /** 오늘(KST) 누적 집중 시간 (초) */
 export function todayFocusSec(records: RideRecord[], now = Date.now()): number {

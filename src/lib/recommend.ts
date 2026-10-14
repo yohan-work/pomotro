@@ -1,27 +1,29 @@
 /**
  * 집중시간 → 2호선 구간 추천 (환승 없음)
  *
- * 1. 후보: 출발역 후보 × 내선순환 방향 모든 도착역
+ * 1. 후보: 출발역 후보 × 내선순환 방향 도착역 (순환 경계 포함, 최대 30개 역)
  * 2. 연출 가능한 최소 시간보다 집중시간이 짧은 경로 제외
  * 3. 점수 = 예상 소요시간 오차 비율 − 풍경 보너스(한강 횡단·지상 구간)
  * 4. 상위 3개 (출발역 중복은 최대 2개까지)
  */
-import { LINE2_META, STATIONS, estimateRouteSec, getSegment, stationsBetween, type Station } from "../data/line2";
+import { LINE2_META, STATIONS, estimateRouteSec, getSegment, routeDistanceKm, stationsBetween, type Station } from "../data/line2";
 import { minJourneySec } from "../sim/journey";
 
 export interface RouteSuggestion {
   stationIds: string[];
   from: Station;
   to: Station;
-  /** 공개 정보 기반 예상 소요시간 (추정, 초) */
+  /** 예상 소요시간 (초) = 공식 표준 운행시간 + 추정 정차시간 */
   estSec: number;
+  /** 공식 역간 거리 합 (km) */
+  distanceKm: number;
   stops: number;
   keywords: string[];
   tagline: string;
 }
 
 const ORIGINS = ["sillim", "sindorim", "yeongdeungpo-gu-office", "dangsan", "hapjeong", "wangsimni", "hanyang-univ", "seongsu", "gangbyeon"];
-const DOWNTOWN = new Set(["city-hall", "euljiro-1ga", "euljiro-3ga", "euljiro-4ga", "ddp", "chungjeongno"]);
+const DOWNTOWN = new Set(["city-hall", "euljiro-1ga", "euljiro-3ga", "euljiro-4ga", "ddp", "chungjeongno", "samseong", "seolleung", "yeoksam", "gangnam"]);
 
 function describe(stations: Station[]): { keywords: string[]; tagline: string; scenic: number } {
   const ids = stations.map((s) => s.id);
@@ -52,8 +54,9 @@ export function recommendRoutes(focusSec: number, limit = 3): RouteSuggestion[] 
   const cands: Array<RouteSuggestion & { score: number }> = [];
   for (const o of ORIGINS) {
     const oi = STATIONS.findIndex((s) => s.id === o);
-    for (let k = oi + 1; k < STATIONS.length; k++) {
-      const stations = stationsBetween(o, STATIONS[k].id);
+    // 순환선: 출발역에서 내선순환으로 최대 30개 역까지
+    for (let k = 1; k <= 30; k++) {
+      const stations = stationsBetween(o, STATIONS[(oi + k) % STATIONS.length].id);
       const ids = stations.map((s) => s.id);
       if (minJourneySec(ids) > focusSec) continue;
       const estSec = estimateRouteSec(stations);
@@ -64,6 +67,7 @@ export function recommendRoutes(focusSec: number, limit = 3): RouteSuggestion[] 
         from: stations[0],
         to: stations[stations.length - 1],
         estSec,
+        distanceKm: routeDistanceKm(stations),
         stops: stations.length - 1,
         keywords: d.keywords,
         tagline: d.tagline,
@@ -89,7 +93,7 @@ export function recommendRoutes(focusSec: number, limit = 3): RouteSuggestion[] 
 /** 체험 운행: 당산 → 합정 한 구간을 약 1분 50초로 */
 export const DEMO_ROUTE = { stationIds: ["dangsan", "hapjeong"], totalSec: 110 };
 
-export const DATA_NOTICE = `노선·역 순서는 공개 노선도 기준, 소요시간은 추정치입니다 (기준일 ${LINE2_META.asOf}, 공식 데이터 미검증).`;
+export const DATA_NOTICE = `역 순서·운행시간·거리: ${LINE2_META.source.provider.replace(/ \(.*\)/, "")} 공식 데이터(${LINE2_META.source.updated} 갱신, ${LINE2_META.source.license}). 예상 소요시간에는 추정 정차시간이 포함됩니다.`;
 
 export function formatMin(sec: number): string {
   const m = Math.round(sec / 60);

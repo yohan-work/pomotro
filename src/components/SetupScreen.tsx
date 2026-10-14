@@ -168,7 +168,7 @@ export default function SetupScreen() {
                   </span>
                   <span className={styles.tagline}>{r.tagline}</span>
                   <span className={styles.routeMeta}>
-                    {r.stops}개 역 이동
+                    {r.stops}개 역 · {r.distanceKm}km
                     {r.keywords.map((k) => (
                       <span key={k} className={styles.kw}>
                         {k}

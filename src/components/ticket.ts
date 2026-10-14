@@ -161,15 +161,16 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   const stats: Array<[string, string]> = [
     ["집중 시간", rec.focusSec < 60 ? `${rec.focusSec}초` : `${mins}분`],
     ["이동한 역", `${rec.stationCount}개`],
+    ["이동 거리", rec.distanceKm ? `${rec.distanceKm.toFixed(1)}km` : "—"],
     ["오늘 누적", todaySec > 0 ? `${Math.round(todaySec / 60)}분` : "—"],
   ];
   stats.forEach(([k, v], i) => {
-    const x = 72 + i * 220;
+    const x = 72 + i * 175;
     c.fillStyle = "#8A8A8A";
     c.font = "600 20px Pretendard, sans-serif";
     c.fillText(k, x, H / 2 + 62);
     c.fillStyle = "#252525";
-    c.font = "800 46px Pretendard, sans-serif";
+    c.font = "800 42px Pretendard, sans-serif";
     c.fillText(v, x, H / 2 + 118);
   });
   if (rec.task) {
