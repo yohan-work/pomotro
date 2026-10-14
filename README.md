@@ -97,6 +97,7 @@ npm run dev
 | `npm run dev` | 개발 서버 |
 | `npm run build` / `npm start` | 프로덕션 빌드 (정적) / 실행 |
 | `npm run typecheck` | TypeScript 검사 |
+| `npm test` | 단위 테스트 (통계·추천·세션·뽀모도로) |
 | `npm run test:sim` | 시뮬레이션 엔진 불변식 + 공식 데이터 정합성 |
 | `npm run verify:browser -- <url> [--full]` | 실제 Chrome에서 장면 스냅샷·FPS·110초 완주 |
 | `npm run verify:behavior -- <url>` | 일시정지·새로고침 복구·중복 기록·오디오 검사 |

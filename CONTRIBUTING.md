@@ -29,6 +29,7 @@ Node.js 24 이상(`.nvmrc`)을 사용합니다. 브라우저 검증 스크립트
 
 ```bash
 npm run typecheck
+npm test
 npm run test:sim
 npm run build
 ```

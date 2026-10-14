@@ -15,7 +15,7 @@
 ## 확인
 
 - [ ] `npm run typecheck`
-- [ ] `npm run test:sim`
+- [ ] `npm test` · `npm run test:sim`
 - [ ] `npm run build`
 - [ ] 화면·동작 변경 시 `npm run verify:behavior` / `verify:browser` 실행
 - [ ] 실제 데이터와 연출 데이터를 섞지 않았고, 출처 없는 값을 실제 데이터로 넣지 않았음

@@ -9,6 +9,7 @@
 ```bash
 npm run dev                 # http://localhost:3000
 npm run typecheck           # tsc --noEmit
+npm test                    # 단위 테스트 (vitest: 통계·추천·세션/뽀모도로 로직)
 npm run test:sim            # 시뮬레이션 엔진 불변식 + 공식 데이터 정합성 (브라우저 불필요)
 npm run data:import         # 서울교통공사 공식 CSV 다운로드 → src/data/line2.official.ts 재생성
 npm run build               # 프로덕션 빌드 (정적)
