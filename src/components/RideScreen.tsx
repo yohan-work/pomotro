@@ -87,6 +87,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const [idle, setIdle] = useState(false);
   const [zen, setZen] = useState(false);
   const [ledPart, setLedPart] = useState(0);
+  const [canFullscreen, setCanFullscreen] = useState(false);
+  useEffect(() => setCanFullscreen(Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen)), []);
   const [clock, setClock] = useState(() => new Date());
 
   const timeOfDayPref = useAppStore((s) => s.timeOfDay);
@@ -366,7 +368,11 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       </div>
 
       {/* 객실 LED 안내기 */}
-      <div className={styles.led} aria-live="polite">
+      {/* 스크린리더: 4초 교대 표시가 아니라 안내 내용이 바뀔 때만 한국어로 한 번 읽는다 */}
+      <p className={styles.srOnly} aria-live="polite">
+        {ledParts[0]}
+      </p>
+      <div className={styles.led} aria-hidden="true">
         <div className={styles.ledInner}>
           <span key={ledShown} className={styles.ledStatic}>
             {ledShown}
@@ -497,9 +503,11 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         <button className={styles.ctrl} onClick={() => setPanel(panel === "settings" ? "none" : "settings")} aria-label="화면 설정">
           <IconSettings />
         </button>
-        <button className={styles.ctrl} onClick={fullscreen} aria-label="전체 화면">
-          <IconExpand />
-        </button>
+        {canFullscreen && (
+          <button className={styles.ctrl} onClick={fullscreen} aria-label="전체 화면">
+            <IconExpand />
+          </button>
+        )}
       </nav>
 
       {isBreak ? (
