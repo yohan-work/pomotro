@@ -57,6 +57,9 @@ run("demo 당산→합정", ["dangsan", "hapjeong"], 100);
 run("demo 당산→합정 2분", ["dangsan", "hapjeong"], 120);
 run("15분", stationsBetween("dangsan", "city-hall").map((s) => s.id), 15 * 60);
 run("25분", stationsBetween("dangsan", "ddp").map((s) => s.id), 25 * 60);
+run("잠실철교 단일 구간", ["gangbyeon", "jamsillaru"], 150);
+run("40분 왕십리→종합운동장", stationsBetween("wangsimni", "sports-complex").map((s) => s.id), 40 * 60);
+run("신림→당산 (지하→고가 진출)", stationsBetween("sillim", "dangsan").map((s) => s.id), 20 * 60);
 run("60분 (짧은 노선 늘이기)", stationsBetween("dangsan", "sinchon").map((s) => s.id), 60 * 60);
 
 if (failures) {

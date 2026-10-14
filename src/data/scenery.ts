@@ -15,8 +15,15 @@ export type SectionKind =
   | "portal-out" // 터널 → 지상 진출
   | "tunnel";
 
+/** 물 구간의 실제 장소 — 랜드마크 연출을 결정한다 */
+export type WaterVariant =
+  | "hangang-yanghwa" // 당산철교: 서쪽 창 → 양화대교·선유도·하류 노을
+  | "hangang-jamsil" // 잠실철교: 동쪽 창 → 올림픽대교·롯데월드타워·아차산
+  | "stream"; // 중랑천 등 하천
+
 export interface SectionSpec {
   kind: SectionKind;
+  variant?: WaterVariant;
   /** 최소 길이 (시뮬레이션 m) */
   length: number;
   /** 집중시간에 맞추기 위해 늘어날 수 있는 비율 가중치 (0이면 고정 길이) */
@@ -32,11 +39,27 @@ const CUSTOM: Record<string, SectionSpec[]> = {
   dangsan__hapjeong: [
     { kind: "city", length: 110, stretch: 0.15 },
     { kind: "bank", length: 55, stretch: 0 },
-    { kind: "river", length: 600, stretch: 0 },
+    { kind: "river", length: 600, stretch: 0, variant: "hangang-yanghwa" },
     { kind: "bank", length: 60, stretch: 0 },
     { kind: "city", length: 50, stretch: 0.1 },
     { kind: "portal-in", length: 140, stretch: 0 },
     { kind: "tunnel", length: 90, stretch: 1 },
+  ],
+  // 강변(북단 고가) → 잠실철교로 한강 횡단 → 잠실나루(남단 고가)
+  gangbyeon__jamsillaru: [
+    { kind: "city", length: 90, stretch: 0.3 },
+    { kind: "bank", length: 70, stretch: 0 },
+    { kind: "river", length: 760, stretch: 0, variant: "hangang-jamsil" },
+    { kind: "bank", length: 70, stretch: 0 },
+    { kind: "city", length: 50, stretch: 0.2 },
+  ],
+  // 한양대 → 중랑천 교량 → 뚝섬
+  "hanyang-univ__ttukseom": [
+    { kind: "city", length: 110, stretch: 0.5 },
+    { kind: "bank", length: 35, stretch: 0 },
+    { kind: "river", length: 130, stretch: 0, variant: "stream" },
+    { kind: "bank", length: 35, stretch: 0 },
+    { kind: "city", length: 110, stretch: 0.5 },
   ],
 };
 

@@ -8,8 +8,8 @@
  *   늘리거나 줄여 맞춘다. 열차 속도/가속도는 항상 현실적인 범위로 유지된다.
  *   실제 예상 운행시간은 노선 데이터(line2.ts)에서 별도로 표시한다.
  */
-import { getSegment, getStation, type Station } from "../data/line2";
-import { PLATFORM_HALF, leadSection, middleSections, type SectionKind } from "../data/scenery";
+import { getSegment, getStation, windowFacing, type LineSegment, type Station } from "../data/line2";
+import { PLATFORM_HALF, leadSection, middleSections, type SectionKind, type WaterVariant } from "../data/scenery";
 import { ACCEL, DECEL, lookup } from "./profile";
 
 export type SimPhase =
@@ -30,6 +30,10 @@ export interface Section {
   station?: Station;
   /** platform 일 때 여정 내 역 index */
   stationIndex?: number;
+  /** river 일 때 실제 장소 */
+  variant?: WaterVariant;
+  /** 승객이 바라보는 창 방향 (진행 방향 왼쪽) */
+  view: LineSegment["heading"];
 }
 
 export interface SegmentPlan {
@@ -115,6 +119,7 @@ export function buildJourney(config: JourneyConfig): Journey {
   if (stations.length < 2) throw new Error("Journey needs at least two stations");
   const n = stations.length - 1;
   const raw = Array.from({ length: n }, (_, i) => getSegment(stations[i].id, stations[i + 1].id));
+  const views = raw.map((r) => windowFacing(r.heading));
 
   const fixedSec = MOTION.boardingSec + MOTION.finalHoldSec + (n - 1) * MOTION.dwellSec;
   const moveSec = Math.max(1, config.totalSec - fixedSec);
@@ -127,8 +132,8 @@ export function buildJourney(config: JourneyConfig): Journey {
   const stopX: number[] = [0];
 
   // 출발역 이전 배경 + 출발역 승강장
-  sections.push({ kind: leadSection(stations[0]), x0: -2000, x1: -PLATFORM_HALF });
-  sections.push({ kind: "platform", x0: -PLATFORM_HALF, x1: PLATFORM_HALF, station: stations[0], stationIndex: 0 });
+  sections.push({ kind: leadSection(stations[0]), x0: -2000, x1: -PLATFORM_HALF, view: views[0] });
+  sections.push({ kind: "platform", x0: -PLATFORM_HALF, x1: PLATFORM_HALF, station: stations[0], stationIndex: 0, view: views[0] });
 
   let t = 0;
   let x = 0;
@@ -165,11 +170,18 @@ export function buildJourney(config: JourneyConfig): Journey {
     specs.forEach((s, k) => {
       const add = stretchSum > 0 ? (extra * s.stretch) / stretchSum : k === specs.length - 1 ? extra : 0;
       const len = s.length + add;
-      sections.push({ kind: s.kind, x0: cx, x1: cx + len });
+      sections.push({ kind: s.kind, x0: cx, x1: cx + len, variant: s.variant, view: views[i] });
       cx += len;
     });
     const xTo = x + D;
-    sections.push({ kind: "platform", x0: xTo - PLATFORM_HALF, x1: xTo + PLATFORM_HALF, station: stations[i + 1], stationIndex: i + 1 });
+    sections.push({
+      kind: "platform",
+      x0: xTo - PLATFORM_HALF,
+      x1: xTo + PLATFORM_HALF,
+      station: stations[i + 1],
+      stationIndex: i + 1,
+      view: views[Math.min(i + 1, n - 1)],
+    });
 
     const plan: SegmentPlan = {
       index: i,
@@ -215,7 +227,7 @@ export function buildJourney(config: JourneyConfig): Journey {
   const totalSec = Math.max(t + 2, config.totalSec);
   phases.push({ kind: "ARRIVED", t0: t, t1: totalSec, ref: n });
   events.push({ t: totalSec, type: "complete", stationIndex: n });
-  sections.push({ kind: leadSection(stations[n]), x0: x + PLATFORM_HALF, x1: x + 4000 });
+  sections.push({ kind: leadSection(stations[n]), x0: x + PLATFORM_HALF, x1: x + 4000, view: views[n - 1] });
 
   events.sort((a, b) => a.t - b.t);
   return { stations, segments, sections, phases, events, stopX, totalSec };
