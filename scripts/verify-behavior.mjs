@@ -119,6 +119,17 @@ await page.getByRole("button", { name: /2호선 당산역/ }).locator("circle").
 await page.getByRole("button", { name: /2호선 잠실역/ }).locator("circle").first().click();
 hint = await page.locator("[aria-live=polite]").last().textContent();
 check(/당산 → 잠실/.test(hint) && /km/.test(hint), `line map pick origin+destination (${hint.slice(0, 30)}…)`);
+// 역 검색: 초성·국문으로 찾아 노선 배지로 고르기 (다른 노선이면 그 노선으로 바뀐다)
+{
+  const box = page.getByRole("combobox", { name: "역 이름으로 찾기" });
+  await box.fill("ㅈㅇ");
+  check((await page.getByRole("option", { name: "7호선 자양역" }).count()) === 1, "station search by initials (ㅈㅇ → 자양)");
+  await page.getByRole("option", { name: "7호선 자양역" }).click();
+  await box.fill("청담");
+  await page.getByRole("option", { name: "7호선 청담역" }).click();
+  const h = await page.locator("[aria-live=polite]").last().textContent();
+  check(/자양 → 청담/.test(h) && (await page.getByRole("radio", { name: "7호선" }).getAttribute("aria-checked")) === "true", `station search picks route and switches line (${h.slice(0, 24)}…)`);
+}
 // 3호선: 노선을 바꿔 동호대교 구간 고르기 → 출발
 await page.getByRole("radio", { name: "3호선" }).click();
 await page.getByRole("button", { name: /3호선 옥수역/ }).locator("circle").first().click();
