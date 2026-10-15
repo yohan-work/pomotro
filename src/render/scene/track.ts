@@ -4,6 +4,7 @@ import { hash2, rng } from "../rng";
 import { rrect, shadeColor } from "../sprites";
 import { drawDonghoDeck, onDongho } from "./dongho";
 import { drawUpperDeck, onCheongdam } from "./bridges";
+import { drawPillarTunnel, drawRoundTunnel } from "./tunnels";
 import { SPEED, type Frame, sx, mAt, visRange, type Span, spans } from "./core";
 
 /* ═════════════════════════════ 선로 구조물 (방음벽 / 트러스 / 스크린도어 / 옹벽 / 터널) ═════════════════════════════ */
@@ -316,6 +317,9 @@ export function drawPortal(f: Frame, sp: Span) {
 }
 
 export function drawTunnel(f: Frame, sp: Span) {
+  // 구간마다 터널 모양이 다르다 (연출, scenery.tunnelKind)
+  if (sp.sec.tunnel === "round") return drawRoundTunnel(f, sp);
+  if (sp.sec.tunnel === "pillar") return drawPillarTunnel(f, sp);
   const { ctx, u, H } = f;
   const s = SPEED.track;
   const w = sp.xb - sp.xa;

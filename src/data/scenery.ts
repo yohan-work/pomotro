@@ -37,6 +37,18 @@ export interface SectionSpec {
   stretch: number;
 }
 
+/** 터널 모양 (연출): 박스형(개착), 원형(쉴드 — 링 이음매), 기둥형(중앙 기둥 사이로 맞은편 선로) */
+export type TunnelKind = "box" | "round" | "pillar";
+
+/** 역 사이 터널 모양 — 두 역 id 로 결정 (방향과 무관, 같은 구간은 늘 같은 터널) */
+export function tunnelKind(aId: string, bId: string): TunnelKind {
+  const key = aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  const r = (h >>> 0) % 100;
+  return r < 45 ? "box" : r < 78 ? "round" : "pillar";
+}
+
 /** 지상 시가지의 동네 분위기 (연출) */
 export type CityStyle = "residential" | "brick" | "office" | "highrise" | "rural";
 
