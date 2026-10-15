@@ -44,6 +44,7 @@ export class Renderer {
   private frameAvg = 16;
   private lastPalette: string | null = null;
   private mode: QualityMode = "auto";
+  private fixedDpr: number | undefined;
   fps = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -54,9 +55,11 @@ export class Renderer {
     }
   }
 
-  resize(cssW: number, cssH: number) {
+  /** dpr 을 주면 그 배율로 고정 (영상 만들기처럼 픽셀 크기가 정해진 경우) */
+  resize(cssW: number, cssH: number, fixedDpr?: number) {
+    if (fixedDpr !== undefined) this.fixedDpr = fixedDpr;
     const maxDpr = this.quality < 0.8 ? 1 : 2;
-    const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+    const dpr = this.fixedDpr ?? Math.min(window.devicePixelRatio || 1, maxDpr);
     if (cssW === this.W && cssH === this.H && dpr === this.dpr) return;
     this.W = cssW;
     this.H = cssH;
@@ -164,6 +167,12 @@ export class Renderer {
     ctx.restore();
 
     this.adapt(performance.now() - t0);
+  }
+
+  /** 다음 프레임에서 문 열림·어두움·해 같은 부드러운 전환을 건너뛰고 바로 맞춘다 (장면을 끊어 이을 때) */
+  cut() {
+    this.lastTime = -1;
+    this.sunAlpha = -1;
   }
 
   get stats() {
