@@ -5,6 +5,9 @@
 import { getStation } from "../data/lines";
 import type { RideRecord } from "../store/useAppStore";
 import { EVENT_KINDS, type RideEventKind } from "../sim/rideEvents";
+import { TRIPS, type TripId } from "./trips";
+
+const TRIP_IDS = TRIPS.map((t) => t.id);
 
 export const BACKUP_FORMAT = { app: "metro", version: 1 } as const;
 
@@ -44,6 +47,9 @@ function sanitize(x: unknown): RideRecord | null {
     distanceKm: num(r.distanceKm) ? (r.distanceKm as number) : 0,
     ...(typeof r.taskDone === "boolean" ? { taskDone: r.taskDone } : {}),
     ...(Array.isArray(r.stationIds) && r.stationIds.length >= 2 && r.stationIds.every(isStation) ? { stationIds: r.stationIds as string[] } : {}),
+    ...(r.trip && typeof r.trip === "object" && TRIP_IDS.includes((r.trip as { id: TripId }).id)
+      ? { trip: { id: (r.trip as { id: TripId }).id, done: (r.trip as { done?: unknown }).done === true } }
+      : {}),
     ...(Array.isArray(r.encounters) ? { encounters: r.encounters.filter((k): k is RideEventKind => EVENT_KINDS.includes(k as RideEventKind)) } : {}),
   };
 }
