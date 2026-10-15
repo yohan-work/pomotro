@@ -116,6 +116,26 @@ check(getStation("l3-euljiro-3ga").nameKo === getStation("euljiro-3ga").nameKo, 
     }
 }
 
+// 환승 (서울교통공사 공식 환승 거리·소요시간)
+{
+  const { findRoute, transferBetween } = await import("../src/data/lines");
+  const r = findRoute("l4-ichon", "dangsan")!;
+  const path = r.map((s) => `${s.line}:${s.nameKo}`).join(" ");
+  check(r.filter((s, i) => i > 0 && r[i - 1].line !== s.line).length === 1 && path.includes("4:사당 2:사당"), `이촌(4) → 당산: 사당에서 한 번 환승 (${path})`);
+  check(transferBetween("sadang", "l4-sadang")?.meters === 74 && transferBetween("sadang", "l4-sadang")?.sec === 62, "사당 2↔4호선 공식 환승 74m · 1분 2초");
+  check(findRoute("l7-jayang", "hapjeong")!.at(-1)!.line !== "2" || findRoute("l7-jayang", "hapjeong")!.at(-2)!.nameKo !== "합정", "도착역에서 괜히 갈아타지 않는다");
+  const ids = r.map((s) => s.id);
+  run("환승 이촌(4)→사당→당산(2)", ids, 45 * 60);
+  const j = buildJourney({ stationIds: ids, totalSec: 45 * 60 });
+  const tr = j.transfers[0];
+  check(j.transfers.length === 1 && Math.abs(tr.t1 - tr.t0 - 62) < 0.01, `transfer phase lasts the official 62s (${(tr.t1 - tr.t0).toFixed(1)}s)`);
+  const mid = sampleJourney(j, (tr.t0 + tr.t1) / 2 + 1);
+  check(mid.phase === "TRANSFER" && mid.v === 0 && j.stations[mid.stationIndex].line === "2", "after half the walk the view is on the Line 2 platform");
+  const after = sampleJourney(j, tr.t1 + 1);
+  check(after.phase === "BOARDING" && after.doorsOpen, "board the Line 2 train after the transfer");
+  check(minJourneySec(ids) < 45 * 60, `min journey ${minJourneySec(ids)}s`);
+}
+
 run("demo 당산→합정", ["dangsan", "hapjeong"], 100);
 run("동작대교 남행 이촌→동작", ["l4-ichon", "l4-dongjak"], 200);
 run("청담대교 북행 청담→자양", ["l7-cheongdam", "l7-jayang"], 200);
