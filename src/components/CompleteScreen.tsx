@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getStation } from "@/data/lines";
-import { useT } from "@/i18n";
+import { useT, type StringKey } from "@/i18n";
 import { track } from "@/lib/analytics";
 import { LATE_COMPLETION_MS, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
 import { IconArrow, IconDownload } from "./Icons";
 import { EncounterIcon } from "./Passengers";
+import { BadgeIcon } from "./BadgeIcon";
+import { newlyEarned } from "@/lib/badges";
 import styles from "./CompleteScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
 
@@ -30,6 +32,7 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
   }, [rec, today, lang]);
 
   if (!rec) return null;
+  const fresh = rec.mode === "focus" && !rec.partial ? newlyEarned(records, rec.id) : [];
   const to = getStation(rec.toId);
   const late = Date.now() - rec.completedAt > LATE_COMPLETION_MS;
   const canBreak = rec.mode === "focus" && !rec.partial && !late;
@@ -91,6 +94,22 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
             ) : (
               <span>{t("done.taskLater", { task: rec.task })}</span>
             )}
+          </div>
+        )}
+        {fresh.length > 0 && (
+          <div className={styles.encounters}>
+            <span className={styles.encLabel}>{t("done.newBadges")}</span>
+            <ul>
+              {fresh.map((b) => (
+                <li key={b}>
+                  <BadgeIcon id={b} earned size={36} />
+                  <span>
+                    <b>{t(`badge.${b}` as StringKey)}</b>
+                    <small>{t(`badge.${b}.desc` as StringKey)}</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
         {rec.encounters && rec.encounters.length > 0 && (
