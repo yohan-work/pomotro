@@ -15,11 +15,19 @@ const westward = (f: Frame, sec: Section) => sec.view === "W" || sec.view === "N
 
 /** 원경 랜드마크: 북행이면 남산·N서울타워(앞쪽), 남행이면 응봉산(뒤쪽 북안) */
 export function drawDonghoFar(f: Frame, river: Section) {
-  const { ctx, u, pal, time } = f;
   const s = 0.05;
   if (westward(f, river)) {
     // 남산 — 진행 방향(북) 왼쪽 앞 = 화면 오른쪽
-    const x = sx(f, river.x1 + 420, s);
+    drawNamsan(f, sx(f, river.x1 + 420, s));
+    return;
+  }
+  drawEungbongsan(f, river);
+}
+
+/** 남산과 N서울타워 (화면 x 에) */
+export function drawNamsan(f: Frame, x: number) {
+  const { ctx, u, pal, time } = f;
+  {
     if (x < -40 * u || x > f.W + 40 * u) return;
     const base = (HZ + 2.6) * u;
     const hill = mix(pal.mountainNear, pal.haze, 0.25);
@@ -51,9 +59,12 @@ export function drawDonghoFar(f: Frame, river: Section) {
       ctx.fillRect(x - 1.6 * u, tb - 11.2 * u, 3.2 * u, 0.5 * u);
       ctx.globalAlpha = 1;
     }
-    return;
   }
-  // 응봉산 — 북안(뒤쪽) = 화면 왼쪽. 바위 언덕과 정자
+}
+
+/** 응봉산 — 북안(뒤쪽) = 화면 왼쪽. 바위 언덕과 정자 */
+function drawEungbongsan(f: Frame, river: Section) {
+  const { ctx, u, pal } = f;
   const x = sx(f, river.x0 - 160, 0.09);
   if (x < -40 * u || x > f.W + 40 * u) return;
   const base = (HZ + 2.8) * u;
@@ -159,11 +170,13 @@ export function drawDonghoNeighbor(f: Frame, river: Section) {
 
 /** 이 둔치·강 구간이 동호대교 위인지 (둔치는 옆 강 구간으로 판단) */
 export function onDongho(f: Frame, sec: Section): boolean {
-  if (sec.kind === "river") return sec.variant === "hangang-dongho";
+  // 동작대교(4호선)도 같은 구조 — 도로 한가운데로 지하철이 달린다
+  const roadMiddle = (v?: string) => v === "hangang-dongho" || v === "hangang-dongjak";
+  if (sec.kind === "river") return roadMiddle(sec.variant);
   if (sec.kind !== "bank") return false;
   const a = sectionAtM(f, sec.x0 - 1);
   const b = sectionAtM(f, sec.x1 + 1);
-  return (a.kind === "river" && a.variant === "hangang-dongho") || (b.kind === "river" && b.variant === "hangang-dongho");
+  return (a.kind === "river" && roadMiddle(a.variant)) || (b.kind === "river" && roadMiddle(b.variant));
 }
 
 /**

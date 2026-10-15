@@ -24,7 +24,9 @@ export type WaterVariant =
   | "stream" // 중랑천 등 하천
   | "hangang-north" // 경의중앙선 용산~응봉: 한강 북안, 건너편 강남 스카이라인·한강 다리들
   | "paldang" // 경의중앙선 덕소~운길산: 팔당호 강변, 가까운 산
-  | "bukhangang"; // 경의중앙선 운길산→양수: 북한강 횡단
+  | "bukhangang" // 경의중앙선 운길산→양수: 북한강 횡단
+  | "hangang-dongjak" // 4호선 동작대교(도로 한가운데): 남행 동쪽 창 → 반포대교·세빛섬·남산 / 북행 서쪽 창 → 한강대교·노들섬·63빌딩
+  | "hangang-cheongdam"; // 7호선 청담대교 아래층(위는 도로): 남행 동쪽 창 → 롯데월드타워 / 북행 서쪽 창 → 영동대교
 
 export interface SectionSpec {
   kind: SectionKind;
@@ -106,6 +108,31 @@ const CUSTOM: Record<string, SectionSpec[]> = {
     { kind: "river", length: 720, stretch: 0, variant: "hangang-dongho" },
     { kind: "bank", length: 60, stretch: 0 },
     { kind: "city", length: 50, stretch: 0.1 },
+    { kind: "portal-in", length: 140, stretch: 0 },
+    { kind: "tunnel", length: 90, stretch: 1 },
+  ],
+  // 4호선 이촌(지하) → 지상으로 올라와 동작대교 한가운데로 한강 횡단 → 동작(남단 지상역)
+  "l4-ichon__l4-dongjak": [
+    { kind: "tunnel", length: 100, stretch: 1 },
+    { kind: "portal-out", length: 140, stretch: 0 },
+    { kind: "city", length: 60, stretch: 0.2 },
+    { kind: "bank", length: 60, stretch: 0 },
+    { kind: "river", length: 880, stretch: 0, variant: "hangang-dongjak" },
+    { kind: "bank", length: 50, stretch: 0 },
+  ],
+  // 7호선 건대입구(지하) → 지상으로 나와 뚝섬한강공원 위 자양(고가)
+  "l7-konkuk-univ__l7-jayang": [
+    { kind: "tunnel", length: 100, stretch: 1 },
+    { kind: "portal-out", length: 140, stretch: 0 },
+    { kind: "city", length: 80, stretch: 0.3 },
+    { kind: "bank", length: 70, stretch: 0 },
+  ],
+  // 자양 → 청담대교 아래층으로 한강 횡단 → 남단에서 지하로 청담
+  "l7-jayang__l7-cheongdam": [
+    { kind: "bank", length: 50, stretch: 0 },
+    { kind: "river", length: 1000, stretch: 0, variant: "hangang-cheongdam" },
+    { kind: "bank", length: 50, stretch: 0 },
+    { kind: "city", length: 40, stretch: 0.1 },
     { kind: "portal-in", length: 140, stretch: 0 },
     { kind: "tunnel", length: 90, stretch: 1 },
   ],
