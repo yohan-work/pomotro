@@ -8,7 +8,7 @@ import { mkdirSync } from "node:fs";
 const base = process.argv[2] ?? "http://localhost:3123";
 mkdirSync(".verify", { recursive: true });
 const browser = await chromium.launch({ channel: "chrome", headless: true });
-const page = await (await browser.newContext({ locale: "ko-KR",  viewport: { width: 1440, height: 900 } })).newPage();
+const page = await (await browser.newContext({ locale: "ko-KR", viewport: { width: 1440, height: 900 }, acceptDownloads: true })).newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 // 외부 날씨 API(Open-Meteo) 장애는 앱이 계절 기본값으로 넘기므로 경고만 (우리 오류가 아니다)
@@ -296,6 +296,21 @@ await page.evaluate(() => {
 await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=100&mode=focus&event=sleeper&seek=30`, { waitUntil: "networkidle" });
 await page.waitForTimeout(600);
 check((await page.locator("[data-testid=cabin-passenger]").count()) === 1, "forced event still shows for verification when surprises are off");
+
+// 하이라이트 영상: 완료 화면에서 만들어 내려받기 (MediaRecorder, mp4 또는 webm)
+{
+  await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=150&mode=focus&seek=146`, { waitUntil: "networkidle" });
+  const btn = page.getByRole("button", { name: /하이라이트 영상/ });
+  await btn.waitFor({ timeout: 15000 }).catch(() => {});
+  if (await btn.count()) {
+    const dl = page.waitForEvent("download", { timeout: 60000 }).catch(() => null);
+    await btn.click();
+    const d = await dl;
+    const path = d && (await d.path());
+    const size = path ? (await import("node:fs")).statSync(path).size : 0;
+    check(Boolean(d) && /\.(mp4|webm)$/.test(d.suggestedFilename()) && size > 100_000, `highlight video downloaded (${d?.suggestedFilename()} ${(size / 1e6).toFixed(1)}MB)`);
+  } else console.log("  (영상 녹화 미지원 — 건너뜀)");
+}
 
 // 미니 창 (Document Picture-in-Picture): 남은 시간·다음 역, 미니 창 버튼으로 일시정지
 {
