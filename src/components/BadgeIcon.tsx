@@ -49,6 +49,8 @@ export function BadgeIcon({ id, earned, size = 48 }: { id: BadgeId; earned: bool
             <path d="M13 21h22M18 12v5M30 12v5M19 28l3 3 6-6" {...sw} />
           </>
         );
+      case "trip-complete": // 지도 위 경로
+        return <path d="M12 33l7-4 10 4 7-4V15l-7 4-10-4-7 4ZM19 15v14M29 19v14" {...sw} />;
       case "dex-half": // 또롱 얼굴
         return (
           <>

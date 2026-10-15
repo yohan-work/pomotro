@@ -9,6 +9,7 @@ import { IconArrow, IconDownload, IconPlay } from "./Icons";
 import { EncounterIcon } from "./Passengers";
 import { BadgeIcon } from "./BadgeIcon";
 import { newlyEarned } from "@/lib/badges";
+import { tripDone, tripSummary } from "@/lib/trips";
 import styles from "./CompleteScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
 import { highlightSupported, makeHighlight } from "./highlight";
@@ -16,6 +17,7 @@ import { highlightSupported, makeHighlight } from "./highlight";
 export default function CompleteScreen({ recordId }: { recordId: string }) {
   const { t, name, lang } = useT();
   const records = useAppStore((s) => s.records);
+  const trip = useAppStore((s) => s.trip);
   const cycleCount = useAppStore((s) => s.cycleCount);
   const prefs = useAppStore((s) => s.pomodoro);
   const rec = records.find((r) => r.id === recordId);
@@ -134,6 +136,18 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
               <span>{t("done.taskLater", { task: rec.task })}</span>
             )}
           </div>
+        )}
+        {rec.trip && trip && trip.id === rec.trip.id && (
+          <p className={styles.today} role="status">
+            {rec.trip.done
+              ? <b>{t("done.tripDone", { name: t(`trip.${rec.trip.id}` as StringKey) })}</b>
+              : t("done.tripProgress", {
+                  name: t(`trip.${rec.trip.id}` as StringKey),
+                  n: tripDone(trip.id, trip.progress),
+                  total: tripSummary(trip.id).stations,
+                  p: Math.round((tripDone(trip.id, trip.progress) / tripSummary(trip.id).stations) * 100),
+                })}
+          </p>
         )}
         {fresh.length > 0 && (
           <div className={styles.encounters}>

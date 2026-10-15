@@ -18,6 +18,8 @@ import { rideParams, track } from "@/lib/analytics";
 import LineMap from "./LineMap";
 import { LineBadge } from "./LineBadge";
 import { StationSearch } from "./StationSearch";
+import { TripPanel } from "./TripPanel";
+import { nextLeg } from "@/lib/trips";
 import styles from "./SetupScreen.module.css";
 
 const PRESETS = [15, 25, 40, 60];
@@ -96,7 +98,8 @@ export default function SetupScreen() {
   const { setFocusMinutes, setTask, startSession, setNotify } = useAppStore.getState();
   const [custom, setCustom] = useState(!PRESETS.includes(focusMinutes));
   const [selected, setSelected] = useState(0);
-  const [tab, setTab] = useState<"recommend" | "pick">("recommend");
+  const trip = useAppStore((s) => s.trip);
+  const [tab, setTab] = useState<"recommend" | "pick" | "trip">(() => (useAppStore.getState().trip && !useAppStore.getState().trip!.doneAt ? "trip" : "recommend"));
   const [showSettings, setShowSettings] = useState(false);
   const [audioOn, setAudioOn] = useState(false);
   useEffect(() => {
@@ -124,8 +127,10 @@ export default function SetupScreen() {
     const ids = route.map((st) => st.id);
     return { ...describeRoute(ids), minSec: minJourneySec(ids) };
   }, [pickFrom, pickTo]);
-  const tooShort = tab === "pick" && picked !== null && focusSec < picked.minSec;
-  const route = tab === "pick" ? picked : routes[selected];
+  const tripLeg = useMemo(() => (trip && !trip.doneAt ? nextLeg(trip.id, trip.progress, focusSec) : null), [trip, focusSec]);
+  const tripRoute = useMemo(() => (tripLeg ? { ...describeRoute(tripLeg.stationIds), minSec: minJourneySec(tripLeg.stationIds) } : null), [tripLeg]);
+  const tooShort = (tab === "pick" && picked !== null && focusSec < picked.minSec) || (tab === "trip" && tripRoute !== null && focusSec < tripRoute.minSec);
+  const route = tab === "pick" ? picked : tab === "trip" ? tripRoute : routes[selected];
 
   /** 검색으로 고른 역: 출발역이 있으면 도착역(다른 노선이면 환승 경로), 없으면 출발역 */
   const onSearchPick = (st: Station) => {
@@ -153,7 +158,13 @@ export default function SetupScreen() {
     unlockAudio();
     if (notify) void requestNotifyPermission().then(() => setNStatus(notifyStatus()));
     track("ride_start", { mode: "focus", source: tab, ...rideParams(route.stationIds, focusSec) });
-    startSession({ mode: "focus", stationIds: route.stationIds, totalSec: focusSec, task: task.trim() });
+    startSession({
+      mode: "focus",
+      stationIds: route.stationIds,
+      totalSec: focusSec,
+      task: task.trim(),
+      ...(tab === "trip" && trip && tripLeg ? { trip: { id: trip.id, to: tripLeg.to } } : {}),
+    });
   };
 
   const demo = () => {
@@ -301,8 +312,13 @@ export default function SetupScreen() {
             <button role="tab" aria-selected={tab === "pick"} className={tab === "pick" ? styles.tabOn : styles.tab} onClick={() => setTab("pick")}>
               {t("setup.pick")}
             </button>
+            <button role="tab" aria-selected={tab === "trip"} className={tab === "trip" ? styles.tabOn : styles.tab} onClick={() => setTab("trip")}>
+              {t("setup.trip")}
+            </button>
           </div>
-          {tab === "recommend" ? (
+          {tab === "trip" ? (
+            <TripPanel leg={tripLeg} focusMin={focusMinutes} />
+          ) : tab === "recommend" ? (
             <div className={styles.routes}>
               {routes[selected] && (
                 <div className={styles.mapPreview}>
