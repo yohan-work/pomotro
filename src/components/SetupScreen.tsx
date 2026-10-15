@@ -16,6 +16,8 @@ import { PomodoroSettings, SoundSettings, ViewSettings } from "./Panels";
 import { useConditions } from "@/lib/useConditions";
 import { rideParams, track } from "@/lib/analytics";
 import LineMap from "./LineMap";
+import { LineBadge } from "./LineBadge";
+import { StationSearch } from "./StationSearch";
 import styles from "./SetupScreen.module.css";
 
 const PRESETS = [15, 25, 40, 60];
@@ -122,6 +124,17 @@ export default function SetupScreen() {
   }, [pickFrom, pickTo]);
   const tooShort = tab === "pick" && picked !== null && focusSec < picked.minSec;
   const route = tab === "pick" ? picked : routes[selected];
+
+  /** 검색으로 고른 역: 출발역과 같은 노선이면 도착역, 아니면 그 노선의 출발역으로 (갈아타기 미지원) */
+  const onSearchPick = (st: Station) => {
+    if (pickFrom && !pickTo && st.id !== pickFrom && getStation(pickFrom).line === st.line) {
+      setPickTo(st.id);
+      return;
+    }
+    setPickLine(st.line);
+    setPickFrom(st.id);
+    setPickTo(null);
+  };
 
   const onPick = (st: Station) => {
     if (!pickFrom || pickTo) {
@@ -326,14 +339,17 @@ export default function SetupScreen() {
             </div>
           ) : (
             <div className={styles.picker}>
+              <StationSearch onPick={onSearchPick} />
               <div className={styles.lineChips} role="radiogroup" aria-label={t("setup.line")}>
                 {LINES.map((ln) => ln.id).map((l) => (
                   <button
                     key={l}
                     role="radio"
                     aria-checked={pickLine === l}
+                    aria-label={lineName(LINE_BY_ID[l])}
+                    title={lineName(LINE_BY_ID[l])}
                     className={pickLine === l ? styles.lineChipOn : styles.lineChip}
-                    style={pickLine === l ? { background: LINE_BY_ID[l].color, borderColor: LINE_BY_ID[l].color } : undefined}
+                    style={pickLine === l ? { borderColor: LINE_BY_ID[l].color, boxShadow: `inset 0 0 0 1px ${LINE_BY_ID[l].color}` } : undefined}
                     onClick={() => {
                       if (l === pickLine) return;
                       setPickLine(l);
@@ -341,7 +357,7 @@ export default function SetupScreen() {
                       setPickTo(null);
                     }}
                   >
-                    {lineName(LINE_BY_ID[l])}
+                    <LineBadge line={LINE_BY_ID[l]} />
                   </button>
                 ))}
               </div>

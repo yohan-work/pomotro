@@ -52,6 +52,7 @@ interface Meta {
   nameKo: string;
   nameEn: string;
   badge: { ko: string; en: string };
+  variant?: { ko: string; en: string };
   color: string;
 }
 
@@ -80,8 +81,8 @@ function metroLine(meta: Meta, key: keyof typeof METRO_OFFICIAL, structureLine: 
 export const LINE1 = metroLine({ id: "1", prefix: "l1", nameKo: "1호선", nameEn: "Line 1", badge: { ko: "1", en: "1" }, color: "#0052A4" }, "1");
 export const LINE4 = metroLine({ id: "4", prefix: "l4", nameKo: "4호선", nameEn: "Line 4", badge: { ko: "4", en: "4" }, color: "#00A5DE" }, "4");
 export const LINE5 = metroLine({ id: "5", prefix: "l5", nameKo: "5호선", nameEn: "Line 5", badge: { ko: "5", en: "5" }, color: "#996CAC" }, "5");
-export const LINE5M = metroLine({ id: "5M", prefix: "l5m", nameKo: "5호선 마천지선", nameEn: "Line 5 Macheon Branch", badge: { ko: "5", en: "5" }, color: "#996CAC" }, "5M", "5");
+export const LINE5M = metroLine({ id: "5M", prefix: "l5m", nameKo: "5호선 마천지선", nameEn: "Line 5 Macheon Branch", badge: { ko: "5", en: "5" }, variant: { ko: "마천", en: "Macheon" }, color: "#996CAC" }, "5M", "5");
 export const LINE6 = metroLine({ id: "6", prefix: "l6", nameKo: "6호선", nameEn: "Line 6", badge: { ko: "6", en: "6" }, color: "#CD7C2F" }, "6");
-export const LINE6L = metroLine({ id: "6L", prefix: "l6l", nameKo: "6호선 응암순환", nameEn: "Line 6 Eungam Loop", badge: { ko: "6", en: "6" }, color: "#CD7C2F" }, "6L", "6");
+export const LINE6L = metroLine({ id: "6L", prefix: "l6l", nameKo: "6호선 응암순환", nameEn: "Line 6 Eungam Loop", badge: { ko: "6", en: "6" }, variant: { ko: "응암순환", en: "Loop" }, color: "#CD7C2F" }, "6L", "6");
 export const LINE7 = metroLine({ id: "7", prefix: "l7", nameKo: "7호선", nameEn: "Line 7", badge: { ko: "7", en: "7" }, color: "#747F00" }, "7");
 export const LINE8 = metroLine({ id: "8", prefix: "l8", nameKo: "8호선", nameEn: "Line 8", badge: { ko: "8", en: "8" }, color: "#E6186C" }, "8");
