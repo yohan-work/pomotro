@@ -5,12 +5,13 @@ import { getStation } from "@/data/lines";
 import { useT, type StringKey } from "@/i18n";
 import { track } from "@/lib/analytics";
 import { LATE_COMPLETION_MS, nextBreakKind, todayFocusSec, todaySummary, useAppStore } from "@/store/useAppStore";
-import { IconArrow, IconDownload } from "./Icons";
+import { IconArrow, IconDownload, IconPlay } from "./Icons";
 import { EncounterIcon } from "./Passengers";
 import { BadgeIcon } from "./BadgeIcon";
 import { newlyEarned } from "@/lib/badges";
 import styles from "./CompleteScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
+import { highlightSupported, makeHighlight } from "./highlight";
 
 export default function CompleteScreen({ recordId }: { recordId: string }) {
   const { t, name, lang } = useT();
@@ -20,6 +21,9 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
   const rec = records.find((r) => r.id === recordId);
   const ref = useRef<HTMLCanvasElement>(null);
   const [shareMsg, setShareMsg] = useState("");
+  const [canVideo, setCanVideo] = useState(false);
+  const [videoPct, setVideoPct] = useState<number | null>(null);
+  useEffect(() => setCanVideo(highlightSupported()), []);
   const today = todayFocusSec(records);
   const summary = todaySummary(records);
 
@@ -38,6 +42,41 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
   const canBreak = rec.mode === "focus" && !rec.partial && !late;
   const breakKind = nextBreakKind(cycleCount, prefs.longEvery);
   const breakMin = breakKind === "long" ? prefs.longMin : prefs.shortMin;
+
+  /** 공유할 수 있으면 공유, 아니면 내려받기 */
+  const shareOrDownload = async (file: File, title: string) => {
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title });
+        return "shared" as const;
+      } catch {
+        /* 취소하면 내려받기로 */
+      }
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return "saved" as const;
+  };
+
+  const video = async () => {
+    if (videoPct !== null) return;
+    setShareMsg("");
+    setVideoPct(0);
+    try {
+      const { blob, ext } = await makeHighlight(rec, lang, today, (p) => setVideoPct(Math.round(p * 100)));
+      const file = new File([blob], `metro-${rec.fromId}-${rec.toId}.${ext}`, { type: blob.type });
+      const how = await shareOrDownload(file, t("done.shareTitle"));
+      setShareMsg(how === "shared" ? t("done.shared") : t("done.videoSaved"));
+    } catch {
+      setShareMsg(t("done.videoFailed"));
+    } finally {
+      setVideoPct(null);
+    }
+  };
 
   const save = async () => {
     const blob = await ticketBlob(rec, today, lang);
@@ -159,6 +198,11 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
           <button className={styles.ghost} onClick={save}>
             <IconDownload width={18} height={18} /> {t("common.saveImage")}
           </button>
+          {canVideo && !rec.partial && (
+            <button className={styles.ghost} onClick={video} disabled={videoPct !== null} aria-live="polite">
+              <IconPlay width={16} height={16} /> {videoPct === null ? t("done.video") : t("done.videoMaking", { p: videoPct })}
+            </button>
+          )}
         </div>
         <button
           className={styles.link}
