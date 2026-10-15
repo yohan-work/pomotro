@@ -300,7 +300,12 @@ check((await page.locator("[data-testid=cabin-passenger]").count()) === 1, "forc
 // 장거리 여행: 코스 시작 → 다음 구간 출발 → 끝까지 달리면 진행 저장
 {
   await page.goto(base, { waitUntil: "networkidle" });
+  // 처음 온 사람은 추천만 (직접 고르기·장거리 탭은 첫 승차 뒤)
   await page.evaluate(() => localStorage.setItem("metro-focus-v1", JSON.stringify({ version: 2, state: { seenRideTips: true, focusMinutes: 25 } })));
+  await page.reload({ waitUntil: "networkidle" });
+  check((await page.getByRole("tab", { name: "장거리" }).count()) === 0 && (await page.getByRole("button", { name: /출발하기/ }).count()) === 1, "first visit: recommendations only, depart ready");
+  const oneRide = { id: "seed", mode: "focus", fromId: "dangsan", toId: "hapjeong", stationCount: 1, focusSec: 1500, completedAt: Date.now() - 86400000, task: "", partial: false, distanceKm: 2 };
+  await page.evaluate((r) => localStorage.setItem("metro-focus-v1", JSON.stringify({ version: 2, state: { seenRideTips: true, focusMinutes: 25, records: [r] } })), oneRide);
   await page.reload({ waitUntil: "networkidle" });
   await page.getByRole("tab", { name: "장거리" }).click();
   await page.locator("[class*=preset]").filter({ hasText: "2호선 한 바퀴" }).getByRole("button", { name: "시작" }).click();
