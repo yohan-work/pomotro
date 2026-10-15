@@ -442,7 +442,7 @@
 
 .lineChip,
 .lineChipOn {
-  padding: 4px 11px;
+  padding: 3px 6px;
   border-radius: 999px;
   border: 1px solid var(--c-line);
   background: var(--c-surface);
@@ -452,7 +452,8 @@
 }
 
 .lineChipOn {
-  color: #fff;
+  color: var(--c-text);
+  background: var(--c-surface-2);
 }
 
 .pickHint {

@@ -37,6 +37,8 @@ export interface LineDef {
   nameEn: string;
   /** 노선 배지 글자 (원 안에 들어갈 짧은 표기) */
   badge: { ko: string; en: string };
+  /** 같은 호선의 지선·순환 구분 (배지 옆 짧은 표기) */
+  variant?: { ko: string; en: string };
   color: string;
   /** 운행시간이 공식 데이터가 아닌 추정이면 true (화면에 "추정" 표기) */
   runTimeEstimated?: boolean;
@@ -68,7 +70,7 @@ export function windowFacing(heading: Heading): Heading {
 
 /** 역 목록 + 공식 구간 데이터 → 노선. 공식 데이터와는 국문 역명으로 매칭하며, 없으면 즉시 실패 */
 export function buildLine(
-  meta: { id: LineId; nameKo: string; nameEn: string; badge: { ko: string; en: string }; color: string; loop: boolean; runTimeEstimated?: boolean },
+  meta: { id: LineId; nameKo: string; nameEn: string; badge: { ko: string; en: string }; variant?: { ko: string; en: string }; color: string; loop: boolean; runTimeEstimated?: boolean },
   raw: RawStation[],
   official: ReadonlyArray<OfficialSegment>,
 ): LineDef {
