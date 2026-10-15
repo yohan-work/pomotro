@@ -130,6 +130,16 @@ check(/당산 → 잠실/.test(hint) && /km/.test(hint), `line map pick origin+d
   const h = await page.locator("[aria-live=polite]").last().textContent();
   check(/자양 → 청담/.test(h) && (await page.getByRole("radio", { name: "7호선" }).getAttribute("aria-checked")) === "true", `station search picks route and switches line (${h.slice(0, 24)}…)`);
 }
+// 환승: 다른 노선의 역을 도착역으로 고르면 공식 환승 경로 (이촌 4호선 → 당산 2호선, 사당 환승)
+{
+  const box = page.getByRole("combobox", { name: "역 이름으로 찾기" });
+  await box.fill("이촌");
+  await page.getByRole("option", { name: "4호선 이촌역" }).click();
+  await box.fill("당산");
+  await page.getByRole("option", { name: "2호선 당산역" }).click();
+  const h = await page.locator("[aria-live=polite]").last().textContent();
+  check(/이촌 → 당산/.test(h) && /환승 1회/.test(h), `cross-line pick makes a transfer route (${h.slice(0, 40)}…)`);
+}
 // 3호선: 노선을 바꿔 동호대교 구간 고르기 → 출발
 await page.getByRole("radio", { name: "3호선" }).click();
 await page.getByRole("button", { name: /3호선 옥수역/ }).locator("circle").first().click();
@@ -281,6 +291,15 @@ await page.evaluate(() => {
 await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=100&mode=focus&event=sleeper&seek=30`, { waitUntil: "networkidle" });
 await page.waitForTimeout(600);
 check((await page.locator("[data-testid=cabin-passenger]").count()) === 1, "forced event still shows for verification when surprises are off");
+
+// 환승 주행: 걷는 동안 안내 카드, 갈아탄 뒤 새 노선
+await page.goto(`${base}/?autostart=route&route=l4-ichon,dangsan&total=2700&mode=focus&seek=740`, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+const card = page.getByTestId("transfer");
+check((await card.count()) === 1 && /사당에서 2호선으로 갈아타는 중/.test(await card.textContent()) && /74m/.test(await card.textContent()), "transfer card shows the official walk (사당 74m)");
+await page.goto(`${base}/?autostart=route&route=l4-ichon,dangsan&total=2700&mode=focus&seek=785`, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+check((await page.getByTestId("transfer").count()) === 0 && /당산행/.test(await page.locator("[aria-live=polite]").first().textContent()), "after the transfer: boarding the Line 2 train bound for 당산");
 
 check(errors.length === 0, `no page errors ${errors.join(" | ")}`);
 await browser.close();
