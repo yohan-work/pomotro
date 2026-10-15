@@ -90,7 +90,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const surprisesOn = useAppStore((s) => s.surprises);
   const plannedEvents = useMemo(() => {
     if (isBreak) return [];
-    if (debug.event) return planRideEvents(journey, seedOf(session.id), debug.event);
+    // 강제 이벤트는 검증 화면이 매번 같도록 이벤트 이름을 시드로
+    if (debug.event) return planRideEvents(journey, seedOf(debug.event), debug.event);
     if (debug.scripted) return [];
     return planRideEvents(journey, seedOf(session.id));
   }, [journey, session.id, isBreak, debug.event, debug.scripted]);
