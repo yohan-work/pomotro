@@ -11,7 +11,12 @@ const browser = await chromium.launch({ channel: "chrome", headless: true });
 const page = await (await browser.newContext({ locale: "ko-KR",  viewport: { width: 1440, height: 900 } })).newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
-page.on("response", (r) => r.status() >= 400 && errors.push(`HTTP ${r.status()} ${r.url()}`));
+// 외부 날씨 API(Open-Meteo) 장애는 앱이 계절 기본값으로 넘기므로 경고만 (우리 오류가 아니다)
+page.on("response", (r) => {
+  if (r.status() < 400) return;
+  if (new URL(r.url()).hostname === "api.open-meteo.com") console.warn(`  (경고) 외부 날씨 API HTTP ${r.status()} — 앱은 기본값으로 계속`);
+  else errors.push(`HTTP ${r.status()} ${r.url()}`);
+});
 let failed = 0;
 const check = (ok, msg) => {
   console.log(`${ok ? "✓" : "✗"} ${msg}`);
