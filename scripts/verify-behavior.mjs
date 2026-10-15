@@ -297,6 +297,26 @@ await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=100&mode=
 await page.waitForTimeout(600);
 check((await page.locator("[data-testid=cabin-passenger]").count()) === 1, "forced event still shows for verification when surprises are off");
 
+// 미니 창 (Document Picture-in-Picture): 남은 시간·다음 역, 미니 창 버튼으로 일시정지
+{
+  await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=300&mode=focus&seek=40`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  const supported = await page.evaluate(() => "documentPictureInPicture" in window);
+  if (supported) {
+    await page.getByRole("button", { name: /미니 창/ }).click();
+    await page.waitForTimeout(1200);
+    const info = await page.evaluate(() => {
+      const w = window.documentPictureInPicture.window;
+      return w ? { time: w.document.querySelector(".time")?.textContent ?? "", label: w.document.querySelector(".label")?.textContent ?? "" } : null;
+    });
+    check(Boolean(info && /^0\d:\d\d$/.test(info.time) && /합정/.test(info.label)), `mini window shows time and next stop (${JSON.stringify(info)})`);
+    await page.evaluate(() => window.documentPictureInPicture.window.document.querySelector("button").click());
+    await page.waitForTimeout(400);
+    check((await store()).activeSession.pausedAt !== null, "mini window button pauses the ride");
+    await page.evaluate(() => window.documentPictureInPicture.window?.close());
+  } else console.log("  (미니 창 API 없음 — 건너뜀)");
+}
+
 // 환승 주행: 걷는 동안 안내 카드, 갈아탄 뒤 새 노선
 await page.goto(`${base}/?autostart=route&route=l4-ichon,dangsan&total=2700&mode=focus&seek=740`, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
