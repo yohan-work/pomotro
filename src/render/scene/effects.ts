@@ -162,6 +162,28 @@ function drawCabinReflection(f: Frame) {
       ctx.fill();
     }
   }
+  // 출퇴근 시간: 손잡이를 잡고 서 있는 승객들이 앉은 사람들 앞에 비친다
+  if (f.crowd > 0.7) {
+    const k = (f.crowd - 0.7) / 0.3;
+    const rs = rng(4242);
+    const n = Math.round(3 + k * 3);
+    for (let i = 0; i < n; i++) {
+      const x = W * (0.1 + (i + 0.3 + rs() * 0.4) * (0.8 / n));
+      const head = (3.8 + rs() * 0.6) * u;
+      const y = (34 + rs() * 4) * u;
+      ctx.globalAlpha = a * 0.13;
+      ctx.fillStyle = "#e8dfcf";
+      rrect(ctx, x - head * 1.6, y + head * 0.9, head * 3.2, 46 * u, head * 1.2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, y, head, 0, Math.PI * 2);
+      ctx.fill();
+      // 위로 뻗은 팔
+      const side = rs() < 0.5 ? -1 : 1;
+      rrect(ctx, x + side * head * 1.1 - 0.9 * u, y - 14 * u, 1.8 * u, 15 * u, 0.9 * u);
+      ctx.fill();
+    }
+  }
   ctx.globalAlpha = 1;
 }
 

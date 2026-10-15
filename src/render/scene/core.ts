@@ -59,6 +59,8 @@ export interface Frame {
   season: Season;
   /** 깜짝 이벤트 (창밖에 그릴 것만 쓴다) */
   events: RideEvent[];
+  /** 0..1 혼잡도 (0.5 = 보통, 1 = 출퇴근) — 승강장 사람 수, 유리에 비친 서 있는 승객 */
+  crowd: number;
 }
 
 export type Land = "city" | "bank" | "river" | "none";

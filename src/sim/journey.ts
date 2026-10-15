@@ -9,7 +9,7 @@
  *   실제 예상 운행시간은 노선 데이터(line2.ts)에서 별도로 표시한다.
  */
 import { getSegment, getStation, isTransferPair, neighbors, transferBetween, windowFacing, type LineSegment, type Station, type Transfer } from "../data/lines";
-import { PLATFORM_HALF, cityStyle, leadSection, middleSections, type CityStyle, type SectionKind, type WaterVariant } from "../data/scenery";
+import { PLATFORM_HALF, cityStyle, leadSection, middleSections, tunnelKind, type CityStyle, type SectionKind, type TunnelKind, type WaterVariant } from "../data/scenery";
 import { ACCEL, DECEL, lookup } from "./profile";
 
 export type SimPhase =
@@ -38,6 +38,8 @@ export interface Section {
   view: LineSegment["heading"];
   /** 지상 시가지 동네 분위기 */
   style?: CityStyle;
+  /** 터널 모양 (터널 구간) */
+  tunnel?: TunnelKind;
 }
 
 export interface SegmentPlan {
@@ -261,7 +263,15 @@ export function buildJourney(config: JourneyConfig): Journey {
     specs.forEach((sp, k) => {
       const add = stretchSum > 0 ? (extra * sp.stretch) / stretchSum : k === specs.length - 1 ? extra : 0;
       const len = sp.length + add;
-      sections.push({ kind: sp.kind, x0: cx, x1: cx + len, variant: sp.variant, view: views[i], style: cityStyle(stations[i].id, stations[i + 1].id) });
+      sections.push({
+        kind: sp.kind,
+        x0: cx,
+        x1: cx + len,
+        variant: sp.variant,
+        view: views[i],
+        style: cityStyle(stations[i].id, stations[i + 1].id),
+        ...(sp.kind === "tunnel" ? { tunnel: tunnelKind(stations[i].id, stations[i + 1].id) } : {}),
+      });
       cx += len;
     });
     const xTo = x + D;

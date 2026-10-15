@@ -1,5 +1,5 @@
 /** 창밖 장면 — 역 승강장 */
-import { LINE_BY_ID, neighbors, type Station } from "../../data/lines";
+import { LINE_BY_ID, getStation, neighbors, transfersAt, type Station } from "../../data/lines";
 import { hash2, pick } from "../rng";
 import { drawPerson, mix, rrect, shadeColor } from "../sprites";
 import { SPEED, type Frame, sx, spans, sectionAtM, forCells } from "./core";
@@ -40,6 +40,40 @@ export function stationSign(f: Frame, station: Station, w: number, h: number) {
     if (nb.prev) c.fillText(`‹ ${nb.prev.nameKo}`, h * 0.2, h * 0.84);
     c.textAlign = "right";
     if (nb.next) c.fillText(`${nb.next.nameKo} ›`, w - h * 0.2, h * 0.84);
+  });
+}
+
+/** 환승역 안내판: "갈아타는 곳" + 갈아탈 노선 배지 (공식 환승 데이터) */
+function transferSign(f: Frame, station: Station, h: number) {
+  const lines = [...new Set(transfersAt(station.id).map((t) => getStation(t.to).line))].map((id) => LINE_BY_ID[id]);
+  if (!lines.length) return null;
+  const { pal } = f;
+  const r = h * 0.3;
+  const w = h * 1.9 + lines.length * (r * 2 + h * 0.12);
+  return f.sprites.get(`xfer:${station.id}:${pal.key}:${h | 0}`, w, h, (c) => {
+    c.fillStyle = "#2B2F36";
+    rrect(c, 0, 0, w, h, h * 0.16);
+    c.fill();
+    c.fillStyle = "#FFD54A";
+    c.font = `800 ${h * 0.3}px Pretendard, sans-serif`;
+    c.textBaseline = "middle";
+    c.textAlign = "left";
+    c.fillText("갈아타는 곳", h * 0.18, h * 0.36);
+    c.fillStyle = "#C9CED6";
+    c.font = `600 ${h * 0.2}px Pretendard, sans-serif`;
+    c.fillText("Transfer", h * 0.18, h * 0.7);
+    lines.forEach((l, k) => {
+      const cx = h * 1.75 + r + k * (r * 2 + h * 0.12);
+      c.fillStyle = l.color;
+      c.beginPath();
+      c.arc(cx, h / 2, r, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = "#FFFFFF";
+      const label = l.badge.ko;
+      c.font = `800 ${label.length > 1 ? h * 0.2 : h * 0.32}px Pretendard, sans-serif`;
+      c.textAlign = "center";
+      c.fillText(label, cx, h / 2 + 1);
+    });
   });
 }
 
@@ -142,7 +176,13 @@ export function drawPlatformBack(f: Frame) {
       ctx.fillStyle = shadeColor(pal.concrete, -0.35);
       ctx.fillRect(x - sw * 0.3, 11 * u, 0.3 * u, 1.5 * u);
       ctx.fillRect(x + sw * 0.3, 11 * u, 0.3 * u, 1.5 * u);
+      // 환승역: 갈아타는 곳 안내 (역명판 옆)
+      const xs = transferSign(f, sec.station!, 6 * u);
+      if (xs) ctx.drawImage(xs.img, x + sw / 2 + 3 * u, 12.5 * u + 2.5 * u, xs.w, xs.h);
     } else {
+      // 환승역: 갈아타는 곳 안내 (광고판 위)
+      const xs = transferSign(f, sec.station!, 6 * u);
+      if (xs) ctx.drawImage(xs.img, x - xs.w / 2 - 34 * u, 24 * u, xs.w, xs.h);
       // 광고판 (마스코트 포스터)
       const px = x + 22 * u;
       const pw = 13 * u;
@@ -214,7 +254,8 @@ export function drawPlatformFront(f: Frame) {
     const anchor = m + r() * 4;
     const sec = sectionAtM(f, anchor);
     if (sec.kind !== "platform" || anchor < sec.x0 + 5 || anchor > sec.x1 - 5) return;
-    if (r() < 0.55) return;
+    // 보통(0.5)이면 45% 자리에 사람, 출퇴근(1)이면 더 붐빈다
+    if (r() < 1 - 0.45 * (0.5 + f.crowd)) return;
     const seed = Math.floor(r() * 40);
     const h = (30 + r() * 6) * u;
     const w = h * 0.5;

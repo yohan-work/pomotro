@@ -21,6 +21,8 @@ export interface RenderInput {
   qualityMode?: QualityMode;
   /** 깜짝 이벤트 */
   events?: RideEvent[];
+  /** 0..1 혼잡도 (기본 0.5) */
+  crowd?: number;
 }
 
 export type QualityMode = "auto" | "high" | "low";
@@ -162,6 +164,7 @@ export class Renderer {
       sunAlpha: this.sunAlpha,
       reducedMotion: input.reducedMotion,
       events: input.events ?? [],
+      crowd: input.crowd ?? 0.5,
     };
     renderScene(frame);
     ctx.restore();
