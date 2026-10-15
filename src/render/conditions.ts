@@ -31,15 +31,24 @@ const SEASON_TREES: Record<Season, { tree: string[]; accent: string[]; accentRat
 
 const cache = new Map<string, Palette>();
 
-export function applyConditions(base: Palette, season: Season, weather: Weather): Palette {
-  const key = `${base.key}:${season}:${weather}`;
+/** 봄 단계별 나무 (벚꽃 절정이 기본 — 설정에서 봄을 고르면 절정) */
+const SPRING_PHASE_TREES = {
+  // 이른 봄: 아직 연한 가지 사이 개나리
+  early: { tree: ["#B7C29A", "#A9B98C", "#C2CBA6", "#9FB085"], accent: ["#F2D14B", "#F5DC6A"], accentRatio: 0.3, bare: false },
+  // 늦봄: 짙어지는 신록, 드문드문 철쭉
+  late: { tree: ["#7FB86A", "#8CC274", "#76AE62", "#98C980"], accent: ["#E58AB0", "#EE9CC0"], accentRatio: 0.08, bare: false },
+} as const;
+
+export function applyConditions(base: Palette, season: Season, weather: Weather, springPhase: "early" | "bloom" | "late" = "bloom"): Palette {
+  const phase = season === "spring" ? springPhase : "bloom";
+  const key = `${base.key}:${season}:${weather}:${phase}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
   const p: Palette = { ...base, sky: [...base.sky] as Palette["sky"], tree: [...base.tree], treeAutumn: [...base.treeAutumn], sun: { ...base.sun } };
 
   // 계절: 나무 색. 밤·노을에는 시간대 톤으로 눌러 준다
-  const st = SEASON_TREES[season];
+  const st = phase !== "bloom" ? SPRING_PHASE_TREES[phase] : SEASON_TREES[season];
   const tone = (c: string) => (base.night > 0.5 ? mix(c, "#1f2a2a", 0.62) : base.key === "sunset" ? mix(c, "#b07a70", 0.18) : c);
   if (st.tree.length) {
     p.tree = st.tree.map(tone);
