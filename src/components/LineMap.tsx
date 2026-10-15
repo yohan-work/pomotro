@@ -103,6 +103,8 @@ export interface LineMapProps {
   visited?: Set<string>;
   /** 방문한 역 id */
   visitedStations?: Set<string>;
+  /** 경로를 직접 줄 때 (장거리 여행의 다음 구간처럼 경로가 정해진 경우) */
+  routeIds?: string[];
   label?: string;
 }
 
@@ -134,12 +136,17 @@ function useTweenBox(target: Box): Box {
   return box;
 }
 
-export default function LineMap({ originId, destId, onPick, activeLine, visited, visitedStations, label }: LineMapProps) {
+export default function LineMap({ originId, destId, onPick, activeLine, visited, visitedStations, routeIds, label }: LineMapProps) {
   const { t, name, lineName } = useT();
   const [hover, setHover] = useState<string | null>(null);
   const o = originId ? (STATION_BY_ID.get(originId) ?? null) : null;
   const d = destId ? (STATION_BY_ID.get(destId) ?? null) : null;
-  const routeSt = useMemo(() => (o && d && o.id !== d.id ? routeStations(o, d) : null), [o, d]);
+  const routeKey = routeIds?.join(">");
+  const routeSt = useMemo(
+    () => (routeIds ? routeIds.map((id) => STATION_BY_ID.get(id)!) : o && d && o.id !== d.id ? routeStations(o, d) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [o, d, routeKey],
+  );
   const legs = useMemo(() => (routeSt ? routeLegs(routeSt) : []), [routeSt]);
 
   // 보여 줄 범위: 고르는 노선 / 추천 구간 / 전체
