@@ -16,10 +16,10 @@ npm run dev                 # http://localhost:3000
 npm run typecheck           # tsc --noEmit
 npm test                    # 단위 테스트 (vitest: 통계·추천·세션/뽀모도로 로직)
 npm run test:sim            # 시뮬레이션 엔진 불변식 + 공식 데이터 정합성 (브라우저 불필요)
-npm run data:import         # 서울교통공사 공식 CSV 다운로드 → src/data/line2.official.ts 재생성
+npm run data:import         # 공식 데이터 다운로드 → src/data/*.official.ts 재생성 (역 좌표·영문명은 .env.local 의 SEOUL_OPENAPI_KEY 필요, 없으면 저장된 CSV 로 재생성)
 npm run build               # 프로덕션 빌드 (정적)
 npm run verify:browser -- http://localhost:3000 [--full] [--tod]   # 실제 Chrome 스냅샷/FPS/110초 완주
-npm run visual:diff -- <기준 url> <변경 url>                       # 장면 22개 정지 화면 픽셀 비교 (PR CI 에서 main 대 PR 자동 실행)
+npm run visual:diff -- <기준 url> <변경 url>                       # 장면 27개 정지 화면 픽셀 비교 (PR CI 에서 main 대 PR 자동 실행)
 npm run verify:behavior -- http://localhost:3000 [--pwa]           # 일시정지·새로고침·중복기록·오디오·휴식·노선도 (--pwa: 프로덕션 서버에서 SW 확인)
 ```
 
@@ -31,7 +31,7 @@ npm run verify:behavior -- http://localhost:3000 [--pwa]           # 일시정�
 
 ```
 src/data/lines.ts      노선 레지스트리 — getStation/getSegment/stationsBetween 등 조회는 여기로
-src/data/line2.ts, line3.ts  노선별 실제 데이터 (사실만, 출처·검증상태 명시), network.ts = 공용 타입·빌더
+src/data/line2.ts, line3.ts, lineGJ.ts, metroLines.ts(1·4·5·6·7·8호선)  노선별 실제 데이터 (사실만, 출처·검증상태 명시), network.ts = 공용 타입·빌더, geo.ts = 공식 역 좌표
 src/data/line*.official.ts  자동 생성 — 공식 운행시간·거리 (직접 수정 금지)
 data/official/         공식 원본 CSV (공공누리 1유형, 출처표시)
 src/data/scenery.ts    연출 데이터 (구간별 풍경 순서·길이, 시뮬레이션 미터). 가상값
@@ -47,8 +47,8 @@ docs/                  plan / architecture / design-system / phase-01
 
 ## 반드시 지킬 규칙
 
-- 공식 데이터 값은 `line2.official.ts` 로만 들어온다. 손으로 고치지 말고 `data:import` 로 갱신한다.
-- **실제 데이터와 연출 데이터를 섞지 않는다.** 실제 세계 사실은 `line2.ts` 에만, 화면용 길이·배치는 `scenery.ts` 에만. 추정값은 화면에 "예상/추정"으로 표시한다. 존재하지 않는 데이터를 만들어내지 않는다.
+- 공식 데이터 값은 `*.official.ts`(자동 생성)로만 들어온다. 손으로 고치지 말고 `data:import` 로 갱신한다.
+- **실제 데이터와 연출 데이터를 섞지 않는다.** 실제 세계 사실은 노선 파일(`line*.ts`·`metroLines.ts`)에만, 화면용 길이·배치는 `scenery.ts` 에만. 추정값은 화면에 "예상/추정"으로 표시한다. 존재하지 않는 데이터를 만들어내지 않는다.
 - **시뮬레이션 상태는 경과시간의 순수 함수.** `sampleJourney(journey, t)` 외에 프레임 누적 상태로 위치/타이머를 만들지 않는다. 타이머 기준은 벽시계(`epochNow`).
 - 집중시간 ≠ 실제 운행시간일 때는 재생 속도를 바꾸지 않고 연출 구간(stretch 가중치)을 늘리거나 줄인다. 실제 운행시간을 바꾼 것처럼 표시하지 않는다.
 - 렌더 루프에서 React state 를 매 프레임 갱신하지 않는다 (HUD 는 ≤4Hz, 손잡이 등은 ref 로 직접 style 갱신).
