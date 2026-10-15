@@ -77,7 +77,7 @@ export function drawPlatformBack(f: Frame) {
       const fin = finishOf(sec.station!);
       ctx.fillStyle = fin.wall;
       ctx.fillRect(sp.xa, 13 * u, w, 66 * u);
-      ctx.fillStyle = "#2E946B";
+      ctx.fillStyle = LINE_BY_ID[sec.station!.line].color;
       ctx.fillRect(sp.xa, 50 * u, w, 2.2 * u);
       ctx.fillStyle = fin.lower;
       ctx.fillRect(sp.xa, 52.2 * u, w, 26.8 * u);
@@ -206,7 +206,7 @@ export function drawPlatformFront(f: Frame) {
       ctx.fillStyle = "rgba(0,0,0,0.06)";
       ctx.fillRect(x + w * 0.18, 0, 1, f.H);
     }
-    ctx.fillStyle = "#2E946B";
+    ctx.fillStyle = LINE_BY_ID[sec.station!.line].color;
     ctx.fillRect(x - w / 2, 46 * u, w, 1.4 * u);
   });
   // 기다리는 사람들

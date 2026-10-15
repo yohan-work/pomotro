@@ -1,4 +1,5 @@
 /** 창밖 장면 — 터널 교행 열차 */
+import { LINE_BY_ID } from "../../data/lines";
 import { type Journey } from "../../sim/journey";
 import { hash2, rng } from "../rng";
 import { rrect } from "../sprites";
@@ -65,8 +66,8 @@ export function drawPassingTrain(f: Frame) {
       g.addColorStop(1, "#6E7477");
       ctx.fillStyle = g;
       ctx.fillRect(xa, top, xb - xa, bottom - top);
-      // 2호선 띠
-      ctx.fillStyle = "#2E8A62";
+      // 노선 색 띠
+      ctx.fillStyle = LINE_BY_ID[f.journey.stations[0].line].color;
       ctx.fillRect(xa, 66 * u, xb - xa, 3.2 * u);
       // 창문과 출입문
       const unit = (xb - xa) / car;

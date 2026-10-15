@@ -9,6 +9,7 @@ import { drawPlatformBack, drawPlatformFront } from "./station";
 import { drawTrack } from "./track";
 import { drawDonghoFar, drawDonghoNeighbor } from "./dongho";
 import { drawCrossingBridges } from "./gyeongui";
+import { drawDongjakFar, drawDongjakNeighbor } from "./bridges";
 import { drawPassingTrain } from "./passing";
 import { drawBalloons, drawDuckboats, drawMonster, drawPlatformCat } from "./surprise";
 import { drawFore, drawPrecip, drawDroplets, drawGlass } from "./effects";
@@ -47,6 +48,8 @@ export function renderScene(f: Frame) {
       if (sec.kind !== "river") continue;
       if (sec.variant === "hangang-jamsil") drawLotteTower(f, sec);
       else if (sec.variant === "hangang-dongho") drawDonghoFar(f, sec);
+      else if (sec.variant === "hangang-dongjak") drawDongjakFar(f, sec);
+      else if (sec.variant === "hangang-cheongdam" && !(sec.view === "W" || sec.view === "NW" || sec.view === "SW")) drawLotteTower(f, sec);
     }
     if (riverNearby(f)) {
       drawWater(f);
@@ -63,6 +66,13 @@ export function renderScene(f: Frame) {
         } else if (sec.variant === "hangang-dongho") {
           drawBoat(f, sec);
           drawDonghoNeighbor(f, sec);
+        } else if (sec.variant === "hangang-dongjak") {
+          drawBoat(f, sec);
+          drawDongjakNeighbor(f, sec);
+        } else if (sec.variant === "hangang-cheongdam") {
+          drawBoat(f, sec);
+          // 북행 서쪽 창: 영동대교 (거더교 — 동호대교 장면의 이웃 다리와 같은 모양)
+          if (sec.view === "W" || sec.view === "NW" || sec.view === "SW") drawDonghoNeighbor(f, sec);
         }
       }
       drawMonster(f);

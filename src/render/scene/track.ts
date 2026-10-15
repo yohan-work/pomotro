@@ -1,7 +1,9 @@
 /** 창밖 장면 — 선로 구조물: 방음벽·트러스·스크린도어·옹벽·터널 */
+import { LINE_BY_ID } from "../../data/lines";
 import { hash2, rng } from "../rng";
 import { rrect, shadeColor } from "../sprites";
 import { drawDonghoDeck, onDongho } from "./dongho";
+import { drawUpperDeck, onCheongdam } from "./bridges";
 import { SPEED, type Frame, sx, mAt, visRange, type Span, spans } from "./core";
 
 /* ═════════════════════════════ 선로 구조물 (방음벽 / 트러스 / 스크린도어 / 옹벽 / 터널) ═════════════════════════════ */
@@ -30,7 +32,9 @@ export function drawTrack(f: Frame) {
         // 동호대교: 트러스 없이 도로 한가운데 — 옆 차로와 중앙분리 난간
         if (onDongho(f, sec)) drawDonghoDeck(f, sp);
         else drawTruss(f, sp);
-        drawCatenaryWire(f, sp);
+        // 청담대교 아래층: 위로 도로 상판 (전차선은 상판에 붙어 있어 따로 그리지 않는다)
+        if (onCheongdam(f, sec)) drawUpperDeck(f, sp);
+        else drawCatenaryWire(f, sp);
         break;
       case "platform":
         drawScreenDoors(f, sp);
@@ -187,7 +191,7 @@ export function drawScreenDoors(f: Frame, sp: Span) {
       const lw = Math.min(xDoor - xPanel - 2 * u, 15 * u);
       rrect(ctx, xPanel + 1.4 * u, 38 * u, lw, 5 * u, 1 * u);
       ctx.fill();
-      ctx.fillStyle = "#2E946B";
+      ctx.fillStyle = LINE_BY_ID[sec.station!.line].color;
       ctx.beginPath();
       ctx.arc(xPanel + 3.6 * u, 40.5 * u, 1.3 * u, 0, Math.PI * 2);
       ctx.fill();
@@ -215,7 +219,7 @@ export function drawScreenDoors(f: Frame, sp: Span) {
     ctx.fillStyle = "#7E8A8C";
     ctx.fillRect(xDoor - 0.8 * u, transom, 1.6 * u, kick - transom);
     // 상부 안내 (승강장 번호)
-    ctx.fillStyle = "#2E946B";
+    ctx.fillStyle = LINE_BY_ID[sec.station!.line].color;
     rrect(ctx, xDoor + 1 * u, 3 * u, 6 * u, 3.4 * u, 0.6 * u);
     ctx.fill();
     ctx.fillStyle = "#FFFFFF";
