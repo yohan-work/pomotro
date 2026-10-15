@@ -19,9 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-The route data in `data/official/` and `src/data/line2.official.ts` is provided by
-Seoul Metro (서울교통공사) under the Korea Open Government License Type 1
-(공공누리 제1유형, attribution required) and is not covered by the MIT License above.
