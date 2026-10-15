@@ -19,13 +19,13 @@ npm run test:sim            # 시뮬레이션 엔진 불변식 + 공식 데이�
 npm run data:import         # 공식 데이터 다운로드 → src/data/*.official.ts 재생성 (역 좌표·영문명은 .env.local 의 SEOUL_OPENAPI_KEY 필요, 없으면 저장된 CSV 로 재생성)
 npm run build               # 프로덕션 빌드 (정적)
 npm run verify:browser -- http://localhost:3000 [--full] [--tod]   # 실제 Chrome 스냅샷/FPS/110초 완주
-npm run visual:diff -- <기준 url> <변경 url>                       # 장면 27개 정지 화면 픽셀 비교 (PR CI 에서 main 대 PR 자동 실행)
+npm run visual:diff -- <기준 url> <변경 url>                       # 장면 30개 정지 화면 픽셀 비교 (PR CI 에서 main 대 PR 자동 실행)
 npm run verify:behavior -- http://localhost:3000 [--pwa]           # 일시정지·새로고침·중복기록·오디오·휴식·노선도 (--pwa: 프로덕션 서버에서 SW 확인)
 ```
 
 검증 스크립트는 로컬 Google Chrome(`channel: "chrome"`)을 headless 로 띄운다. 결과 이미지는 `.verify/`(gitignore).
 
-개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?weather=clear|cloudy|rain|snow|fog` `?season=spring|summer|autumn|winter` `?debug=1` `?still=45`(시간 고정) `?event=danso|vendor|puppy|sleeper|hiker|balloon|duckboat|cat|monster|ttorong`(깜짝 이벤트 강제 — URL 자동 시작 세션은 기본적으로 깜짝 이벤트 없음)
+개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?weather=clear|cloudy|rain|snow|fog` `?season=spring|summer|autumn|winter` `?debug=1` `?still=45`(시간 고정) `?crowd=0..1`(혼잡도 고정) `?event=danso|vendor|puppy|sleeper|hiker|balloon|duckboat|cat|monster|ttorong`(깜짝 이벤트 강제 — URL 자동 시작 세션은 기본적으로 깜짝 이벤트 없음)
 
 ## 구조
 
