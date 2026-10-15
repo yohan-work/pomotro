@@ -103,3 +103,11 @@ export function Mascot({ size = 64, mood = "smile" }: { size?: number; mood?: "s
     </svg>
   );
 }
+
+/** 미니 창 (화면 속 작은 창) */
+export const IconPip = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor" stroke="none" />
+  </svg>
+);

@@ -14,7 +14,8 @@ import { buildJourney, runX, sampleJourney, type Journey, type JourneyEvent, typ
 import { cabinEventAt, planRideEvents, seedOf, seenEvents, type RideEvent, type RideEventKind } from "@/sim/rideEvents";
 import { createTicker, notifyIfHidden } from "@/lib/background";
 import { useAppStore, type ActiveSession } from "@/store/useAppStore";
-import { IconExit, IconExpand, IconMute, IconPause, IconPlay, IconSettings, IconVolume, Mascot } from "./Icons";
+import { IconExit, IconExpand, IconMute, IconPause, IconPip, IconPlay, IconSettings, IconVolume, Mascot } from "./Icons";
+import { miniWindowSupported, openMiniWindow } from "./miniWindow";
 import { SoundSettings, ViewSettings } from "./Panels";
 import { CabinPassenger } from "./Passengers";
 import { LineBadge } from "./LineBadge";
@@ -140,6 +141,14 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => setCanFullscreen(Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen)), []);
+  const [canMini, setCanMini] = useState(false);
+  const [miniOpen, setMiniOpen] = useState(false);
+  const closeMini = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    setCanMini(miniWindowSupported());
+    // 여행이 끝나거나 화면을 떠나면 미니 창도 닫는다
+    return () => closeMini.current?.();
+  }, []);
   const [clock, setClock] = useState(() => new Date());
 
   const timeOfDayPref = useAppStore((s) => s.timeOfDay);
@@ -411,6 +420,47 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     setAudioOn(true);
   };
 
+  /** 미니 창: 다른 앱에서 일하는 동안 창밖·남은 시간·다음 역을 작은 창으로 */
+  const toggleMini = async () => {
+    if (closeMini.current) {
+      closeMini.current();
+      closeMini.current = null;
+      setMiniOpen(false);
+      return;
+    }
+    let last = sampleJourney(journey, 0);
+    try {
+      closeMini.current = await openMiniWindow({
+        journey,
+        sample: () => {
+          const s = useAppStore.getState().activeSession;
+          if (s && s.id === session.id) last = sampleJourney(journey, debug.still ?? elapsedSec(s));
+          return { sample: last, paused: Boolean(s && s.pausedAt !== null) };
+        },
+        live: () => live.current,
+        text: (s, p) => {
+          const L = live.current.lang;
+          const ln = lineOf(journey.stations[s.nextIndex].id);
+          return {
+            time: fmt(s.remainingSec),
+            label: p ? tr(L, "ride.pause") : ledText(journey, s, isBreak, L).split("  ·  ")[0],
+            color: ln.color,
+            badge: ln.badge[L],
+          };
+        },
+        labels: { pause: t("ride.pause"), resume: t("ride.resume"), title: t("ride.miniTitle") },
+        onTogglePause: togglePause,
+        onClose: () => {
+          closeMini.current = null;
+          setMiniOpen(false);
+        },
+      });
+      setMiniOpen(true);
+    } catch {
+      closeMini.current = null;
+    }
+  };
+
   const fullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen?.().catch(() => {});
@@ -662,6 +712,11 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         <button className={styles.ctrl} onClick={() => setPanel(panel === "settings" ? "none" : "settings")} aria-label={t("ride.viewSettings")}>
           <IconSettings />
         </button>
+        {canMini && (
+          <button className={`${styles.ctrl} ${styles.ctrlWide}`} onClick={toggleMini} aria-label={t("ride.miniWindow")} aria-pressed={miniOpen} title={t("ride.miniWindow")}>
+            <IconPip />
+          </button>
+        )}
         {canFullscreen && (
           <button className={`${styles.ctrl} ${styles.ctrlWide}`} onClick={fullscreen} aria-label={t("ride.fullscreen")}>
             <IconExpand />
