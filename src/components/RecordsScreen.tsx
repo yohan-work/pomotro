@@ -4,11 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getStation } from "@/data/lines";
 import { makeBackup, parseBackup } from "@/lib/backup";
 import { kstDay, lastWeek, totals, visited, type DayBar } from "@/lib/stats";
-import { tr, useT, type Lang } from "@/i18n";
+import { tr, useT, type Lang, type StringKey } from "@/i18n";
 import { useAppStore, type RideRecord } from "@/store/useAppStore";
 import { IconArrow, IconClose, IconDownload } from "./Icons";
 import LineMap from "./LineMap";
 import { EncounterIcon } from "./Passengers";
+import { BadgeIcon } from "./BadgeIcon";
+import { LineBadge } from "./LineBadge";
+import { badges, lineProgress } from "@/lib/badges";
 import { EVENT_KINDS, RARE_KINDS } from "@/sim/rideEvents";
 import styles from "./RecordsScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
@@ -17,6 +20,56 @@ function fmtDuration(sec: number, lang: Lang) {
   const m = Math.round(sec / 60);
   if (m < 60) return tr(lang, "common.min", { n: m });
   return m % 60 ? tr(lang, "rec.hours", { h: Math.floor(m / 60), m: m % 60 }) : tr(lang, "rec.hoursOnly", { h: Math.floor(m / 60) });
+}
+
+/** 호선별 방문 역 진행 막대 */
+function LineProgressPanel({ records }: { records: RideRecord[] }) {
+  const { t } = useT();
+  const rows = useMemo(() => lineProgress(records), [records]);
+  return (
+    <section className={styles.panel} aria-label={t("rec.lines")}>
+      <h2 className={styles.h2}>{t("rec.lines")}</h2>
+      <ul className={styles.lineRows}>
+        {rows.map((r) => (
+          <li key={r.id}>
+            <LineBadge line={r.line} showVariant={false} />
+            <span className={styles.lineBar} role="img" aria-label={`${r.visited} / ${r.total}`}>
+              <i style={{ width: `${(r.visited / r.total) * 100}%`, background: r.line.color }} />
+            </span>
+            <b className={r.visited === r.total ? styles.lineDone : ""}>
+              {r.visited}/{r.total}
+            </b>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** 배지 — 얻은 것은 금색 테두리, 진행 중인 것은 진행도 */
+function BadgePanel({ records }: { records: RideRecord[] }) {
+  const { t } = useT();
+  const list = useMemo(() => badges(records), [records]);
+  return (
+    <section className={styles.panel} aria-label={t("rec.badges")}>
+      <h2 className={styles.h2}>
+        {t("rec.badges")} <span className={styles.dexCount}>{list.filter((b) => b.earned).length} / {list.length}</span>
+      </h2>
+      <ul className={styles.dex}>
+        {list.map((b) => (
+          <li key={b.id} className={b.earned ? "" : styles.dexLocked} title={t(`badge.${b.id}.desc` as StringKey)}>
+            <BadgeIcon id={b.id} earned={b.earned} size={44} />
+            <span>{t(`badge.${b.id}` as StringKey)}</span>
+            {!b.earned && b.progress && (
+              <small className={styles.badgeProg}>
+                {b.progress.n}/{b.progress.total}
+              </small>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 /** 만난 승객·풍경 도감 — 못 만난 것은 흐리게, 희귀한 것은 이름도 숨긴다 */
@@ -318,6 +371,8 @@ export default function RecordsScreen() {
           <WeekChart data={week} />
         </section>
 
+        <LineProgressPanel records={records} />
+        <BadgePanel records={records} />
         <EncounterDex records={records} />
 
         <section className={styles.panel}>

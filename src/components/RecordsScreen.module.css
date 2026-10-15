@@ -431,3 +431,51 @@
 :global([data-theme="dark"]) .dexLocked svg {
   filter: invert(0.9);
 }
+
+/* 노선별 진행 */
+.lineRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lineRows li {
+  display: grid;
+  grid-template-columns: 34px 1fr 52px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--c-text-3);
+}
+
+.lineRows b {
+  text-align: right;
+  font-weight: 600;
+}
+
+.lineBar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--c-surface-2);
+  overflow: hidden;
+}
+
+.lineBar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  min-width: 0;
+}
+
+.lineDone {
+  color: var(--c-text);
+  font-weight: 800 !important;
+}
+
+.badgeProg {
+  font-size: 11px;
+  color: var(--c-text-3);
+}

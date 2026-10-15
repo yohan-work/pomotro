@@ -1,5 +1,5 @@
 /** 집중 완료 승차권 — 캔버스로 그려 화면 표시와 PNG 저장에 같은 결과를 쓴다 */
-import { getStation, LINE_BY_ID } from "@/data/lines";
+import { getStation, lineOf, LINE_BY_ID } from "@/data/lines";
 import { tr, type Lang, type StringKey } from "@/i18n";
 import type { RideRecord } from "@/store/useAppStore";
 
@@ -49,6 +49,8 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   const H = TICKET_H;
   const from = getStation(rec.fromId);
   const line = LINE_BY_ID[from.line];
+  // 환승 여행이면 탄 노선을 순서대로 (승차권 띠도 노선 색으로 나눈다)
+  const legs = rec.stationIds ? [...new Set(rec.stationIds.map((id) => lineOf(id).id))].map((id) => LINE_BY_ID[id]) : [line];
   const to = getStation(rec.toId);
   c.clearRect(0, 0, W, H);
 
@@ -73,8 +75,10 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.save();
   rr(c, 30, 30, W - 60, H - 60, 28);
   c.clip();
-  c.fillStyle = line.color;
-  c.fillRect(30, 30, W - 60, 74);
+  legs.forEach((l, k) => {
+    c.fillStyle = l.color;
+    c.fillRect(30 + ((W - 60) * k) / legs.length, 30, (W - 60) / legs.length + 1, 74);
+  });
   c.restore();
 
   c.fillStyle = "#FFFFFF";
@@ -83,7 +87,7 @@ export function drawTicket(c: CanvasRenderingContext2D, rec: RideRecord, todaySe
   c.fillText("METRO", 72, 67);
   c.font = "600 18px Pretendard, sans-serif";
   c.globalAlpha = 0.85;
-  c.fillText(`FOCUS TICKET · ${lang === "en" ? line.nameEn : line.nameKo}`, 172, 68);
+  c.fillText(`FOCUS TICKET · ${legs.map((l) => (lang === "en" ? l.nameEn : l.nameKo)).join(" → ")}`, 172, 68);
   c.globalAlpha = 1;
   const d = new Date(rec.completedAt);
   const date = d.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });
