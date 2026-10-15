@@ -344,3 +344,41 @@ export const METRO_OFFICIAL: Record<"1" | "2" | "3" | "4" | "5" | "5M" | "6" | "
 );
 console.log(`metro lines ${Object.keys(lines).join(" ")} → ${OUTM}`);
 if (renamed.size) console.log(`개명 역 (현재 역명으로 표시): ${[...renamed].map(([a, b]) => `${a}→${b}`).join(", ")}`);
+
+/* ───────── 환승 거리·소요시간 ─────────
+ * 서울교통공사 「환승역거리 소요시간 정보」 (data.go.kr 15044419, 이용허락범위 제한 없음, 2025-12-31 기준)
+ * 소요시간은 보행속도 1.2m/s 기준. 한 행 = (호선, 환승역) → 환승노선. 우리 노선 사이 환승만 남긴다.
+ */
+const XFER_CSV = "data/official/seoul-metro-transfer.csv";
+if (!process.argv.includes("--offline")) {
+  const raw = execFileSync("curl", ["-sfL", "https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=FILE_000000003619893&fileDetailSn=1&insertDataPrcus=N"]);
+  const text = new TextDecoder("euc-kr").decode(raw);
+  if (!text.startsWith("연번,호선,환승역명")) throw new Error("환승 데이터 형식 변경?");
+  writeFileSync(XFER_CSV, text.replace(/\r\n/g, "\n"));
+  console.log(`downloaded → ${XFER_CSV}`);
+}
+{
+  const rows = csvRows(XFER_CSV);
+  const out = rows.map((r) => ({
+    line: r["호선"].trim(),
+    station: cur(clean(r["환승역명"])),
+    toLine: r["환승노선"].trim(),
+    meters: Number(r["환승거리"]),
+    sec: toSec(r["환승소요시간"]),
+  }));
+  if (out.some((x) => !(x.meters > 0) || !(x.sec > 0))) throw new Error("환승 거리·시간 값 이상");
+  const OUTX = "src/data/transfer.official.ts";
+  writeFileSync(
+    OUTX,
+    `/**
+ * 자동 생성 파일 — 직접 수정하지 말 것. \`npm run data:import\` 로 다시 만든다.
+ *
+ * 출처: 서울교통공사 「환승역거리 소요시간 정보」 https://www.data.go.kr/data/15044419/fileData.do (이용허락범위 제한 없음, 2025-12-31 기준)
+ * 소요시간은 환승거리를 보행속도 1.2m/s 로 나눈 값. 역명은 현재 역명 (개명 반영).
+ */
+
+export const TRANSFER_OFFICIAL: ReadonlyArray<{ line: string; station: string; toLine: string; meters: number; sec: number }> = ${JSON.stringify(out, null, 2)};
+`,
+  );
+  console.log(`${out.length} transfers → ${OUTX}`);
+}
