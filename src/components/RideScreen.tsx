@@ -30,6 +30,8 @@ export interface RideDebug {
   event?: RideEventKind | null;
   /** URL 로 자동 시작한 세션 — 검증 화면이 흔들리지 않게 깜짝 이벤트를 끈다 (event 로 강제 가능) */
   scripted?: boolean;
+  /** 검증용 혼잡도 고정 (0..1) */
+  crowd?: number;
 }
 
 interface Hud {
@@ -81,6 +83,16 @@ function ledText(j: Journey, s: SimSample, isBreak = false, lang: Lang = "ko"): 
 
 function bridgeAt(j: Journey, x: number) {
   return j.sections.some((s) => (s.kind === "river" || s.kind === "bank") && x >= s.x0 && x <= s.x1) ? 1 : 0;
+}
+
+/** 혼잡도 (한국 시간): 평일 출퇴근 1, 낮·주말 0.5, 늦은 밤 0.2 — 연출 */
+function crowdKST(d: Date): number {
+  const k = new Date(d.getTime() + 9 * 3600e3);
+  const h = k.getUTCHours();
+  const weekday = k.getUTCDay() > 0 && k.getUTCDay() < 6;
+  if (h >= 23 || h < 5) return 0.2;
+  if (weekday && ((h >= 7 && h < 9) || (h >= 18 && h < 20))) return 1;
+  return 0.5;
 }
 
 /** 단소 승객이 부는 때: 앉고 6초 뒤, 이후 75초마다 (5초간) */
@@ -300,6 +312,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           season: live.current.season,
           weather: live.current.weather,
           events: live.current.events,
+          crowd: debug.crowd ?? (debug.still !== undefined ? 0.5 : crowdKST(new Date())),
         });
         // 창으로 들어오는 햇빛: 낮·노을의 지상 구간에서만, 터널에 들어가면 서서히 사라진다
         const sun = { day: 1, sunset: 0.85, night: 0 }[live.current.tod] * (live.current.weather === "clear" ? 1 : 0.55);
