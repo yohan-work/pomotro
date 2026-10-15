@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
-import { stationsBetween } from "@/data/lines";
+import { findRoute } from "@/data/lines";
 import { DEMO_ROUTE } from "@/lib/recommend";
 import { minJourneySec } from "@/sim/journey";
 import { EVENT_KINDS } from "@/sim/rideEvents";
@@ -67,7 +67,7 @@ export default function ClientApp() {
     const routeParam = p.get("route");
     if (p.get("autostart") === "route" && routeParam) {
       const [from, to] = routeParam.split(",");
-      const ids = stationsBetween(from, to).map((st) => st.id);
+      const ids = (findRoute(from, to) ?? []).map((st) => st.id);
       const total = Math.max(minJourneySec(ids), Number(p.get("total") ?? 0) || 0);
       const mode = p.get("mode") === "focus" ? "focus" : "demo";
       const st = useAppStore.getState();

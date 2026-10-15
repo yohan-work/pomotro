@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
-import { LINES, LINE_BY_ID, getStation, stationsBetween, type LineId, type Station } from "@/data/lines";
+import { LINES, LINE_BY_ID, findRoute, getStation, type LineId, type Station } from "@/data/lines";
 import { notifyStatus, requestNotifyPermission, type NotifyStatus } from "@/lib/background";
 import { DEMO_ROUTE, describeRoute, recommendRoutes } from "@/lib/recommend";
 import { useT } from "@/i18n";
@@ -119,19 +119,21 @@ export default function SetupScreen() {
 
   const picked = useMemo(() => {
     if (!pickFrom || !pickTo) return null;
-    const ids = stationsBetween(pickFrom, pickTo).map((st) => st.id);
+    const route = findRoute(pickFrom, pickTo);
+    if (!route) return null;
+    const ids = route.map((st) => st.id);
     return { ...describeRoute(ids), minSec: minJourneySec(ids) };
   }, [pickFrom, pickTo]);
   const tooShort = tab === "pick" && picked !== null && focusSec < picked.minSec;
   const route = tab === "pick" ? picked : routes[selected];
 
-  /** 검색으로 고른 역: 출발역과 같은 노선이면 도착역, 아니면 그 노선의 출발역으로 (갈아타기 미지원) */
+  /** 검색으로 고른 역: 출발역이 있으면 도착역(다른 노선이면 환승 경로), 없으면 출발역 */
   const onSearchPick = (st: Station) => {
-    if (pickFrom && !pickTo && st.id !== pickFrom && getStation(pickFrom).line === st.line) {
+    setPickLine(st.line);
+    if (pickFrom && !pickTo && getStation(pickFrom).nameKo !== st.nameKo) {
       setPickTo(st.id);
       return;
     }
-    setPickLine(st.line);
     setPickFrom(st.id);
     setPickTo(null);
   };
@@ -141,6 +143,8 @@ export default function SetupScreen() {
       setPickFrom(st.id);
       setPickTo(null);
     } else if (st.id === pickFrom) setPickFrom(null);
+    // 같은 역의 다른 노선을 누르면 출발 노선만 바꾼다
+    else if (st.nameKo === getStation(pickFrom).nameKo) setPickFrom(st.id);
     else setPickTo(st.id);
   };
 
@@ -351,10 +355,13 @@ export default function SetupScreen() {
                     className={pickLine === l ? styles.lineChipOn : styles.lineChip}
                     style={pickLine === l ? { borderColor: LINE_BY_ID[l].color, boxShadow: `inset 0 0 0 1px ${LINE_BY_ID[l].color}` } : undefined}
                     onClick={() => {
-                      if (l === pickLine) return;
+                      // 출발역만 고른 상태면 그대로 두고(다른 노선의 역을 도착역으로 → 환승 경로),
+                      // 경로를 다 고른 상태면 새로 고른다
                       setPickLine(l);
-                      setPickFrom(null);
-                      setPickTo(null);
+                      if (pickTo) {
+                        setPickFrom(null);
+                        setPickTo(null);
+                      }
                     }}
                   >
                     <LineBadge line={LINE_BY_ID[l]} />
@@ -375,7 +382,8 @@ export default function SetupScreen() {
                     <b>
                       {name(picked.from)} → {name(picked.to)}
                     </b>{" "}
-                    · {t("common.stopsKm", { n: picked.stops, km: picked.distanceKm })} · {t(picked.estimated ? "common.minApproxEst" : "common.minApprox", { n: Math.round(picked.estSec / 60) })}
+                    · {t("common.stopsKm", { n: picked.stops, km: picked.distanceKm })}
+                    {picked.transfers > 0 && <> · {t("common.transfers", { n: picked.transfers })}</>} · {t(picked.estimated ? "common.minApproxEst" : "common.minApprox", { n: Math.round(picked.estSec / 60) })}
                     {tooShort ? (
                       <span className={styles.warn}>
                         {t("setup.tooShort", { n: Math.ceil(picked.minSec / 60) })}

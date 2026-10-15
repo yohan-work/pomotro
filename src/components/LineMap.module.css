@@ -90,3 +90,8 @@
   fill: var(--c-text);
   font-weight: 800;
 }
+
+.transfer {
+  fill: var(--c-surface);
+  stroke: var(--c-text);
+}

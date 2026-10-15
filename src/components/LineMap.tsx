@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { latLonOf, type LatLon } from "@/data/geo";
-import { LINES, LINE_BY_ID, stationsBetween, type LineDef, type LineId, type Station } from "@/data/lines";
+import { LINES, LINE_BY_ID, findRoute, routeLegs, type LineDef, type LineId, type Station } from "@/data/lines";
 import { useT } from "@/i18n";
 import styles from "./LineMap.module.css";
 
@@ -80,10 +80,10 @@ function boundsOf(pts: XY[], pad: number, minW: number): Box {
 }
 const FULL = boundsOf([...POS.values()], 0.03, 0);
 
-/** 같은 노선 위 두 역 사이 경로 */
+/** 두 역 사이 경로 (다른 노선이면 환승 경로) */
 function routeStations(a: Station, b: Station): Station[] | null {
   try {
-    return stationsBetween(a.id, b.id);
+    return findRoute(a.id, b.id);
   } catch {
     return null;
   }
@@ -139,14 +139,17 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
   const [hover, setHover] = useState<string | null>(null);
   const o = originId ? (STATION_BY_ID.get(originId) ?? null) : null;
   const d = destId ? (STATION_BY_ID.get(destId) ?? null) : null;
-  const routeSt = useMemo(() => (o && d && o.line === d.line && o.id !== d.id ? routeStations(o, d) : null), [o, d]);
+  const routeSt = useMemo(() => (o && d && o.id !== d.id ? routeStations(o, d) : null), [o, d]);
+  const legs = useMemo(() => (routeSt ? routeLegs(routeSt) : []), [routeSt]);
 
   // 보여 줄 범위: 고르는 노선 / 추천 구간 / 전체
   const target = useMemo(() => {
+    // 환승 경로를 골랐으면 경로 전체가 보이게
+    if (routeSt && legs.length > 1) return boundsOf(routeSt.map(pos), 0.18, 140);
     if (activeLine) return boundsOf(LINE_BY_ID[activeLine].stations.map(pos), 0.08, 60);
     if (routeSt) return boundsOf(routeSt.map(pos), 0.25, 140);
     return FULL;
-  }, [activeLine, routeSt]);
+  }, [activeLine, routeSt, legs]);
   const box = useTweenBox(target);
   /** 확대 정도에 맞춘 글자·점 크기 (화면에서 거의 일정하게) */
   const s = box.w / 420;
@@ -164,8 +167,9 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
     type C = { st: Station; pri: number; strong: boolean };
     const cands: C[] = [];
     for (const l of LINES) {
-      if (activeLine && activeLine !== l.id) continue;
       for (const st of l.stations) {
+        // 고르는 노선 밖은 경로 위 역만
+        if (activeLine && activeLine !== l.id && !routeIds.has(st.id)) continue;
         if (!inView(pos(st))) continue;
         if (st.id === o?.id || st.id === d?.id) {
           cands.push({ st, pri: 0, strong: true });
@@ -283,7 +287,13 @@ export default function LineMap({ originId, destId, onPick, activeLine, visited,
       {visitedPaths.map((v, i) => (
         <path key={i} d={v.d} className={styles.visited} style={{ stroke: v.color }} strokeWidth={3.4 * s} />
       ))}
-      {routeSt && <path d={poly(routeSt.map(pos))} className={styles.route} style={{ stroke: LINE_BY_ID[routeSt[0].line].color }} strokeWidth={4 * s} />}
+      {legs.map((leg, k) => (
+        <path key={k} d={poly(leg.map(pos))} className={styles.route} style={{ stroke: LINE_BY_ID[leg[0].line].color }} strokeWidth={4 * s} />
+      ))}
+      {/* 환승역: 흰 고리 */}
+      {legs.slice(1).map((leg, k) => (
+        <circle key={`x${k}`} cx={pos(leg[0]).x} cy={pos(leg[0]).y} r={4.2 * s} className={styles.transfer} strokeWidth={1.6 * s} />
+      ))}
       {order.map((l) => (
         <g key={l.id}>{l.stations.map((st) => renderStation(st, l))}</g>
       ))}

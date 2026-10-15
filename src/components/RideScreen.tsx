@@ -3,20 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAudio, unlockAudio } from "@/audio/instance";
 import { getSegment, lineOf, type Station } from "@/data/lines";
-import { stationName, tr, useT, type Lang, type StringKey } from "@/i18n";
+import { lineName, stationName, tr, useT, type Lang, type StringKey } from "@/i18n";
 import { Renderer } from "@/render/Renderer";
 import { announce, stopAnnounce } from "@/audio/announce";
 import { useConditions } from "@/lib/useConditions";
 import { passingIntensity } from "@/render/scene";
 import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { elapsedSec, epochNow } from "@/sim/clock";
-import { buildJourney, sampleJourney, type Journey, type JourneyEvent, type SimSample } from "@/sim/journey";
+import { buildJourney, runX, sampleJourney, type Journey, type JourneyEvent, type SimSample } from "@/sim/journey";
 import { cabinEventAt, planRideEvents, seedOf, seenEvents, type RideEvent, type RideEventKind } from "@/sim/rideEvents";
 import { createTicker, notifyIfHidden } from "@/lib/background";
 import { useAppStore, type ActiveSession } from "@/store/useAppStore";
 import { IconExit, IconExpand, IconMute, IconPause, IconPlay, IconSettings, IconVolume, Mascot } from "./Icons";
 import { SoundSettings, ViewSettings } from "./Panels";
 import { CabinPassenger } from "./Passengers";
+import { LineBadge } from "./LineBadge";
 import styles from "./RideScreen.module.css";
 
 export interface RideDebug {
@@ -49,17 +50,31 @@ function ledText(j: Journey, s: SimSample, isBreak = false, lang: Lang = "ko"): 
   const n = (st: Station) => stationName(st, lang);
   if (isBreak) return tr(lang, "led.break", { station: n(j.stations[0]) });
   const last = j.stations.length - 1;
+  // 환승: 걷는 중이면 갈아탈 노선, 환승역에 서 있거나 다가가면 "갈아타는 곳"
+  const lineAt = (i: number) => lineOf(j.stations[i].id);
+  const xferLine = (i: number) => {
+    const x = j.transfers.find((tp) => tp.stationIndex === i);
+    return x ? lineAt(i + 1) : null;
+  };
+  const here = (i: number) => {
+    const l = xferLine(i);
+    return l ? `  ·  ${tr(lang, "led.transferHere", { line: lineName(l, "ko"), en: lineName(l, "en") })}` : "";
+  };
+  if (s.phase === "TRANSFER") {
+    const l = lineAt(j.transfers.find((tp) => s.t >= tp.t0 && s.t < tp.t1)!.stationIndex + 1);
+    return tr(lang, "led.transfer", { line: lineName(l, "ko"), en: lineName(l, "en") });
+  }
   if (s.phase === "BOARDING" || s.phase === "ARRIVED" || s.phase === "COMPLETED") {
     const st = j.stations[s.stationIndex];
     if (s.stationIndex === last) return tr(lang, "led.terminal", { station: n(st), en: st.nameEn });
     const close = j.events.find((e) => e.type === "doorClose" && e.stationIndex === s.stationIndex);
     if (close && s.t >= close.t) return tr(lang, "led.doorsClosing");
-    if (s.phase === "ARRIVED") return lang === "ko" ? `${st.nameKo}  ${st.nameEn}` : st.nameEn;
+    if (s.phase === "ARRIVED") return (lang === "ko" ? `${st.nameKo}  ${st.nameEn}` : st.nameEn) + here(s.stationIndex);
     return tr(lang, "led.bound", { station: n(j.stations[last]) });
   }
   const next = j.stations[s.nextIndex];
   const approach = j.events.find((e) => e.type === "approach" && e.stationIndex === s.nextIndex);
-  if (approach && s.t >= approach.t) return tr(lang, "led.thisStop", { station: n(next), en: next.nameEn });
+  if (approach && s.t >= approach.t) return tr(lang, "led.thisStop", { station: n(next), en: next.nameEn }) + here(s.nextIndex);
   return tr(lang, "led.nextStop", { station: n(next), en: next.nameEn });
 }
 
@@ -97,7 +112,6 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   }, [journey, session.id, isBreak, debug.event, debug.scripted]);
   const rideEvents = surprisesOn || debug.event ? plannedEvents : [];
   const cues = useMemo(() => dansoCues(rideEvents), [rideEvents]);
-  const line = lineOf(session.stationIds[0]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const strapRefs = useRef<Array<HTMLDivElement | null>>([]);
@@ -198,7 +212,13 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
             setTimeout(
               () => {
                 const L = live.current.lang;
-                announce(tr(L, last ? "say.terminal" : "say.next", { station: stationName(st, L) }), audio.speechVolume(), L);
+                const xfer = journey.transfers.find((tp) => tp.stationIndex === e.stationIndex);
+                const xferLine = xfer ? lineOf(journey.stations[e.stationIndex + 1].id) : null;
+                announce(
+                  tr(L, last ? "say.terminal" : "say.next", { station: stationName(st, L) }) + (xferLine ? " " + tr(L, "say.transfer", { line: lineName(xferLine, L) }) : ""),
+                  audio.speechVolume(),
+                  L,
+                );
               },
               1300,
             );
@@ -418,11 +438,18 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const next = stations[sample.nextIndex];
   const dest = stations[last];
   const atStation = sample.v === 0;
-  const totalX = journey.stopX[last];
+  // 진행 막대 위치: 환승 때 건너뛴 거리를 뺀 위치 비율
+  const totalRun = runX(journey, journey.stopX[last]);
+  const posPct = (i: number) => (runX(journey, journey.stopX[i]) / totalRun) * 100;
+  const xferAt = new Set(journey.transfers.map((tp) => tp.stationIndex));
+  /** 지금 타고 있는(갈아탈) 노선 */
+  const line = lineOf(stations[sample.nextIndex].id);
+  const legLines = [...new Set(stations.map((st) => st.line))].map((id) => lineOf(stations.find((st) => st.line === id)!.id));
+  const xfer = journey.transfers.find((tp) => sample.t >= tp.t0 && sample.t < tp.t1);
   const focusMode = (idle || zen) && !paused && panel === "none";
   const ledParts = led.split("  ·  ");
   const ledShown = ledParts[ledPart % ledParts.length];
-  const remainingStops = last - (atStation ? sample.stationIndex : sample.nextIndex - 1);
+  const remainingStops = journey.segments.filter((sg) => sg.index >= (atStation ? sample.stationIndex : sample.nextIndex - 1)).length;
   const cabin = cabinEventAt(rideEvents, sample.t);
   const dansoPlaying = cues.some((c) => sample.t >= c && sample.t < c + 5);
 
@@ -465,6 +492,25 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           </span>
           {t("ride.doNotLean")}
         </div>
+        {xfer && !paused && (
+          <div className={styles.transferVeil} data-testid="transfer">
+            <div className={styles.transferCard} role="status">
+              <span className={styles.transferLines}>
+                <LineBadge line={lineOf(stations[xfer.stationIndex].id)} />
+                <span aria-hidden>→</span>
+                <LineBadge line={lineOf(stations[xfer.stationIndex + 1].id)} />
+              </span>
+              <strong>{t("ride.transferTitle", { station: name(stations[xfer.stationIndex]), line: lineName(lineOf(stations[xfer.stationIndex + 1].id), lang) })}</strong>
+              <span>{t("ride.transferInfo", { m: xfer.official.meters, time: fmt(xfer.official.sec) })}</span>
+              <div className={styles.transferBar}>
+                <i style={{ width: `${Math.min(100, ((sample.t - xfer.t0) / (xfer.t1 - xfer.t0)) * 100)}%` }} />
+              </div>
+              <span className={styles.walker} aria-hidden>
+                <Mascot size={44} mood="smile" />
+              </span>
+            </div>
+          </div>
+        )}
         {paused && (
           <div className={styles.pausedVeil}>
             <div className={styles.pausedCard}>
@@ -521,9 +567,21 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
 
       {/* HUD */}
       <header className={styles.topLeft}>
-        <span className={styles.lineBadge} style={{ background: line.color }}>
-          {line.badge[lang]}
-        </span>
+        {legLines.length === 1 && (
+          <span className={styles.lineBadge} style={{ background: line.color }}>
+            {line.badge[lang]}
+          </span>
+        )}
+        {legLines.length > 1 && (
+          <span className={styles.legs} aria-label={legLines.map((l) => lineName(l, lang)).join(" → ")}>
+            {legLines.map((l, k) => (
+              <span key={l.id} className={l.id === line.id ? styles.legOn : styles.leg}>
+                {k > 0 && "→"}
+                <LineBadge line={l} showVariant={false} />
+              </span>
+            ))}
+          </span>
+        )}
         <span className={styles.routeName}>
           {isBreak ? (
             <>{t("ride.stoppedAt", { station: name(dest) })}</>
@@ -567,21 +625,24 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         <div className={styles.progress} aria-label={t("ride.progress", { n: Math.round(sample.progress * 100) })}>
           <div className={styles.track}>
             <div className={styles.trackFill} style={{ width: `${sample.progress * 100}%` }} />
-            {journey.stopX.map((x, i) => (
-              <span
-                key={stations[i].id}
-                className={`${styles.stop} ${i <= sample.stationIndex && (atStation || i < sample.nextIndex) ? styles.stopDone : ""}`}
-                style={{ left: `${(x / totalX) * 100}%` }}
-                data-name={name(stations[i])}
-                title={name(stations[i])}
-              />
-            ))}
+            {journey.stopX.map((_, i) =>
+              // 환승역은 한 점으로 (갈아탄 뒤의 역은 그리지 않는다)
+              xferAt.has(i - 1) ? null : (
+                <span
+                  key={stations[i].id}
+                  className={`${styles.stop} ${i <= sample.stationIndex && (atStation || i < sample.nextIndex) ? styles.stopDone : ""} ${xferAt.has(i) ? styles.stopTransfer : ""}`}
+                  style={{ left: `${posPct(i)}%` }}
+                  data-name={name(stations[i])}
+                  title={name(stations[i])}
+                />
+              ),
+            )}
             <span className={styles.trainDot} style={{ left: `${sample.progress * 100}%` }} />
           </div>
           <div className={styles.stopLabels}>
             <span>{name(stations[0])}</span>
             {!atStation && sample.nextIndex !== last && (
-              <span className={styles.nextLabel} style={{ left: `${(journey.stopX[sample.nextIndex] / totalX) * 100}%` }}>
+              <span className={styles.nextLabel} style={{ left: `${posPct(sample.nextIndex)}%` }}>
                 {t("ride.nextStop")} <b>{name(next)}</b>
               </span>
             )}
