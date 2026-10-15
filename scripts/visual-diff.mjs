@@ -52,6 +52,8 @@ const SCENES = [
   ["event-monster-sunset", route("dangsan,hapjeong", 150, 50, "sunset", "&event=monster")],
   ["event-cat", route("dangsan,hapjeong", 150, 3, "day", "&event=cat")],
   ["event-ttorong", route("city-hall,euljiro-4ga", 300, 35.96, "day", "&event=ttorong")],
+  ["spring-early", route("ttukseom,seongsu", 150, 50, "day", "&date=2026-03-15").replace("season=autumn&", "")],
+  ["christmas-night", route("dangsan,hapjeong", 300, 40, "night", "&date=2026-12-24").replace("season=autumn&", "")],
   ["rain", demo(30, "day", "&weather=rain")],
   ["snow-winter-night", demo(26, "night", "&weather=snow&season=winter")],
 ];
