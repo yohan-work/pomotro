@@ -22,7 +22,7 @@ Node.js 24 이상(`.nvmrc`)을 사용합니다. 브라우저 검증 스크립트
    feat(render): 잠실철교 장면 추가
    fix(sim): 일시정지 후 재개 시 이벤트 중복 재생
    ```
-   스코프: `data` `sim` `render` `audio` `store` `ui` `recommend` `docs` `ci`
+   스코프: `data` `sim` `render` `audio` `store` `ui` `rec` `map` `trips` `docs` `ci`
 4. PR을 열고 템플릿의 체크리스트를 채워주세요.
 
 ## 제출 전 확인
@@ -39,14 +39,15 @@ npm run build
 ```bash
 npm run verify:browser -- http://localhost:3000          # 장면 스냅샷 → .verify/
 npm run verify:behavior -- http://localhost:3000
+npm run visual:diff -- https://pomotro.vercel.app http://localhost:3000   # 배포본 대비 장면 비교
 ```
 
-**시각적 변경은 PR에 전/후 스크린샷을 첨부해주세요.** PR 을 열면 CI 가 main 과 PR 의 장면 14개를 같은 머신에서 픽셀 비교해 요약표와 기준 | 변경 | 차이 이미지(아티팩트 `visual-diff`)를 남깁니다. `?autostart=demo&seek=45&tod=sunset` 처럼 URL 파라미터로 같은 장면을 재현할 수 있습니다.
+**시각적 변경은 PR에 전/후 스크린샷을 첨부해주세요.** PR 을 열면 CI 가 main 과 PR 의 장면 32개를 같은 머신에서 픽셀 비교해 요약표와 기준 | 변경 | 차이 이미지(아티팩트 `visual-diff`)를 남깁니다. `?autostart=demo&seek=45&tod=sunset` 처럼 URL 파라미터로 같은 장면을 재현할 수 있습니다.
 
 ## 지켜야 할 원칙
 
-- **실제 데이터와 연출 데이터를 섞지 않습니다.** 실제 세계의 사실은 `src/data/line2.ts`, 화면용 길이·배치는 `src/data/scenery.ts`.
-- **공식 데이터는 손으로 고치지 않습니다.** `src/data/line2.official.ts`는 `npm run data:import`로만 생성합니다. 출처가 없는 값을 실제 데이터처럼 넣지 마세요.
+- **실제 데이터와 연출 데이터를 섞지 않습니다.** 실제 세계의 사실은 노선 파일(`src/data/line*.ts`, `metroLines.ts`), 화면용 길이·배치는 `src/data/scenery.ts`.
+- **공식 데이터는 손으로 고치지 않습니다.** `src/data/*.official.ts`는 `npm run data:import`로만 생성합니다. 출처가 없는 값을 실제 데이터처럼 넣지 마세요. 새 출처를 쓰면 [NOTICE.md](NOTICE.md)에 추가합니다.
 - **시뮬레이션 상태는 경과시간의 순수 함수**여야 합니다. 프레임마다 값을 누적하는 방식은 받지 않습니다.
 - 창밖 오브젝트는 결정론적으로 생성합니다 (`Math.random()` 금지, `hash2`/`rng` 사용).
 - 렌더 루프 안에서 React state를 매 프레임 갱신하지 않습니다.

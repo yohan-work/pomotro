@@ -1,7 +1,22 @@
 {
   "name": "pomotro",
   "version": "0.1.0",
-  "description": "서울을 달리는 뽀모도로 — 집중하는 동안 서울 지하철 창가에 앉아 한 구간을 달리는 웹 타이머",
+  "description": "A Pomodoro timer that rides the Seoul subway — 집중하는 동안 서울 지하철 창가에 앉아 실제 노선을 달리는 웹 타이머",
+  "keywords": [
+    "pomodoro",
+    "focus-timer",
+    "productivity",
+    "seoul",
+    "subway",
+    "metro",
+    "korea",
+    "canvas",
+    "webaudio",
+    "simulation",
+    "pwa",
+    "nextjs",
+    "open-data"
+  ],
   "license": "MIT",
   "author": "Yohan Choi",
   "repository": {
