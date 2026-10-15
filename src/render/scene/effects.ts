@@ -129,8 +129,124 @@ export function drawDroplets(f: Frame) {
   ctx.globalAlpha = 1;
 }
 
+/* ── 유리에 비친 승객 — 사람처럼 (머리 모양·얼굴·옷·손·가방), 유리 반사라 살짝 푸르고 흐리게 ── */
+const HAIR = ["#1d1a19", "#2b2220", "#3a2c25", "#4a3a30", "#151515", "#5a4636"];
+const CLOTH = ["#3b4a63", "#6b5a4e", "#2f3b36", "#7a6a5a", "#55606e", "#8a4f4f", "#4f5f4a", "#c9c2b4", "#a7826b"];
+const SKIN = ["#e9c9a8", "#dcb592", "#f0d3b8", "#d3a988"];
+
+/** 사람 한 명 (w×h 스프라이트, 머리 반지름 = w*0.17). standing 이면 한 팔을 들어 손잡이를 잡는다 */
+function drawReflectedPerson(c: CanvasRenderingContext2D, w: number, h: number, seed: number, standing: boolean) {
+  const r = rng(hash2(seed, 5150));
+  const hair = HAIR[Math.floor(r() * HAIR.length)];
+  const cloth = CLOTH[Math.floor(r() * CLOTH.length)];
+  const skin = SKIN[Math.floor(r() * SKIN.length)];
+  const style = r();
+  const hr = w * 0.17;
+  const cx = w / 2;
+  const hy = standing ? h * 0.2 : h * 0.18;
+  c.filter = "blur(0.5px)";
+  // 몸통 (어깨 → 아래)
+  const sh = hy + hr * 1.55;
+  c.fillStyle = cloth;
+  c.beginPath();
+  c.moveTo(cx - w * 0.36, h);
+  c.lineTo(cx - w * 0.38, sh + hr * 0.6);
+  c.quadraticCurveTo(cx - w * 0.36, sh, cx - hr * 0.6, sh - hr * 0.1);
+  c.lineTo(cx + hr * 0.6, sh - hr * 0.1);
+  c.quadraticCurveTo(cx + w * 0.36, sh, cx + w * 0.38, sh + hr * 0.6);
+  c.lineTo(cx + w * 0.36, h);
+  c.closePath();
+  c.fill();
+  // 깃
+  c.fillStyle = "rgba(255,255,255,0.25)";
+  c.beginPath();
+  c.moveTo(cx - hr * 0.55, sh - hr * 0.1);
+  c.lineTo(cx, sh + hr * 0.7);
+  c.lineTo(cx + hr * 0.55, sh - hr * 0.1);
+  c.fill();
+  // 목
+  c.fillStyle = skin;
+  c.fillRect(cx - hr * 0.32, hy + hr * 0.7, hr * 0.64, hr * 0.8);
+  if (standing) {
+    // 들어 올린 팔 (손잡이 쪽)
+    c.fillStyle = cloth;
+    rrect(c, cx + w * 0.22, hy - hr * 2.6, w * 0.13, sh - hy + hr * 2.8, w * 0.06);
+    c.fill();
+    c.fillStyle = skin;
+    c.beginPath();
+    c.arc(cx + w * 0.285, hy - hr * 2.6, w * 0.075, 0, Math.PI * 2);
+    c.fill();
+  } else {
+    // 무릎 위 손 (+ 가끔 가방)
+    if (r() < 0.35) {
+      c.fillStyle = ["#2a2522", "#6b4b3a", "#c9b79c"][Math.floor(r() * 3)];
+      rrect(c, cx - w * 0.3, h * 0.72, w * 0.6, h * 0.2, w * 0.05);
+      c.fill();
+    }
+    c.fillStyle = skin;
+    c.beginPath();
+    c.ellipse(cx - w * 0.1, h * 0.7, w * 0.08, w * 0.05, 0, 0, Math.PI * 2);
+    c.ellipse(cx + w * 0.1, h * 0.7, w * 0.08, w * 0.05, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+  // 머리: 얼굴 + 머리카락 모양
+  c.fillStyle = skin;
+  c.beginPath();
+  c.arc(cx, hy, hr, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = hair;
+  if (style < 0.3) {
+    // 짧은 머리
+    c.beginPath();
+    c.arc(cx, hy - hr * 0.1, hr * 1.04, Math.PI * 1.05, Math.PI * 1.95);
+    c.closePath();
+    c.fill();
+  } else if (style < 0.6) {
+    // 긴 머리 (어깨까지)
+    c.beginPath();
+    c.arc(cx, hy - hr * 0.05, hr * 1.08, Math.PI, 0);
+    c.lineTo(cx + hr * 1.08, hy + hr * 1.5);
+    c.lineTo(cx + hr * 0.7, hy + hr * 1.5);
+    c.lineTo(cx + hr * 0.75, hy);
+    c.lineTo(cx - hr * 0.75, hy);
+    c.lineTo(cx - hr * 0.7, hy + hr * 1.5);
+    c.lineTo(cx - hr * 1.08, hy + hr * 1.5);
+    c.closePath();
+    c.fill();
+  } else if (style < 0.8) {
+    // 모자
+    c.beginPath();
+    c.arc(cx, hy - hr * 0.15, hr * 1.05, Math.PI, 0);
+    c.closePath();
+    c.fill();
+    c.fillRect(cx - hr * 1.05, hy - hr * 0.2, hr * 2.4, hr * 0.28);
+  } else {
+    // 묶은 머리
+    c.beginPath();
+    c.arc(cx, hy - hr * 0.1, hr * 1.04, Math.PI * 1.05, Math.PI * 1.95);
+    c.closePath();
+    c.fill();
+    c.beginPath();
+    c.arc(cx, hy - hr * 1.15, hr * 0.42, 0, Math.PI * 2);
+    c.fill();
+  }
+  // 이어폰 (가끔)
+  if (r() < 0.3) {
+    c.fillStyle = "#f4f4f4";
+    c.beginPath();
+    c.arc(cx - hr * 0.98, hy + hr * 0.15, hr * 0.14, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.filter = "none";
+  // 유리에 비친 색: 푸르스름하게
+  c.globalCompositeOperation = "source-atop";
+  c.fillStyle = "rgba(150,175,205,0.32)";
+  c.fillRect(0, 0, w, h);
+  c.globalCompositeOperation = "source-over";
+}
+
 /**
- * 유리에 비친 객실: 어두운 구간에서 맞은편 좌석에 앉은 승객들이 실루엣으로 비친다.
+ * 유리에 비친 객실: 어두운 구간에서 맞은편 좌석에 앉은 승객들이 비친다 (사람 모양, 푸르고 흐리게).
  * 객실 안의 모습이라 풍경과 함께 흐르지 않고 화면에 고정된다. 밤엔 휴대폰 불빛.
  */
 function drawCabinReflection(f: Frame) {
@@ -145,20 +261,19 @@ function drawCabinReflection(f: Frame) {
     const head = (3.4 + r() * 0.8) * u;
     const y = (68 + r() * 3) * u;
     const lean = (r() - 0.5) * 1.2 * u;
-    ctx.globalAlpha = a * 0.15;
-    ctx.fillStyle = "#e8dfcf";
-    // 어깨·몸
-    rrect(ctx, x - head * 1.7 + lean, y + head * 0.9, head * 3.4, 22 * u, head * 1.3);
-    ctx.fill();
-    // 머리
-    ctx.beginPath();
-    ctx.arc(x + lean * 1.4, y, head, 0, Math.PI * 2);
-    ctx.fill();
-    // 휴대폰 보는 사람: 얼굴 아래 작은 불빛
-    if (r() < 0.45) {
-      ctx.globalAlpha = a * (pal.night > 0.5 ? 0.5 : 0.32);
+    const phone = r() < 0.45;
+    const sw = head / 0.17;
+    const shh = sw * 2.6;
+    const sp = f.sprites.get(`refl:s:${k}:${sw | 0}`, sw, shh, (c, w, h) => drawReflectedPerson(c, w, h, k * 31 + 7, false));
+    ctx.globalAlpha = a * 0.5;
+    // 머리 중심이 y 에 오게 (스프라이트 안 머리 중심 = 높이의 18%)
+    const top = y - shh * 0.18;
+    ctx.drawImage(sp.img, x - sw / 2 + lean, top, sp.w, sp.h);
+    // 휴대폰 보는 사람: 손 위 화면 불빛
+    if (phone) {
+      ctx.globalAlpha = a * (pal.night > 0.5 ? 0.6 : 0.38);
       ctx.fillStyle = "#cfe6ff";
-      rrect(ctx, x - 1.1 * u + lean, y + head * 1.6, 2.2 * u, 3.4 * u, 0.4 * u);
+      rrect(ctx, x - 1.1 * u + lean, top + shh * 0.62, 2.2 * u, 3.2 * u, 0.4 * u);
       ctx.fill();
     }
   }
@@ -170,18 +285,12 @@ function drawCabinReflection(f: Frame) {
     for (let i = 0; i < n; i++) {
       const x = W * (0.1 + (i + 0.3 + rs() * 0.4) * (0.8 / n));
       const head = (3.8 + rs() * 0.6) * u;
+      const sw = head / 0.17;
+      const shh = sw * 3.4;
       const y = (34 + rs() * 4) * u;
-      ctx.globalAlpha = a * 0.13;
-      ctx.fillStyle = "#e8dfcf";
-      rrect(ctx, x - head * 1.6, y + head * 0.9, head * 3.2, 46 * u, head * 1.2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x, y, head, 0, Math.PI * 2);
-      ctx.fill();
-      // 위로 뻗은 팔
-      const side = rs() < 0.5 ? -1 : 1;
-      rrect(ctx, x + side * head * 1.1 - 0.9 * u, y - 14 * u, 1.8 * u, 15 * u, 0.9 * u);
-      ctx.fill();
+      const sp = f.sprites.get(`refl:t:${i}:${sw | 0}`, sw, shh, (c, w, h) => drawReflectedPerson(c, w, h, i * 53 + 11, true));
+      ctx.globalAlpha = a * 0.45;
+      ctx.drawImage(sp.img, x - sw / 2, y - shh * 0.2, sp.w, sp.h);
     }
   }
   ctx.globalAlpha = 1;

@@ -97,6 +97,9 @@ function crowdKST(d: Date): number {
   return 0.5;
 }
 
+/** 안내기 글자 폭 (한글은 영문의 약 1.7배) */
+const ledWidth = (s: string) => [...s].reduce((a, c) => a + (c.charCodeAt(0) > 0x2e80 ? 1.7 : 1), 0);
+
 /** 단소 승객이 부는 때: 앉고 6초 뒤, 이후 75초마다 (5초간) */
 function dansoCues(events: RideEvent[]): number[] {
   const out: number[] = [];
@@ -541,7 +544,12 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       </p>
       <div className={styles.led} aria-hidden="true">
         <div className={styles.ledInner}>
-          <span key={ledShown} className={styles.ledStatic}>
+          <span
+            key={ledShown}
+            className={styles.ledStatic}
+            // 긴 영문 역명(예: Dongdaemun History & Culture Park)이 잘리지 않게 글자를 줄인다
+            style={ledWidth(ledShown) > 30 ? { fontSize: `max(10px, ${((1.9 * 30) / ledWidth(ledShown)).toFixed(2)}vh)` } : undefined}
+          >
             {ledShown}
           </span>
         </div>
