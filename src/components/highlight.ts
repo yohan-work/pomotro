@@ -14,6 +14,7 @@ import { timeOfDayKST, type TimeOfDay } from "@/render/palette";
 import { buildJourney, sampleJourney, type Journey } from "@/sim/journey";
 import { planRideEvents, seedOf } from "@/sim/rideEvents";
 import type { RideRecord } from "@/store/useAppStore";
+import { springPhase } from "@/lib/calendar";
 import { TICKET_H, TICKET_W, drawTicket } from "./ticket";
 
 export const VIDEO_W = 1280;
@@ -90,6 +91,7 @@ export async function makeHighlight(rec: RideRecord, lang: Lang, todaySec: numbe
   const done = new Date(rec.completedAt);
   const tod: TimeOfDay = todPref ?? timeOfDayKST(done);
   const season: Season = seasonKST(done);
+  const phase = springPhase(done);
 
   const canvas = document.createElement("canvas");
   canvas.width = VIDEO_W;
@@ -168,6 +170,7 @@ export async function makeHighlight(rec: RideRecord, lang: Lang, todaySec: numbe
           time: t,
           timeOfDay: tod,
           season,
+          springPhase: phase,
           weather: "clear",
           reducedMotion: false,
           qualityMode: "high",

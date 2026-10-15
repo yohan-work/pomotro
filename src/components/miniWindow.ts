@@ -24,6 +24,7 @@ export interface MiniLive {
   reducedMotion: boolean;
   quality: QualityMode;
   season: Season;
+  springPhase: "early" | "bloom" | "late";
   weather: Weather;
   events: RideEvent[];
 }
@@ -112,6 +113,7 @@ export async function openMiniWindow(o: MiniOptions): Promise<() => void> {
       reducedMotion: L.reducedMotion,
       qualityMode: L.quality === "high" ? "auto" : L.quality,
       season: L.season,
+      springPhase: L.springPhase,
       weather: L.weather,
       events: L.events,
     });
