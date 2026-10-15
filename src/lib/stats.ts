@@ -1,5 +1,5 @@
 /** 기록 통계 — 집중(focus) 기록만 센다. 체험 운행·휴식은 제외 */
-import { ALL_STATIONS, stationsBetween } from "../data/lines";
+import { ALL_STATIONS, getStation, isTransferPair, stationsBetween } from "../data/lines";
 import type { RideRecord } from "../store/useAppStore";
 
 const DAY = 86400000;
@@ -18,13 +18,14 @@ export function visited(records: RideRecord[]): { segments: Set<string>; station
     if (r.partial) continue;
     let route;
     try {
-      route = stationsBetween(r.fromId, r.toId);
+      // 환승 여행은 경로가 기록에 있다 (한 노선 여행은 출발·도착역으로 복원)
+      route = r.stationIds ? r.stationIds.map(getStation) : stationsBetween(r.fromId, r.toId);
     } catch {
       continue;
     }
     route.forEach((s, i) => {
       stations.add(s.id);
-      if (i > 0) segments.add(`${route[i - 1].id}__${s.id}`);
+      if (i > 0 && !isTransferPair(route[i - 1], s)) segments.add(`${route[i - 1].id}__${s.id}`);
     });
   }
   return { segments, stations };
