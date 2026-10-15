@@ -23,6 +23,8 @@ export interface RenderInput {
   events?: RideEvent[];
   /** 0..1 혼잡도 (기본 0.5) */
   crowd?: number;
+  /** 봄 단계 (기본 벚꽃 절정) */
+  springPhase?: "early" | "bloom" | "late";
 }
 
 export type QualityMode = "auto" | "high" | "low";
@@ -104,7 +106,8 @@ export class Renderer {
 
     const season = input.season ?? "autumn";
     const weather = input.weather ?? "clear";
-    const palKey = `${input.timeOfDay}:${season}:${weather}`;
+    const phase = input.springPhase ?? "bloom";
+    const palKey = `${input.timeOfDay}:${season}:${weather}:${phase}`;
     if (this.lastPalette !== palKey) {
       this.sprites.clear();
       this.lastPalette = palKey;
@@ -153,7 +156,7 @@ export class Renderer {
       cam: input.x,
       v: input.v,
       time: input.time,
-      pal: applyConditions(PALETTES[input.timeOfDay], season, weather),
+      pal: applyConditions(PALETTES[input.timeOfDay], season, weather, phase),
       weather,
       season,
       journey: input.journey,
