@@ -31,7 +31,7 @@ const PRESETS = [15, 25, 40, 60];
 function ScenePreview({ stationIds }: { stationIds: string[] }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const tod = useAppStore((s) => s.timeOfDay);
-  const { season, weather } = useConditions();
+  const { season, weather, springPhase } = useConditions();
   const key = stationIds.join(">");
   useEffect(() => {
     const canvas = ref.current!;
@@ -70,6 +70,7 @@ function ScenePreview({ stationIds }: { stationIds: string[] }) {
         timeOfDay: tod === "auto" ? timeOfDayKST() : tod,
         reducedMotion: true,
         season,
+        springPhase,
         weather,
       });
       raf = requestAnimationFrame(loop);
@@ -81,7 +82,7 @@ function ScenePreview({ stationIds }: { stationIds: string[] }) {
     };
     // 노선이 바뀔 때만 다시 만든다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, tod, season, weather]);
+  }, [key, tod, season, weather, springPhase]);
   return <canvas ref={ref} className={styles.preview} aria-hidden />;
 }
 

@@ -19,6 +19,8 @@ import { miniWindowSupported, openMiniWindow } from "./miniWindow";
 import { SoundSettings, ViewSettings } from "./Panels";
 import { CabinPassenger } from "./Passengers";
 import { LineBadge } from "./LineBadge";
+import { Garland } from "./Garland";
+import { calendarNow, christmasSeason, specialDay } from "@/lib/calendar";
 import styles from "./RideScreen.module.css";
 
 export interface RideDebug {
@@ -181,8 +183,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   // 렌더 루프에서 읽는 최신 설정
   const cond = useConditions();
   const announceOn = useAppStore((s) => s.announce);
-  const live = useRef({ tod, reducedMotion, quality: qualityPref, season: cond.season, weather: cond.weather, announce: announceOn, lang, events: rideEvents, cues });
-  live.current = { tod, reducedMotion, quality: qualityPref, season: cond.season, weather: cond.weather, announce: announceOn, lang, events: rideEvents, cues };
+  const live = useRef({ tod, reducedMotion, quality: qualityPref, season: cond.season, springPhase: cond.springPhase, weather: cond.weather, announce: announceOn, lang, events: rideEvents, cues });
+  live.current = { tod, reducedMotion, quality: qualityPref, season: cond.season, springPhase: cond.springPhase, weather: cond.weather, announce: announceOn, lang, events: rideEvents, cues };
   useEffect(() => getAudio().setRain(cond.weather === "rain"), [cond.weather]);
 
   useEffect(() => {
@@ -310,6 +312,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
           reducedMotion: live.current.reducedMotion,
           qualityMode: live.current.quality,
           season: live.current.season,
+          springPhase: live.current.springPhase,
           weather: live.current.weather,
           events: live.current.events,
           crowd: debug.crowd ?? (debug.still !== undefined ? 0.5 : crowdKST(new Date())),
@@ -341,7 +344,9 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         }
       }
 
-      const led = ledText(journey, sample, isBreak, live.current.lang);
+      // 서울 달력: 크리스마스·새해·한글날엔 안내기에 인사가 함께 돈다
+      const greet = specialDay(calendarNow());
+      const led = ledText(journey, sample, isBreak, live.current.lang) + (greet ? `  ·  ${tr(live.current.lang, `greet.${greet}` as StringKey)}` : "");
       if (now - lastHud > 250 || led !== lastLed || paused !== lastPaused || sample.phase !== lastPhase) {
         lastHud = now;
         lastLed = led;
@@ -589,6 +594,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
 
       {/* 손잡이 */}
       <div className={styles.strapBar} />
+      {christmasSeason(calendarNow()) && <Garland />}
       <div className={styles.straps} aria-hidden>
         {Array.from({ length: STRAPS }, (_, k) => (
           <div

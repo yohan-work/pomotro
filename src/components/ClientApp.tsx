@@ -6,6 +6,7 @@ import { findRoute } from "@/data/lines";
 import { DEMO_ROUTE } from "@/lib/recommend";
 import { minJourneySec } from "@/sim/journey";
 import { EVENT_KINDS } from "@/sim/rideEvents";
+import { setCalendarDate } from "@/lib/calendar";
 import { tr, useLang } from "@/i18n";
 import { useAppStore } from "@/store/useAppStore";
 import CompleteScreen from "./CompleteScreen";
@@ -23,6 +24,7 @@ import SetupScreen from "./SetupScreen";
  *   ?tod=day|sunset|night  시간대 고정
  *   ?debug=1               FPS·시뮬레이션 상태 표시
  *   ?still=45              시뮬레이션·애니메이션 시간을 45초에 고정 (시각 비교 테스트용)
+ *   ?date=2026-12-24       달력 기준 날짜 (봄 단계·크리스마스 장식·인사 — 타이머는 실제 시각)
  *   ?crowd=1               혼잡도 고정 (0..1, 기본은 한국 시간 출퇴근에 따라)
  *   ?event=danso           깜짝 이벤트 하나를 강제 (URL 자동 시작 세션은 기본적으로 깜짝 이벤트 없음)
  */
@@ -64,6 +66,12 @@ export default function ClientApp() {
       still: p.get("still") !== null ? Number(p.get("still")) || 0 : undefined,
       event: EVENT_KINDS.find((k) => k === p.get("event")) ?? null,
       scripted: p.get("autostart") !== null,
+      ...(() => {
+        // 검증용: 달력 기준 날짜 (?date=2026-12-24) — 풍경·인사만, 타이머는 실제 시각
+        const d = p.get("date");
+        if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) setCalendarDate(new Date(`${d}T12:00:00+09:00`));
+        return {};
+      })(),
       crowd: p.get("crowd") !== null ? Math.min(1, Math.max(0, Number(p.get("crowd")) || 0)) : undefined,
     });
     const routeParam = p.get("route");
