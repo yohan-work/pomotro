@@ -1,7 +1,7 @@
 /**
  * 노선망 공용 타입과 빌더. 각 노선 파일(line2.ts, line3.ts)은 사실 데이터만 두고 이 빌더로 LineDef 를 만든다.
  */
-export type LineId = "2" | "3" | "GJ";
+export type LineId = "1" | "2" | "3" | "4" | "5" | "5M" | "6" | "6L" | "7" | "8" | "GJ";
 export type StationStructure = "elevated" | "underground";
 export type Heading = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
 

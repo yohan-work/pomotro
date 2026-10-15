@@ -435,6 +435,7 @@
 
 .lineChips {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 2px 6px 4px;
 }

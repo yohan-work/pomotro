@@ -9,13 +9,11 @@
 .river {
   fill: none;
   stroke: var(--c-map-river);
-  stroke-width: 16;
   stroke-linecap: round;
 }
 
 .riverLabel {
   fill: #8fb5c2;
-  font-size: 9px;
   font-weight: 700;
   text-anchor: middle;
   letter-spacing: 0.3em;
@@ -24,20 +22,17 @@
 .loop {
   fill: none;
   stroke: var(--c-map-loop);
-  stroke-width: 6;
 }
 
 .visited {
   fill: none;
   stroke: #8cc7ad;
-  stroke-width: 6;
   stroke-linecap: round;
 }
 
 .route {
   fill: none;
   stroke: var(--c-primary);
-  stroke-width: 6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -57,20 +52,16 @@
 .dot {
   fill: var(--c-surface);
   stroke: var(--c-primary);
-  stroke-width: 1.6;
-  transition: r 0.15s;
 }
 
 .dotVisited {
   fill: var(--c-primary);
   stroke: var(--c-surface);
-  stroke-width: 1.2;
 }
 
 .origin,
 .dest {
   stroke: var(--c-surface);
-  stroke-width: 2;
 }
 
 .origin {
@@ -84,22 +75,18 @@
 .station:focus-visible .dot,
 .station:focus-visible .dotVisited {
   stroke: #252525;
-  stroke-width: 2.4;
 }
 
 .label,
 .labelStrong {
   fill: var(--c-text-3);
-  font-size: 9px;
   font-weight: 600;
   pointer-events: none;
   paint-order: stroke;
   stroke: var(--c-surface);
-  stroke-width: 3px;
 }
 
 .labelStrong {
   fill: var(--c-text);
-  font-size: 10.5px;
   font-weight: 800;
 }

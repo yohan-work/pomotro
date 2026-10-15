@@ -204,3 +204,143 @@ export const GJ_OFFICIAL_SEGMENTS: ReadonlyArray<{ from: string; to: string; dis
 `,
 );
 console.log(`${gjSegments.length} segments, ${gjSegments.reduce((a, s) => a + s.distanceKm, 0).toFixed(1)} km → ${OUTGJ}`);
+
+/* ───────── 서울교통공사 1·4·5·6·7·8호선 + 전 노선 역 좌표·영문명 ─────────
+ * - 운행시간·거리: 위와 같은 서울교통공사 「역간거리 및 소요시간」
+ * - 역 좌표: 서울시 「역사마스터 정보」 (서울 열린데이터광장 OA-21232, subwayStationMaster)
+ * - 영문 역명·역번호: 서울시 「지하철 노선별 역 정보」 (SearchSTNBySubwayLineInfo)
+ * 두 API 는 인증키가 필요하다 (.env.local 의 SEOUL_OPENAPI_KEY). 받은 원본은 CSV 로 저장해 두므로
+ * 키가 없으면 저장된 CSV 로 재생성만 한다. 빌드·배포에는 키가 필요 없다.
+ */
+const MASTER_CSV = "data/official/seoul-station-master.csv";
+const NAMES_CSV = "data/official/seoul-station-names.csv";
+const envKey = (() => {
+  if (process.env.SEOUL_OPENAPI_KEY) return process.env.SEOUL_OPENAPI_KEY;
+  try {
+    return /^SEOUL_OPENAPI_KEY=(.+)$/m.exec(readFileSync(".env.local", "utf8"))?.[1]?.trim();
+  } catch {
+    return undefined;
+  }
+})();
+const toCsv = (rows: Array<Record<string, string>>, cols: string[]) =>
+  [cols.join(","), ...rows.map((r) => cols.map((c) => String(r[c] ?? "").replace(/,/g, " ").trim()).join(","))].join("\n") + "\n";
+if (!process.argv.includes("--offline") && envKey) {
+  const api = (service: string) => {
+    const raw = execFileSync("curl", ["-sf", `http://openapi.seoul.go.kr:8088/${envKey}/json/${service}/1/1000/`]).toString();
+    const body = JSON.parse(raw)[service];
+    if (!body?.row?.length) throw new Error(`${service}: empty response`);
+    return body.row as Array<Record<string, string>>;
+  };
+  writeFileSync(MASTER_CSV, toCsv(api("subwayStationMaster"), ["BLDN_ID", "BLDN_NM", "ROUTE", "LAT", "LOT"]));
+  writeFileSync(NAMES_CSV, toCsv(api("SearchSTNBySubwayLineInfo"), ["STATION_CD", "STATION_NM", "STATION_NM_ENG", "LINE_NUM", "FR_CODE"]));
+  console.log(`downloaded → ${MASTER_CSV}, ${NAMES_CSV}`);
+} else if (!process.argv.includes("--offline")) console.warn("SEOUL_OPENAPI_KEY 없음 — 저장된 역 좌표·영문명 CSV 로 재생성");
+
+const master = csvRows(MASTER_CSV);
+const nameRows = csvRows(NAMES_CSV);
+/** 운행 데이터 역명 → 다른 데이터셋의 옛/다른 표기 */
+const ALIAS: Record<string, string[]> = { 자양: ["뚝섬유원지", "자양(뚝섬한강공원)"], 신내역: ["신내"], 당고개: ["불암산"] };
+const clean = (n: string) => n.trim().replace(/\(.*\)$/, "");
+const cands = (n: string) => [clean(n), ...(ALIAS[n.trim()] ?? [])];
+const missing: string[] = [];
+const renamed = new Map<string, string>();
+function stationInfo(line: string, nameKo: string) {
+  const m = master.find((r) => r.ROUTE === `${line}호선` && cands(nameKo).includes(clean(r.BLDN_NM)));
+  const nm = nameRows.find((r) => r.LINE_NUM === `0${line}호선` && cands(nameKo).includes(clean(r.STATION_NM)));
+  if (!m || !nm) {
+    missing.push(`${line}호선 ${nameKo}${m ? "" : " (좌표)"}${nm ? "" : " (영문명)"}`);
+    return { nameKo: clean(nameKo), nameEn: "", code: "", lat: 0, lon: 0 };
+  }
+  // 표시 역명은 현재 공식 역명 (예: 당고개 → 불암산, 2024년 개명). 운행 데이터와는 renamed 로 잇는다
+  const current = clean(nm.STATION_NM);
+  if (current !== clean(nameKo)) renamed.set(clean(nameKo), current);
+  // API 원문에서 '&' 가 빠지고(공백 두 칸) 아포스트로피가 백틱으로 온다 → 표기만 바로잡는다
+  const nameEn = nm.STATION_NM_ENG.replace(/`/g, "'").replace(/\s{2,}/g, " & ").trim();
+  return { nameKo: current, nameEn, code: nm.FR_CODE, lat: Number(m.LAT), lon: Number(m.LOT) };
+}
+
+const csvLine = (n: string) =>
+  readFileSync(CSV_PATH, "utf8")
+    .trim()
+    .split("\n")
+    .slice(1)
+    .map((l) => l.split(","))
+    .filter((c) => c[1] === n)
+    .map((c) => ({ name: c[2].trim() === "신내역" ? "신내" : c[2].trim(), runSec: toSec(c[3]), km: Number(c[4]), cum: Number(c[5]) }));
+type Row = ReturnType<typeof csvLine>[number];
+const cur = (n: string) => renamed.get(n) ?? n;
+const segsOf = (rows: Row[]) => rows.slice(1).map((r, i) => ({ from: cur(rows[i].name), to: cur(r.name), runSec: r.runSec, distanceKm: r.km }));
+function checkSum(n: string, rows: Row[]) {
+  const sum = rows.reduce((a, r) => a + r.km, 0);
+  if (Math.abs(sum - rows[rows.length - 1].cum) > 0.05) throw new Error(`${n}호선 distance sum ${sum} != cumulative ${rows[rows.length - 1].cum}`);
+}
+
+type OfficialLine = { stations: ReturnType<typeof stationInfo>[]; segments: ReturnType<typeof segsOf>; loop: boolean };
+const lines: Record<string, OfficialLine> = {};
+const plain = (n: string) => {
+  const rows = csvLine(n);
+  checkSum(n, rows);
+  lines[n] = { stations: rows.map((r) => stationInfo(n, r.name)), segments: segsOf(rows), loop: false };
+};
+for (const n of ["1", "4", "7", "8"]) plain(n);
+
+// 5호선: 방화 → 하남검단산 본선 + 강동 → 마천 지선 (데이터는 본선 뒤에 지선이 이어 붙어 있고, 둔촌동 행의 값이 강동→둔촌동)
+{
+  const rows = csvLine("5");
+  checkSum("5", rows);
+  const end = rows.findIndex((r) => r.name === "하남검단산");
+  const main = rows.slice(0, end + 1);
+  const gd = rows.find((r) => r.name === "강동")!;
+  const branch = [gd, ...rows.slice(end + 1)];
+  if (branch[1].name !== "둔촌동" || branch[branch.length - 1].name !== "마천") throw new Error("5호선 마천지선 형식 변경?");
+  lines["5"] = { stations: main.map((r) => stationInfo("5", r.name)), segments: segsOf(main), loop: false };
+  lines["5M"] = { stations: branch.map((r) => stationInfo("5", r.name)), segments: segsOf(branch), loop: false };
+}
+// 6호선: 응암순환(응암 → 역촌 → 불광 → 독바위 → 연신내 → 구산 → 응암, 한 방향) + 응암 → 신내 본선
+{
+  const rows = csvLine("6");
+  checkSum("6", rows);
+  const back = rows.findIndex((r, i) => i > 0 && r.name === "응암");
+  const loopRows = rows.slice(0, back + 1);
+  const main = rows.slice(back);
+  lines["6L"] = { stations: loopRows.slice(0, -1).map((r) => stationInfo("6", r.name)), segments: segsOf(loopRows), loop: true };
+  lines["6"] = { stations: main.map((r) => stationInfo("6", r.name)), segments: segsOf(main), loop: false };
+}
+// 2·3호선은 역 좌표·영문명·역번호만 (운행 데이터는 line2/line3.official.ts)
+for (const n of ["2", "3"]) {
+  let rows = csvLine(n);
+  // 2호선은 본선 순환만 (성수·신정 지선 제외)
+  if (n === "2") rows = rows.slice(rows.findIndex((r) => r.name === "시청"), rows.findIndex((r, i) => i > 0 && r.name === "시청"));
+  const seen = new Set<string>();
+  const uniq = rows.filter((r) => !seen.has(r.name) && seen.add(r.name));
+  lines[n] = { stations: uniq.map((r) => stationInfo(n, r.name)), segments: [], loop: n === "2" };
+}
+
+if (missing.length) throw new Error(`역 정보를 찾지 못함: ${missing.join(", ")}`);
+const OUTM = "src/data/metro.official.ts";
+writeFileSync(
+  OUTM,
+  `/**
+ * 자동 생성 파일 — 직접 수정하지 말 것. \`npm run data:import\` 로 다시 만든다.
+ *
+ * 출처 (모두 공공누리 제1유형, 출처표시)
+ *  - 운행시간·거리: 서울교통공사 「${DATASET.title}」 (${DATASET.id}, ${DATASET.updated} 갱신)
+ *  - 역 좌표: 서울특별시 「서울시 역사마스터 정보」 (서울 열린데이터광장 OA-21232)
+ *  - 영문 역명·역번호: 서울특별시 「서울시 지하철 노선별 역 정보」 (SearchSTNBySubwayLineInfo)
+ * 운행시간은 정차시간을 포함하지 않는 표준 운행시간. 2·3호선은 역 정보만 (운행 데이터는 line2/line3.official.ts).
+ * 5M = 5호선 마천지선(강동 → 마천), 6L = 6호선 응암순환(한 방향 순환).
+ */
+
+export interface OfficialStation {
+  nameKo: string;
+  nameEn: string;
+  code: string;
+  lat: number;
+  lon: number;
+}
+
+export const METRO_OFFICIAL: Record<"1" | "2" | "3" | "4" | "5" | "5M" | "6" | "6L" | "7" | "8", { loop: boolean; stations: OfficialStation[]; segments: Array<{ from: string; to: string; runSec: number; distanceKm: number }> }> = ${JSON.stringify(lines, null, 2)};
+`,
+);
+console.log(`metro lines ${Object.keys(lines).join(" ")} → ${OUTM}`);
+if (renamed.size) console.log(`개명 역 (현재 역명으로 표시): ${[...renamed].map(([a, b]) => `${a}→${b}`).join(", ")}`);

@@ -89,7 +89,37 @@ check(getStation("l3-euljiro-3ga").nameKo === getStation("euljiro-3ga").nameKo, 
   check(west.length === 2 && getStation("gj-hannam").nameEn === "Hannam", "GJ westbound riverside route");
 }
 
+// 서울교통공사 1·4·5·6·7·8호선 (+ 5호선 마천지선, 6호선 응암순환)
+{
+  const { METRO_OFFICIAL } = await import("../src/data/metro.official");
+  const { LINE_BY_ID } = await import("../src/data/lines");
+  const { latLonOf } = await import("../src/data/geo");
+  const expect: Record<string, [number, number]> = { "1": [10, 7.8], "4": [26, 31.1], "5": [49, 52.8], "5M": [8, 7.0], "6": [34, 29.8], "6L": [6, 6.6], "7": [42, 46.9], "8": [19, 18.8] };
+  for (const [id, [n, km]] of Object.entries(expect)) {
+    const line = LINE_BY_ID[id as keyof typeof LINE_BY_ID];
+    const segs = line.loop ? line.segments : line.segments.filter((_, i) => i % 2 === 0);
+    const total = segs.reduce((a, s) => a + s.distanceKm, 0);
+    check(line.stations.length === n, `${line.nameKo}: ${line.stations.length} stations (expected ${n})`);
+    check(Math.abs(total - km) < 0.05, `${line.nameKo}: ${total.toFixed(1)} km (expected ${km})`);
+    check(line.stations.every((st) => st.code && st.nameEn && latLonOf(st)), `${line.nameKo}: every station has official code, English name, coordinates`);
+    check(METRO_OFFICIAL[id as keyof typeof METRO_OFFICIAL].segments.every((s) => s.runSec > 0), `${line.nameKo}: official run times`);
+  }
+  console.log(`▶ metro lines 1·4·5·6·7·8: ${Object.keys(expect).length} line definitions`);
+  check(getStation("l4-buramsan").nameKo === "불암산", "renamed station shown with current name (당고개 → 불암산)");
+  const loop6 = stationsBetween("l6l-gusan", "l6l-yeokchon").map((s) => s.nameKo).join("→");
+  check(loop6 === "구산→응암→역촌", `6호선 응암순환 one-way wrap: ${loop6}`);
+  // 2·3호선 역번호·영문명은 공식 데이터와 같아야 한다
+  for (const n of ["2", "3"] as const)
+    for (const st of LINE_BY_ID[n].stations) {
+      const o = METRO_OFFICIAL[n].stations.find((x) => x.nameKo === st.nameKo);
+      check(o?.code === st.code && o?.nameEn === st.nameEn, `${n}호선 ${st.nameKo}: code/English match official (${o?.code} ${o?.nameEn})`);
+    }
+}
+
 run("demo 당산→합정", ["dangsan", "hapjeong"], 100);
+run("동작대교 남행 이촌→동작", ["l4-ichon", "l4-dongjak"], 200);
+run("청담대교 북행 청담→자양", ["l7-cheongdam", "l7-jayang"], 200);
+run("4호선 장거리 불암산→남태령", stationsBetween("l4-buramsan", "l4-namtaeryeong").map((s) => s.id), 70 * 60);
 run("demo 당산→합정 2분", ["dangsan", "hapjeong"], 120);
 run("15분", stationsBetween("dangsan", "city-hall").map((s) => s.id), 15 * 60);
 run("25분", stationsBetween("dangsan", "ddp").map((s) => s.id), 25 * 60);
