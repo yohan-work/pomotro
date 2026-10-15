@@ -25,7 +25,12 @@ const ctx = await browser.newContext({ locale: "ko-KR",  viewport: { width: 1440
 const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
-page.on("response", (r) => r.status() >= 400 && errors.push(`HTTP ${r.status()} ${r.url()}`));
+// 외부 날씨 API(Open-Meteo) 장애는 앱이 계절 기본값으로 넘기므로 경고만
+page.on("response", (r) => {
+  if (r.status() < 400) return;
+  if (new URL(r.url()).hostname === "api.open-meteo.com") console.warn(`  (경고) 외부 날씨 API HTTP ${r.status()}`);
+  else errors.push(`HTTP ${r.status()} ${r.url()}`);
+});
 page.on("console", (m) => m.type() === "error" && !m.text().startsWith("Failed to load resource") && errors.push(m.text()));
 
 const debugText = () => page.locator("pre").first().textContent().catch(() => "");
