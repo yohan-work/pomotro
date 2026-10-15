@@ -6,10 +6,15 @@
  * 3. 점수 = 예상 소요시간 오차 비율 − 풍경 보너스(한강 횡단·지상 구간)
  * 4. 상위 3개 (출발역 중복은 최대 2개까지)
  */
-import { LINE_BY_ID, estimateRouteSec, getSegment, getStation, routeDistanceKm, stationsBetween, windowFacing, type Station } from "../data/lines";
+import { LINE_BY_ID, estimateRouteSec, getSegment, getStation, isTransferPair, routeDistanceKm, stationsBetween, windowFacing, type Station } from "../data/lines";
 import { cityStyle } from "../data/scenery";
 import type { StringKey } from "../i18n/strings";
 import { minJourneySec } from "../sim/journey";
+
+/** 달리는 구간 수 (환승 통로 제외) */
+export const runCount = (stations: Station[]) => stations.slice(0, -1).filter((s, i) => !isTransferPair(s, stations[i + 1])).length;
+/** 환승 횟수 */
+export const transferCount = (stations: Station[]) => stations.length - 1 - runCount(stations);
 
 export interface RouteSuggestion {
   stationIds: string[];
@@ -25,6 +30,8 @@ export interface RouteSuggestion {
   tagline: StringKey;
   /** 운행시간이 공식 데이터가 아닌 추정 (경의중앙선) */
   estimated: boolean;
+  /** 환승 횟수 */
+  transfers: number;
 }
 
 const ORIGINS = [
@@ -56,7 +63,9 @@ function destinations(originId: string): string[] {
 
 function describe(stations: Station[]): { keywords: StringKey[]; tagline: StringKey; scenic: number } {
   const ids = stations.map((s) => s.id);
-  const marks = stations.slice(0, -1).flatMap((s, i) => getSegment(s.id, stations[i + 1].id).landmarks);
+  // 실제로 달리는 구간만 (환승 통로 제외)
+  const segIdx = stations.slice(0, -1).map((_, i) => i).filter((i) => !isTransferPair(stations[i], stations[i + 1]));
+  const marks = segIdx.flatMap((i) => getSegment(stations[i].id, stations[i + 1].id).landmarks);
   const yanghwa = marks.includes("양화대교");
   const jamsil = marks.includes("잠실철교");
   const dongho = marks.includes("동호대교") && stations[0].line === "3";
@@ -66,7 +75,6 @@ function describe(stations: Station[]): { keywords: StringKey[]; tagline: String
   // 경의중앙선 강변: 남향(서행)일 때만 창밖이 강
   const leftView = (i: number) => windowFacing(getSegment(stations[i].id, stations[i + 1].id).heading);
   const southward = (h: string) => h === "S" || h === "SE" || h === "SW";
-  const segIdx = stations.slice(0, -1).map((_, i) => i);
   const riverside = segIdx.some((i) => {
     if (stations[i].line !== "GJ") return false;
     const lm = getSegment(stations[i].id, stations[i + 1].id).landmarks;
@@ -91,6 +99,7 @@ function describe(stations: Station[]): { keywords: StringKey[]; tagline: String
   if (stream && !yanghwa && !jamsil && !dongho && !dongjak && !cheongdam) keywords.push("kw.stream");
   if (elevated >= 3) keywords.push("kw.elevated");
   if (downtown) keywords.push("kw.downtown");
+  if (segIdx.length < stations.length - 1) keywords.unshift("kw.transfer");
   if (stations.some((st) => st.structure === "underground")) keywords.push("kw.underground");
   let tagline: StringKey;
   if (yanghwa && jamsil) tagline = "tag.twoRivers";
@@ -99,7 +108,10 @@ function describe(stations: Station[]): { keywords: StringKey[]; tagline: String
   else if (riverside) tagline = "tag.riversideNorth";
   else if (rural) tagline = "tag.rural";
   else if (dongho) tagline = stations[0].id === "l3-apgujeong" || stations.findIndex((x) => x.id === "l3-apgujeong") < stations.findIndex((x) => x.id === "l3-oksu") ? "tag.donghoNorth" : "tag.donghoSouth";
-  else if (dongjak) tagline = southward(getSegment(stations[0].id, stations[1].id).heading) ? "tag.dongjakSouth" : "tag.dongjakNorth";
+  else if (dongjak) {
+    const i = segIdx.find((k) => getSegment(stations[k].id, stations[k + 1].id).landmarks.includes("동작대교"))!;
+    tagline = southward(getSegment(stations[i].id, stations[i + 1].id).heading) ? "tag.dongjakSouth" : "tag.dongjakNorth";
+  }
   else if (cheongdam) tagline = "tag.cheongdam";
   else if (jamsil) tagline = "tag.jamsil";
   else if (yanghwa) tagline = downtown ? "tag.yanghwaDowntown" : "tag.yanghwa";
@@ -125,10 +137,11 @@ export function recommendRoutes(focusSec: number, limit = 3, originId?: string):
         to: stations[stations.length - 1],
         estSec,
         distanceKm: routeDistanceKm(stations),
-        stops: stations.length - 1,
+        stops: runCount(stations),
         keywords: d.keywords,
         tagline: d.tagline,
-        estimated: Boolean(LINE_BY_ID[stations[0].line].runTimeEstimated),
+        estimated: stations.some((st) => LINE_BY_ID[st.line].runTimeEstimated),
+        transfers: transferCount(stations),
         score: err - d.scenic,
       });
     }
@@ -177,10 +190,11 @@ export function describeRoute(stationIds: string[]): RouteSuggestion {
     to: stations[stations.length - 1],
     estSec: estimateRouteSec(stations),
     distanceKm: routeDistanceKm(stations),
-    stops: stations.length - 1,
+    stops: runCount(stations),
     keywords: d.keywords,
     tagline: d.tagline,
-    estimated: Boolean(LINE_BY_ID[stations[0].line].runTimeEstimated),
+    estimated: stations.some((st) => LINE_BY_ID[st.line].runTimeEstimated),
+    transfers: transferCount(stations),
   };
 }
 

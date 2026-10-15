@@ -43,6 +43,7 @@ function sanitize(x: unknown): RideRecord | null {
     partial: r.partial === true,
     distanceKm: num(r.distanceKm) ? (r.distanceKm as number) : 0,
     ...(typeof r.taskDone === "boolean" ? { taskDone: r.taskDone } : {}),
+    ...(Array.isArray(r.stationIds) && r.stationIds.length >= 2 && r.stationIds.every(isStation) ? { stationIds: r.stationIds as string[] } : {}),
     ...(Array.isArray(r.encounters) ? { encounters: r.encounters.filter((k): k is RideEventKind => EVENT_KINDS.includes(k as RideEventKind)) } : {}),
   };
 }

@@ -72,6 +72,8 @@ export interface RideRecord {
   taskDone?: boolean;
   /** 이번 여행에서 만난 깜짝 이벤트 */
   encounters?: RideEventKind[];
+  /** 환승 여행의 경로 (한 노선 여행은 없음 — 출발·도착역으로 복원) */
+  stationIds?: string[];
 }
 
 export interface AppState {
@@ -280,13 +282,14 @@ export const useAppStore = create<AppState>()(
           mode: s.mode,
           fromId: s.stationIds[0],
           toId: s.stationIds[s.stationIds.length - 1],
-          stationCount: s.stationIds.length - 1,
+          stationCount: s.stationIds.slice(0, -1).filter((id, i) => getStation(id).line === getStation(s.stationIds[i + 1]).line).length,
           focusSec: Math.round(partial ? opts!.partialElapsedSec! : s.totalSec),
           completedAt: endAt,
           task: s.task,
           partial,
           distanceKm: partial ? (opts!.partialDistanceKm ?? 0) : routeDistanceKm(s.stationIds.map(getStation)),
           ...(opts?.encounters?.length ? { encounters: opts.encounters } : {}),
+          ...(new Set(s.stationIds.map((id) => getStation(id).line)).size > 1 ? { stationIds: s.stationIds } : {}),
         };
         // 끝난 지 오래된 세션은 지금의 뽀모도로 흐름과 무관 → 회차에 넣지 않는다
         const fresh = now - endAt < POMODORO.staleCycleMs;

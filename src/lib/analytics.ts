@@ -39,6 +39,7 @@ export function rideParams(stationIds: string[], totalSec: number): Params {
     from_station: from,
     to_station: to,
     stations: stationIds.length - 1,
+    transfers: new Set(stationIds.map((id) => lineOf(id).id)).size - 1,
     minutes: Math.round(totalSec / 60),
   };
 }
