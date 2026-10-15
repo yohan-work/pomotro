@@ -2,6 +2,7 @@
  * 시간대별 팔레트 (낮 / 노을 / 밤).
  * 창은 서쪽을 향한다 — 노을 때 해가 창 정면 한강 하류 위로 진다.
  */
+import { sunTimesSeoul } from "../lib/sun";
 
 export type TimeOfDay = "day" | "sunset" | "night";
 
@@ -173,10 +174,14 @@ export const PALETTES: Record<TimeOfDay, Palette> = {
 };
 
 /** 한국 시간(KST) 기준 기본 시간대 */
+/**
+ * 지금 서울 하늘 — 실제 일출·일몰 시각 기준.
+ * 해 뜨고 30분 뒤부터 낮, 해 지기 50분 전부터 해 지고 25분까지 노을, 그 외는 밤.
+ */
 export function timeOfDayKST(date = new Date()): TimeOfDay {
-  const kst = new Date(date.getTime() + (date.getTimezoneOffset() + 540) * 60000);
-  const h = kst.getHours() + kst.getMinutes() / 60;
-  if (h >= 6.5 && h < 16.5) return "day";
-  if (h >= 16.5 && h < 18.8) return "sunset";
+  const { sunrise, sunset } = sunTimesSeoul(date);
+  const t = date.getTime();
+  if (t >= sunset.getTime() - 50 * 60e3 && t < sunset.getTime() + 25 * 60e3) return "sunset";
+  if (t >= sunrise.getTime() + 30 * 60e3 && t < sunset.getTime() - 50 * 60e3) return "day";
   return "night";
 }
