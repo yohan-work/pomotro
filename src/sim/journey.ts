@@ -8,7 +8,7 @@
  *   늘리거나 줄여 맞춘다. 열차 속도/가속도는 항상 현실적인 범위로 유지된다.
  *   실제 예상 운행시간은 노선 데이터(line2.ts)에서 별도로 표시한다.
  */
-import { getSegment, getStation, neighbors, windowFacing, type LineSegment, type Station } from "../data/lines";
+import { getSegment, getStation, isTransferPair, neighbors, transferBetween, windowFacing, type LineSegment, type Station, type Transfer } from "../data/lines";
 import { PLATFORM_HALF, cityStyle, leadSection, middleSections, type CityStyle, type SectionKind, type WaterVariant } from "../data/scenery";
 import { ACCEL, DECEL, lookup } from "./profile";
 
@@ -19,6 +19,8 @@ export type SimPhase =
   | "MOVING"
   | "APPROACHING"
   | "ARRIVED"
+  /** 환승역에서 걸어서 갈아타는 중 (공식 환승 소요시간) */
+  | "TRANSFER"
   | "PAUSED"
   | "COMPLETED";
 
@@ -58,11 +60,11 @@ interface PhaseSpan {
   kind: Exclude<SimPhase, "IDLE" | "PAUSED" | "COMPLETED">;
   t0: number;
   t1: number;
-  /** 정차 중이면 역 index, 주행 중이면 segment index */
+  /** 정차·환승 중이면 역 index, 주행 중이면 segments 배열 index */
   ref: number;
 }
 
-export type JourneyEventType = "departChime" | "doorClose" | "depart" | "approach" | "arrive" | "doorOpen" | "complete";
+export type JourneyEventType = "departChime" | "doorClose" | "depart" | "approach" | "arrive" | "doorOpen" | "transfer" | "complete";
 
 export interface JourneyEvent {
   t: number;
@@ -70,9 +72,19 @@ export interface JourneyEvent {
   stationIndex: number;
 }
 
+export interface TransferPlan {
+  /** 갈아타기 전 역 index (다음 index 가 같은 이름의 다른 노선 역) */
+  stationIndex: number;
+  t0: number;
+  t1: number;
+  official: Transfer;
+}
+
 export interface Journey {
   stations: Station[];
+  /** 실제로 달리는 구간만 (환승 제외). SegmentPlan.index 는 출발역 index */
   segments: SegmentPlan[];
+  transfers: TransferPlan[];
   sections: Section[];
   phases: PhaseSpan[];
   events: JourneyEvent[];
@@ -103,11 +115,32 @@ export const MOTION = {
 const K = (1 - ACCEL.distFactor) / MOTION.accel + (1 - DECEL.distFactor) / MOTION.decel;
 const RAMP_DIST_PER_V2 = ACCEL.distFactor / MOTION.accel + DECEL.distFactor / MOTION.decel;
 
+/** 환승 정차: 도착 후 문 열린 채 잠시 → 걸어서 갈아타기 → 새 열차 탑승 */
+const TRANSFER_ARRIVE_SEC = 8;
+
+function transferOf(a: Station, b: Station): Transfer {
+  const t = transferBetween(a.id, b.id);
+  if (!t) throw new Error(`No official transfer ${a.id} → ${b.id}`);
+  return t;
+}
+
+/** 정차·환승에 고정으로 드는 시간 (주행 제외) */
+function fixedStopSec(stations: Station[]): number {
+  const n = stations.length - 1;
+  let sec = MOTION.boardingSec + MOTION.finalHoldSec;
+  for (let i = 1; i < n; i++) {
+    if (isTransferPair(stations[i], stations[i + 1])) sec += TRANSFER_ARRIVE_SEC + transferOf(stations[i], stations[i + 1]).sec + MOTION.boardingSec;
+    else if (!isTransferPair(stations[i - 1], stations[i])) sec += MOTION.dwellSec;
+  }
+  return sec;
+}
+
 /** 이 역 목록을 연출하는 데 필요한 최소 시간 (초) */
 export function minJourneySec(stationIds: string[]): number {
   const stations = stationIds.map(getStation);
-  let sec = MOTION.boardingSec + MOTION.finalHoldSec + (stations.length - 2) * MOTION.dwellSec;
+  let sec = fixedStopSec(stations);
   for (let i = 0; i < stations.length - 1; i++) {
+    if (isTransferPair(stations[i], stations[i + 1])) continue;
     const seg = getSegment(stations[i].id, stations[i + 1].id);
     const dMin = 2 * PLATFORM_HALF + middleSections(seg.id, stations[i], stations[i + 1]).reduce((a, s) => a + s.length, 0);
     const v = Math.min(MOTION.vMax, Math.sqrt(dMin / RAMP_DIST_PER_V2));
@@ -126,6 +159,7 @@ function buildStayJourney(stationId: string, totalSec: number): Journey {
   return {
     stations: [station],
     segments: [],
+    transfers: [],
     sections: [
       { kind: leadSection(station), x0: -2000, x1: -PLATFORM_HALF, view },
       { kind: "platform", x0: -PLATFORM_HALF, x1: PLATFORM_HALF, station, stationIndex: 0, view },
@@ -138,28 +172,36 @@ function buildStayJourney(stationId: string, totalSec: number): Journey {
   };
 }
 
+/** 환승할 때 카메라가 건너뛰는 거리 (두 승강장 사이, 화면에 보이지 않는다) */
+const TRANSFER_GAP = 600;
+
 export function buildJourney(config: JourneyConfig): Journey {
   if (config.stationIds.length === 1) return buildStayJourney(config.stationIds[0], config.totalSec);
   const stations = config.stationIds.map(getStation);
   if (stations.length < 2) throw new Error("Journey needs at least one station");
   const n = stations.length - 1;
-  const raw = Array.from({ length: n }, (_, i) => getSegment(stations[i].id, stations[i + 1].id));
-  const views = raw.map((r) => windowFacing(r.heading));
+  const isX = (i: number) => i >= 0 && i < n && isTransferPair(stations[i], stations[i + 1]);
+  // 구간 i (역 i → i+1): 달리는 구간이면 노선 데이터, 환승이면 null
+  const raw = Array.from({ length: n }, (_, i) => (isX(i) ? null : getSegment(stations[i].id, stations[i + 1].id)));
+  // 창 방향: 환승 구간은 이어지는 구간의 방향을 따른다
+  const views: LineSegment["heading"][] = [];
+  for (let i = n - 1; i >= 0; i--) views[i] = raw[i] ? windowFacing(raw[i]!.heading) : (views[i + 1] ?? windowFacing(raw.findLast((r) => r)!.heading));
+  for (let i = 0; i < n; i++) if (!raw[i] && i > 0 && raw[i - 1]) views[i] = views[i + 1] ?? views[i - 1];
 
-  const fixedSec = MOTION.boardingSec + MOTION.finalHoldSec + (n - 1) * MOTION.dwellSec;
-  const moveSec = Math.max(1, config.totalSec - fixedSec);
-  const weightSum = raw.reduce((a, s) => a + s.runSec, 0);
+  const moveSec = Math.max(1, config.totalSec - fixedStopSec(stations));
+  const weightSum = raw.reduce((a, s) => a + (s?.runSec ?? 0), 0);
 
   const segments: SegmentPlan[] = [];
+  const transfers: TransferPlan[] = [];
   const sections: Section[] = [];
   const phases: PhaseSpan[] = [];
   const events: JourneyEvent[] = [];
   const stopX: number[] = [0];
 
   // 출발역 이전 배경 + 출발역 승강장
-  const firstStyle = cityStyle(stations[0].id, stations[1].id);
-  sections.push({ kind: leadSection(stations[0]), x0: -2000, x1: -PLATFORM_HALF, view: views[0], style: firstStyle });
-  sections.push({ kind: "platform", x0: -PLATFORM_HALF, x1: PLATFORM_HALF, station: stations[0], stationIndex: 0, view: views[0], style: firstStyle });
+  const styleOf = (i: number) => cityStyle(stations[i].id, stations[Math.min(n, i + 1)].id);
+  sections.push({ kind: leadSection(stations[0]), x0: -2000, x1: -PLATFORM_HALF, view: views[0], style: styleOf(0) });
+  sections.push({ kind: "platform", x0: -PLATFORM_HALF, x1: PLATFORM_HALF, station: stations[0], stationIndex: 0, view: views[0], style: styleOf(0) });
 
   let t = 0;
   let x = 0;
@@ -168,8 +210,31 @@ export function buildJourney(config: JourneyConfig): Journey {
 
   for (let i = 0; i < n; i++) {
     const seg = raw[i];
+    if (!seg) {
+      // ── 환승: 역 i 에서 내려 걸어서 역 i+1(같은 이름, 다른 노선) 승강장으로 ──
+      const official = transferOf(stations[i], stations[i + 1]);
+      phases.push({ kind: "TRANSFER", t0: t, t1: t + official.sec, ref: i });
+      events.push({ t, type: "transfer", stationIndex: i + 1 });
+      transfers.push({ stationIndex: i, t0: t, t1: t + official.sec, official });
+      t += official.sec;
+      // 두 승강장 사이(보이지 않음): 각 역의 바깥 배경
+      const xNew = x + 2 * PLATFORM_HALF + TRANSFER_GAP;
+      const mid = x + PLATFORM_HALF + TRANSFER_GAP / 2;
+      sections.push({ kind: leadSection(stations[i]), x0: x + PLATFORM_HALF, x1: mid, view: views[i], style: styleOf(i) });
+      sections.push({ kind: leadSection(stations[i + 1]), x0: mid, x1: xNew - PLATFORM_HALF, view: views[i + 1] ?? views[i], style: styleOf(i + 1) });
+      sections.push({ kind: "platform", x0: xNew - PLATFORM_HALF, x1: xNew + PLATFORM_HALF, station: stations[i + 1], stationIndex: i + 1, view: views[i + 1] ?? views[i], style: styleOf(i + 1) });
+      x = xNew;
+      stopX.push(x);
+      // 새 열차에 탄다
+      if (i + 1 < n) {
+        phases.push({ kind: "BOARDING", t0: t, t1: t + MOTION.boardingSec, ref: i + 1 });
+        t += MOTION.boardingSec;
+      }
+      continue;
+    }
+
     const specs = middleSections(seg.id, stations[i], stations[i + 1]);
-    const dMin = 2 * PLATFORM_HALF + specs.reduce((a, s) => a + s.length, 0);
+    const dMin = 2 * PLATFORM_HALF + specs.reduce((a, sp) => a + sp.length, 0);
     const T = (moveSec * seg.runSec) / weightSum;
 
     // 목표 순항속도로 T 를 채우는 거리. 최소 연출 길이보다 짧으면 속도를 조정한다.
@@ -191,12 +256,12 @@ export function buildJourney(config: JourneyConfig): Journey {
 
     // 연출 구간 배치: 남는 거리를 stretch 가중치로 분배
     const extra = D - dMin;
-    const stretchSum = specs.reduce((a, s) => a + s.stretch, 0);
+    const stretchSum = specs.reduce((a, sp) => a + sp.stretch, 0);
     let cx = x + PLATFORM_HALF;
-    specs.forEach((s, k) => {
-      const add = stretchSum > 0 ? (extra * s.stretch) / stretchSum : k === specs.length - 1 ? extra : 0;
-      const len = s.length + add;
-      sections.push({ kind: s.kind, x0: cx, x1: cx + len, variant: s.variant, view: views[i], style: cityStyle(stations[i].id, stations[i + 1].id) });
+    specs.forEach((sp, k) => {
+      const add = stretchSum > 0 ? (extra * sp.stretch) / stretchSum : k === specs.length - 1 ? extra : 0;
+      const len = sp.length + add;
+      sections.push({ kind: sp.kind, x0: cx, x1: cx + len, variant: sp.variant, view: views[i], style: cityStyle(stations[i].id, stations[i + 1].id) });
       cx += len;
     });
     const xTo = x + D;
@@ -210,31 +275,17 @@ export function buildJourney(config: JourneyConfig): Journey {
       style: cityStyle(stations[i].id, stations[i + 1].id),
     });
 
-    const plan: SegmentPlan = {
-      index: i,
-      from: stations[i],
-      to: stations[i + 1],
-      xFrom: x,
-      xTo,
-      distance: D,
-      vCruise: v,
-      tStart: t,
-      tAccel,
-      tCruise,
-      tDecel,
-      sAccel,
-      sCruise,
-    };
-    segments.push(plan);
+    const segIdx = segments.length;
+    segments.push({ index: i, from: stations[i], to: stations[i + 1], xFrom: x, xTo, distance: D, vCruise: v, tStart: t, tAccel, tCruise, tDecel, sAccel, sCruise });
 
     events.push({ t: Math.max(0.6, t - 7.5), type: "departChime", stationIndex: i });
     events.push({ t: Math.max(1.2, t - 5), type: "doorClose", stationIndex: i });
     events.push({ t, type: "depart", stationIndex: i });
 
-    phases.push({ kind: "DEPARTING", t0: t, t1: t + tAccel, ref: i });
-    phases.push({ kind: "MOVING", t0: t + tAccel, t1: t + tAccel + tCruise, ref: i });
+    phases.push({ kind: "DEPARTING", t0: t, t1: t + tAccel, ref: segIdx });
+    phases.push({ kind: "MOVING", t0: t + tAccel, t1: t + tAccel + tCruise, ref: segIdx });
     const tDecelStart = t + tAccel + tCruise;
-    phases.push({ kind: "APPROACHING", t0: tDecelStart, t1: tDecelStart + tDecel, ref: i });
+    phases.push({ kind: "APPROACHING", t0: tDecelStart, t1: tDecelStart + tDecel, ref: segIdx });
     events.push({ t: Math.max(t + 2, tDecelStart - 8), type: "approach", stationIndex: i + 1 });
 
     t = tDecelStart + tDecel;
@@ -244,9 +295,15 @@ export function buildJourney(config: JourneyConfig): Journey {
     events.push({ t: t + 1.2, type: "doorOpen", stationIndex: i + 1 });
 
     if (i < n - 1) {
-      phases.push({ kind: "ARRIVED", t0: t, t1: t + MOTION.dwellSec * 0.4, ref: i + 1 });
-      phases.push({ kind: "BOARDING", t0: t + MOTION.dwellSec * 0.4, t1: t + MOTION.dwellSec, ref: i + 1 });
-      t += MOTION.dwellSec;
+      if (isX(i + 1)) {
+        // 다음은 환승: 문 열린 채 잠시 섰다가 내린다
+        phases.push({ kind: "ARRIVED", t0: t, t1: t + TRANSFER_ARRIVE_SEC, ref: i + 1 });
+        t += TRANSFER_ARRIVE_SEC;
+      } else {
+        phases.push({ kind: "ARRIVED", t0: t, t1: t + MOTION.dwellSec * 0.4, ref: i + 1 });
+        phases.push({ kind: "BOARDING", t0: t + MOTION.dwellSec * 0.4, t1: t + MOTION.dwellSec, ref: i + 1 });
+        t += MOTION.dwellSec;
+      }
     }
   }
 
@@ -254,10 +311,11 @@ export function buildJourney(config: JourneyConfig): Journey {
   const totalSec = Math.max(t + 2, config.totalSec);
   phases.push({ kind: "ARRIVED", t0: t, t1: totalSec, ref: n });
   events.push({ t: totalSec, type: "complete", stationIndex: n });
-  sections.push({ kind: leadSection(stations[n]), x0: x + PLATFORM_HALF, x1: x + 4000, view: views[n - 1], style: cityStyle(stations[n - 1].id, stations[n].id) });
+  const lastRun = raw.findLastIndex((r) => r);
+  sections.push({ kind: leadSection(stations[n]), x0: x + PLATFORM_HALF, x1: x + 4000, view: views[n - 1], style: cityStyle(stations[lastRun].id, stations[lastRun + 1].id) });
 
   events.sort((a, b) => a.t - b.t);
-  return { stations, segments, sections, phases, events, stopX, totalSec };
+  return { stations, segments, transfers, sections, phases, events, stopX, totalSec };
 }
 
 export interface SimSample {
@@ -279,14 +337,28 @@ export interface SimSample {
   remainingSec: number;
 }
 
+/**
+ * 진행 막대용 위치: 환승 때 건너뛴 거리(두 승강장 사이)를 뺀 트랙 위치.
+ * 환승역 두 정차 위치는 같은 점이 된다.
+ */
+export function runX(j: Journey, x: number): number {
+  let gap = 0;
+  for (const tr of j.transfers) {
+    const a = j.stopX[tr.stationIndex];
+    const b = j.stopX[tr.stationIndex + 1];
+    if (x >= b) gap += b - a;
+  }
+  return x - gap;
+}
+
 export function sampleJourney(j: Journey, tRaw: number): SimSample {
   const t = Math.min(Math.max(tRaw, 0), j.totalSec);
-  const totalX = j.stopX[j.stopX.length - 1];
+  const totalX = runX(j, j.stopX[j.stopX.length - 1]);
   const remainingSec = Math.max(0, j.totalSec - t);
 
   if (tRaw >= j.totalSec) {
     const last = j.stations.length - 1;
-    return { t, phase: "COMPLETED", x: totalX, v: 0, a: 0, stationIndex: last, nextIndex: last, doorsOpen: true, progress: 1, remainingSec: 0 };
+    return { t, phase: "COMPLETED", x: j.stopX[j.stopX.length - 1], v: 0, a: 0, stationIndex: last, nextIndex: last, doorsOpen: true, progress: 1, remainingSec: 0 };
   }
 
   // phases 는 시간순 → 이진 탐색
@@ -298,6 +370,14 @@ export function sampleJourney(j: Journey, tRaw: number): SimSample {
     else hi = mid - 1;
   }
   const ph = j.phases[lo];
+
+  if (ph.kind === "TRANSFER") {
+    // 걸어가는 동안 화면은 안내 카드로 덮이고, 중간에 새 노선 승강장으로 건너뛴다
+    const half = t < (ph.t0 + ph.t1) / 2;
+    const si = half ? ph.ref : ph.ref + 1;
+    const x = j.stopX[si];
+    return { t, phase: "TRANSFER", x, v: 0, a: 0, stationIndex: si, nextIndex: si, doorsOpen: true, progress: totalX > 0 ? runX(j, x) / totalX : 0, remainingSec };
+  }
 
   if (ph.kind === "BOARDING" || ph.kind === "ARRIVED") {
     const si = ph.ref;
@@ -315,7 +395,7 @@ export function sampleJourney(j: Journey, tRaw: number): SimSample {
       stationIndex: si,
       nextIndex: si,
       doorsOpen: opened && !closed,
-      progress: totalX > 0 ? x / totalX : 0,
+      progress: totalX > 0 ? runX(j, x) / totalX : 0,
       remainingSec,
     };
   }
@@ -350,7 +430,7 @@ export function sampleJourney(j: Journey, tRaw: number): SimSample {
     stationIndex: seg.index,
     nextIndex: seg.index + 1,
     doorsOpen: false,
-    progress: totalX > 0 ? x / totalX : 0,
+    progress: totalX > 0 ? runX(j, x) / totalX : 0,
     remainingSec,
   };
 }
