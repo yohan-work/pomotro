@@ -108,3 +108,31 @@ describe("session lifecycle", () => {
     expect(st().records.map((r) => r.partial)).toEqual([false, true]);
   });
 });
+
+describe("장거리 여행", () => {
+  beforeEach(() => useAppStore.setState({ activeSession: null, records: [], lastRecordId: null, trip: null }));
+
+  it("끝까지 달린 구간만큼 진행하고, 마지막 구간에서 완주", async () => {
+    const { nextLeg, tripPath } = await import("../lib/trips");
+    st().startTrip("line4");
+    let guard = 0;
+    while (!st().trip!.doneAt && guard++ < 10) {
+      const leg = nextLeg("line4", st().trip!.progress, 25 * 60)!;
+      st().startSession({ mode: "focus", stationIds: leg.stationIds, totalSec: 1500, task: "", trip: { id: "line4", to: leg.to } });
+      st().completeSession();
+    }
+    expect(st().trip!.progress).toBe(tripPath("line4").length - 1);
+    expect(st().trip!.doneAt).toBeGreaterThan(0);
+    expect(st().records.at(-1)!.trip).toEqual({ id: "line4", done: true });
+  });
+
+  it("중도 하차는 진행하지 않는다", async () => {
+    const { nextLeg } = await import("../lib/trips");
+    st().startTrip("loop2");
+    const leg = nextLeg("loop2", 0, 25 * 60)!;
+    st().startSession({ mode: "focus", stationIds: leg.stationIds, totalSec: 1500, task: "", trip: { id: "loop2", to: leg.to } });
+    st().completeSession({ partialElapsedSec: 300, partialDistanceKm: 1 });
+    expect(st().trip!.progress).toBe(0);
+    expect(st().records.at(-1)!.trip).toEqual({ id: "loop2", done: false });
+  });
+});

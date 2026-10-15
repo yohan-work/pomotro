@@ -62,9 +62,10 @@ export type BadgeId =
   | "focus-10h"
   | "km-100"
   | "streak-7"
-  | "dex-half";
+  | "dex-half"
+  | "trip-complete";
 
-export const BADGE_IDS: readonly BadgeId[] = ["first-ride", "han-river", "first-transfer", "five-bridges", "loop2", "line-complete", "focus-10h", "km-100", "streak-7", "dex-half"];
+export const BADGE_IDS: readonly BadgeId[] = ["first-ride", "han-river", "first-transfer", "five-bridges", "loop2", "line-complete", "trip-complete", "focus-10h", "km-100", "streak-7", "dex-half"];
 
 export interface Badge {
   id: BadgeId;
@@ -90,6 +91,7 @@ export function badges(records: RideRecord[], now = Date.now()): Badge[] {
     b("five-bridges", bridges, HAN_BRIDGES.length),
     b("loop2", loop2, 43),
     b("line-complete", complete, 1),
+    b("trip-complete", done.some((r) => r.trip?.done) ? 1 : 0, 1),
     b("focus-10h", Math.floor(tot.focusSec / 3600), 10),
     b("km-100", Math.floor(tot.km), 100),
     b("streak-7", tot.streak, 7),

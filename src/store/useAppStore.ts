@@ -23,6 +23,7 @@ import type { TimeOfDay } from "../render/palette";
 import type { QualityMode } from "../render/Renderer";
 import type { Season, Weather } from "../render/conditions";
 import type { RideEventKind } from "../sim/rideEvents";
+import { tripPath, type TripId } from "../lib/trips";
 
 export type SessionMode = "demo" | "focus" | "break";
 export type BreakKind = "short" | "long";
@@ -53,6 +54,18 @@ export interface ActiveSession extends SessionTiming {
   totalSec: number;
   task: string;
   breakKind?: BreakKind;
+  /** 장거리 여행의 한 구간이면 그 여행과 이 구간의 끝(코스 경로 index) */
+  trip?: { id: TripId; to: number };
+}
+
+/** 진행 중인 장거리 여행 */
+export interface TripState {
+  id: TripId;
+  /** 코스 경로에서 지금 위치 (index) */
+  progress: number;
+  startedAt: number;
+  /** 완주 시각 */
+  doneAt?: number;
 }
 
 export interface RideRecord {
@@ -74,6 +87,8 @@ export interface RideRecord {
   encounters?: RideEventKind[];
   /** 환승 여행의 경로 (한 노선 여행은 없음 — 출발·도착역으로 복원) */
   stationIds?: string[];
+  /** 장거리 여행의 구간 (done = 이 기록으로 완주) */
+  trip?: { id: TripId; done: boolean };
 }
 
 export interface AppState {
@@ -132,7 +147,10 @@ export interface AppState {
   /** 방금 도착한 역에서 휴식 시작 */
   startBreak: (stationId: string) => void;
 
-  startSession: (s: { mode: SessionMode; stationIds: string[]; totalSec: number; task: string; seekSec?: number }) => void;
+  startSession: (s: { mode: SessionMode; stationIds: string[]; totalSec: number; task: string; seekSec?: number; trip?: { id: TripId; to: number } }) => void;
+  trip: TripState | null;
+  startTrip: (id: TripId) => void;
+  quitTrip: () => void;
   pause: () => void;
   resume: () => void;
   completeSession: (opts?: { partialElapsedSec?: number; partialDistanceKm?: number; encounters?: RideEventKind[] }) => void;
@@ -214,7 +232,11 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      startSession: ({ mode, stationIds, totalSec, task, seekSec = 0 }) =>
+      trip: null,
+      startTrip: (id) => set({ trip: { id, progress: 0, startedAt: Date.now() } }),
+      quitTrip: () => set({ trip: null }),
+
+      startSession: ({ mode, stationIds, totalSec, task, seekSec = 0, trip }) =>
         set({
           lastRecordId: null,
           breakJustEnded: false,
@@ -224,6 +246,7 @@ export const useAppStore = create<AppState>()(
             stationIds,
             totalSec,
             task,
+            ...(trip ? { trip } : {}),
             startedAt: epochNow() - seekSec * 1000,
             pausedAccumMs: 0,
             pausedAt: null,
@@ -291,12 +314,21 @@ export const useAppStore = create<AppState>()(
           ...(opts?.encounters?.length ? { encounters: opts.encounters } : {}),
           ...(new Set(s.stationIds.map((id) => getStation(id).line)).size > 1 ? { stationIds: s.stationIds } : {}),
         };
+        // 장거리 여행: 끝까지 달린 구간만큼 진행 (중도 하차는 위치를 알 수 없어 진행 없음)
+        const trip = get().trip;
+        let tripNext = trip;
+        if (s.trip && trip && trip.id === s.trip.id && !trip.doneAt) {
+          const done = !partial && s.mode === "focus" && s.trip.to >= tripPath(trip.id).length - 1;
+          if (!partial && s.mode === "focus") tripNext = { ...trip, progress: Math.max(trip.progress, s.trip.to), ...(done ? { doneAt: endAt } : {}) };
+          rec.trip = { id: trip.id, done };
+        }
         // 끝난 지 오래된 세션은 지금의 뽀모도로 흐름과 무관 → 회차에 넣지 않는다
         const fresh = now - endAt < POMODORO.staleCycleMs;
         const counts = s.mode === "focus" && !partial && fresh;
         const stale = endAt - get().lastFocusAt > POMODORO.staleCycleMs;
         set({
           activeSession: null,
+          trip: tripNext,
           records: [...get().records, rec].slice(-2000),
           lastRecordId: s.id,
           nextOriginId: s.mode === "focus" && !partial ? rec.toId : get().nextOriginId,
@@ -365,6 +397,7 @@ export const useAppStore = create<AppState>()(
         lastFocusAt: s.lastFocusAt,
         nextOriginId: s.nextOriginId,
         breakJustEnded: s.breakJustEnded,
+        trip: s.trip,
       }),
     },
   ),
