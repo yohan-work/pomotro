@@ -40,4 +40,10 @@ describe("recommendRoutes", () => {
     expect(r.distanceKm).toBe(2);
     expect(r.keywords).toContain("kw.dangsan");
   });
+  it("tags Line 3 Dongho and the new Han River bridges, not the Gyeongui riverside", () => {
+    expect(describeRoute(["l3-oksu", "l3-apgujeong"]).tagline).toBe("tag.donghoSouth");
+    expect(describeRoute(["l4-ichon", "l4-dongjak"]).tagline).toBe("tag.dongjakSouth");
+    expect(describeRoute(["l4-dongjak", "l4-ichon"]).tagline).toBe("tag.dongjakNorth");
+    expect(describeRoute(["l7-jayang", "l7-cheongdam"]).keywords).toContain("kw.cheongdam");
+  });
 });
