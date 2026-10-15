@@ -297,6 +297,33 @@ await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=100&mode=
 await page.waitForTimeout(600);
 check((await page.locator("[data-testid=cabin-passenger]").count()) === 1, "forced event still shows for verification when surprises are off");
 
+// 장거리 여행: 코스 시작 → 다음 구간 출발 → 끝까지 달리면 진행 저장
+{
+  await page.goto(base, { waitUntil: "networkidle" });
+  await page.evaluate(() => localStorage.setItem("metro-focus-v1", JSON.stringify({ version: 2, state: { seenRideTips: true, focusMinutes: 25 } })));
+  await page.reload({ waitUntil: "networkidle" });
+  await page.getByRole("tab", { name: "장거리" }).click();
+  await page.locator("[class*=preset]").filter({ hasText: "2호선 한 바퀴" }).getByRole("button", { name: "시작" }).click();
+  const next = await page.locator("[class*=next]").first().textContent();
+  check(/다음 구간 시청 →/.test(next), `long trip shows the next leg (${next.slice(0, 30)}…)`);
+  await page.getByRole("button", { name: /출발하기/ }).click();
+  await page.waitForSelector("[data-testid=timer]");
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("metro-focus-v1"));
+    s.state.activeSession.startedAt -= (s.state.activeSession.totalSec - 2) * 1000;
+    localStorage.setItem("metro-focus-v1", JSON.stringify(s));
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("text=/2호선 한 바퀴 · \\d+\\/43 구간/", { timeout: 20000 });
+  const trip = (await store()).trip;
+  check(trip?.id === "loop2" && trip.progress > 0, `long trip progress saved after the leg (progress ${trip?.progress})`);
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("metro-focus-v1"));
+    s.state.trip = null;
+    localStorage.setItem("metro-focus-v1", JSON.stringify(s));
+  });
+}
+
 // 하이라이트 영상: 완료 화면에서 만들어 내려받기 (MediaRecorder, mp4 또는 webm)
 {
   await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=150&mode=focus&seek=146`, { waitUntil: "networkidle" });
