@@ -5,7 +5,7 @@ import { getAudio, unlockAudio } from "@/audio/instance";
 import { LINES, LINE_BY_ID, findRoute, getStation, type LineId, type Station } from "@/data/lines";
 import { notifyStatus, requestNotifyPermission, type NotifyStatus } from "@/lib/background";
 import { DEMO_ROUTE, describeRoute, recommendRoutes } from "@/lib/recommend";
-import { useT } from "@/i18n";
+import { useT, type StringKey } from "@/i18n";
 import { LINE2_META } from "@/data/lines";
 import { Renderer } from "@/render/Renderer";
 import { timeOfDayKST } from "@/render/palette";
@@ -19,7 +19,7 @@ import LineMap from "./LineMap";
 import { LineBadge } from "./LineBadge";
 import { StationSearch } from "./StationSearch";
 import { TripPanel } from "./TripPanel";
-import { nextLeg } from "@/lib/trips";
+import { nextLeg, tripDone, tripSummary } from "@/lib/trips";
 import styles from "./SetupScreen.module.css";
 
 const PRESETS = [15, 25, 40, 60];
@@ -119,6 +119,8 @@ export default function SetupScreen() {
   const routes = useMemo(() => recommendRoutes(focusSec, 3, origin), [focusSec, origin]);
   useEffect(() => setSelected(0), [focusMinutes, origin]);
   const today = todayFocusSec(records);
+  /** 처음 온 사람: 추천만 (직접 고르기·장거리는 첫 승차 뒤) */
+  const firstVisit = records.length === 0 && !trip;
 
   const picked = useMemo(() => {
     if (!pickFrom || !pickTo) return null;
@@ -257,7 +259,22 @@ export default function SetupScreen() {
           />
         </label>
 
-        {nextOriginId && (
+        {/* 이어 가기: 진행 중인 장거리 여행이 먼저, 아니면 지난 도착역에서 */}
+        {trip && !trip.doneAt && tripLeg && (
+          <div className={styles.continueCard}>
+            <span className={styles.continueText}>
+              <small>{t("setup.tripOngoing", { n: tripDone(trip.id, trip.progress), total: tripSummary(trip.id).stations })}</small>
+              <b>{t(`trip.${trip.id}` as StringKey)}</b>
+              <span>
+                {t("trip.next")} {name(getStation(tripLeg.stationIds[0]))} → {name(getStation(tripLeg.stationIds.at(-1)!))}
+              </span>
+            </span>
+            <button className={tab === "trip" ? styles.continueOn : styles.continueBtn} onClick={() => setTab("trip")} aria-pressed={tab === "trip"}>
+              {tab === "trip" ? t("setup.tripSelected") : t("setup.tripContinue")}
+            </button>
+          </div>
+        )}
+        {nextOriginId && tab !== "trip" && (
           <label className={styles.continue}>
             <input
               type="checkbox"
@@ -277,6 +294,18 @@ export default function SetupScreen() {
         )}
 
         <div className={styles.actionsBlock}>
+        {route && (
+          <p className={styles.routeSummary} aria-live="polite">
+            <span className={styles.summaryDot} style={{ background: LINE_BY_ID[route.from.line].color }} />
+            <b>
+              {name(route.from)} → {name(route.to)}
+            </b>
+            <span>
+              {" "}
+              · {t(route.estimated ? "common.minApproxEst" : "common.minApprox", { n: Math.round(route.estSec / 60) })}
+            </span>
+          </p>
+        )}
         <button className={styles.depart} onClick={depart} disabled={!route || tooShort}>
           {t("setup.depart")} <IconArrow width={18} height={18} />
         </button>
@@ -293,18 +322,30 @@ export default function SetupScreen() {
                 : t("setup.notifyUnsupported")}
           </p>
         )}
-        <button className={styles.demo} onClick={demo}>
-          {t("setup.demo")}
-        </button>
+        </div>
+        <div className={styles.extras}>
+        {firstVisit ? (
+          <button className={styles.demo} onClick={demo}>
+            {t("setup.demo")}
+          </button>
+        ) : (
+          <button className={styles.demoLink} onClick={demo}>
+            {t("setup.demoShort")}
+          </button>
+        )}
 
         <footer className={styles.foot}>
-          {today > 0 && <span>{t("setup.todayRode", { n: Math.round(today / 60) })}</span>}
-          <span>{t("setup.dataNotice", { date: LINE2_META.source.updated })}</span> <span>{t("setup.dataNoticeGJ")}</span>
+          {today > 0 && <span>{t("setup.todayRode", { n: Math.round(today / 60) })} </span>}
+          <details className={styles.sources}>
+            <summary>{t("setup.sources")}</summary>
+            <span>{t("setup.dataNotice", { date: LINE2_META.source.updated })}</span> <span>{t("setup.dataNoticeGJ")}</span> <span>{t("setup.dataNoticeMore")}</span>
+          </details>
         </footer>
         </div>
         </div>
         <div className={styles.colRoute}>
         <div className={`${styles.field} ${styles.routeBlock}`}>
+          {!firstVisit && (
           <div className={styles.tabs} role="tablist" aria-label={t("setup.routeTabs")}>
             <button role="tab" aria-selected={tab === "recommend"} className={tab === "recommend" ? styles.tabOn : styles.tab} onClick={() => setTab("recommend")}>
               {t("setup.recommended")}
@@ -316,6 +357,7 @@ export default function SetupScreen() {
               {t("setup.trip")}
             </button>
           </div>
+          )}
           {tab === "trip" ? (
             <TripPanel leg={tripLeg} focusMin={focusMinutes} />
           ) : tab === "recommend" ? (
