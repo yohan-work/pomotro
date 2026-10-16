@@ -21,6 +21,7 @@ import { CabinPassenger } from "./Passengers";
 import { LineBadge } from "./LineBadge";
 import { Garland } from "./Garland";
 import { calendarNow, christmasSeason, specialDay } from "@/lib/calendar";
+import { todayDone } from "@/lib/goals";
 import styles from "./RideScreen.module.css";
 
 export interface RideDebug {
@@ -121,6 +122,9 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const isBreak = session.mode === "break";
   const { t, name, lang } = useT();
   const surprisesOn = useAppStore((s) => s.surprises);
+  const goal = useAppStore((s) => s.dailyGoal);
+  // 이 여행이 오늘 몇 번째인지 (출발 시점 기준 — 여행 중에는 바뀌지 않는다)
+  const [doneTodayAtStart] = useState(() => todayDone(useAppStore.getState().records));
   const plannedEvents = useMemo(() => {
     if (isBreak) return [];
     // 강제 이벤트는 검증 화면이 매번 같도록 이벤트 이름을 시드로
@@ -673,6 +677,9 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       </header>
       <div className={styles.topRight}>
         {session.task && <span className={styles.task}>{session.task}</span>}
+        {session.mode === "focus" && goal > 0 && (
+          <span className={styles.weatherChip}>{t("goal.rideChip", { n: doneTodayAtStart + 1, goal })}</span>
+        )}
         {cond.live && (
           <span className={styles.weatherChip} title={t("ride.weatherTitle")}>
             {t("ride.weatherChip", { w: t(`weather.${cond.live.weather}`), t: cond.live.tempC })}

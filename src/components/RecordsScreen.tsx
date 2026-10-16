@@ -10,6 +10,8 @@ import { IconArrow, IconClose, IconDownload } from "./Icons";
 import LineMap from "./LineMap";
 import { EncounterIcon } from "./Passengers";
 import { BadgeIcon } from "./BadgeIcon";
+import { WeeklyRecap } from "./WeeklyRecap";
+import { kstWeek } from "@/lib/goals";
 import { LineBadge } from "./LineBadge";
 import { badges, lineProgress } from "@/lib/badges";
 import { EVENT_KINDS, RARE_KINDS } from "@/sim/rideEvents";
@@ -49,7 +51,8 @@ function LineProgressPanel({ records }: { records: RideRecord[] }) {
 /** 배지 — 얻은 것은 금색 테두리, 진행 중인 것은 진행도 */
 function BadgePanel({ records }: { records: RideRecord[] }) {
   const { t } = useT();
-  const list = useMemo(() => badges(records), [records]);
+  const goal = useAppStore((s) => s.dailyGoal);
+  const list = useMemo(() => badges(records, Date.now(), goal), [records, goal]);
   return (
     <section className={styles.panel} aria-label={t("rec.badges")}>
       <h2 className={styles.h2}>
@@ -320,6 +323,8 @@ export default function RecordsScreen() {
   const records = useAppStore((s) => s.records);
   const setView = useAppStore((s) => s.setView);
   const [open, setOpen] = useState<RideRecord | null>(null);
+  // 기록 화면을 열면 이번 주 회고 알림은 본 것으로
+  useEffect(() => useAppStore.getState().setRecapSeenWeek(kstWeek(Date.now())), []);
   const tot = useMemo(() => totals(records), [records]);
   const v = useMemo(() => visited(records), [records]);
   const week = useMemo(() => lastWeek(records, Date.now(), tr(lang, "rec.days").split(","), tr(lang, "rec.today")), [records, lang]);
@@ -371,6 +376,7 @@ export default function RecordsScreen() {
           <WeekChart data={week} />
         </section>
 
+        <WeeklyRecap records={records} />
         <LineProgressPanel records={records} />
         <BadgePanel records={records} />
         <EncounterDex records={records} />

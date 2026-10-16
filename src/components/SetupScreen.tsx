@@ -19,6 +19,8 @@ import LineMap from "./LineMap";
 import { LineBadge } from "./LineBadge";
 import { StationSearch } from "./StationSearch";
 import { TripPanel } from "./TripPanel";
+import { GoalRing } from "./GoalRing";
+import { kstWeek, todayDone, weekSummary } from "@/lib/goals";
 import { nextLeg, tripDone, tripSummary } from "@/lib/trips";
 import styles from "./SetupScreen.module.css";
 
@@ -122,6 +124,14 @@ export default function SetupScreen() {
   const today = todayFocusSec(records);
   /** 처음 온 사람: 추천만 (직접 고르기·장거리는 첫 승차 뒤) */
   const firstVisit = records.length === 0 && !trip;
+  const goal = useAppStore((s) => s.dailyGoal);
+  const recapSeenWeek = useAppStore((s) => s.recapSeenWeek);
+  const [goalOpen, setGoalOpen] = useState(false);
+  const doneToday = todayDone(records);
+  // 새 주가 시작되면 지난주 회고를 한 번 알려준다
+  const thisWeek = kstWeek(Date.now());
+  const lastWeek = useMemo(() => weekSummary(records, thisWeek - 1, goal), [records, thisWeek, goal]);
+  const showRecap = !firstVisit && recapSeenWeek < thisWeek && lastWeek.rides > 0;
 
   const picked = useMemo(() => {
     if (!pickFrom || !pickTo) return null;
@@ -205,6 +215,56 @@ export default function SetupScreen() {
           {t("setup.title2")}
         </h1>
         <p className={styles.sub}>{t("setup.sub")}</p>
+
+        {showRecap && (
+          <div className={styles.recapBanner} role="status">
+            <span>{t("recap.banner", { n: lastWeek.rides, m: lastWeek.minutes })}</span>
+            <button
+              className={styles.recapOpen}
+              onClick={() => {
+                const st = useAppStore.getState();
+                st.setRecapSeenWeek(thisWeek);
+                st.setView("records");
+              }}
+            >
+              {t("recap.open")}
+            </button>
+            <button className={styles.recapClose} onClick={() => useAppStore.getState().setRecapSeenWeek(thisWeek)} aria-label={t("common.close")}>
+              <IconClose width={14} height={14} />
+            </button>
+          </div>
+        )}
+
+        {!firstVisit && (
+          <div className={styles.goalRow}>
+            {goal > 0 && <GoalRing done={doneToday} goal={goal} />}
+            <span>
+              {t("goal.label")}{" "}
+              {goal > 0 ? <b>{doneToday >= goal ? t("goal.done") : t("goal.progress", { n: doneToday, goal })}</b> : <b>{t("goal.off")}</b>}
+            </span>
+            <button className={styles.goalEdit} onClick={() => setGoalOpen((o) => !o)} aria-expanded={goalOpen}>
+              {t("goal.change")}
+            </button>
+          </div>
+        )}
+        {goalOpen && (
+          <div className={styles.chips} role="radiogroup" aria-label={t("goal.label")} style={{ marginTop: -6, marginBottom: 14 }}>
+            {[0, 2, 4, 6, 8].map((n) => (
+              <button
+                key={n}
+                role="radio"
+                aria-checked={goal === n}
+                className={goal === n ? styles.chipOn : styles.chip}
+                onClick={() => {
+                  useAppStore.getState().setDailyGoal(n);
+                  setGoalOpen(false);
+                }}
+              >
+                {n === 0 ? t("goal.off") : t("goal.times", { n })}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className={styles.field}>
           <span className={styles.label}>{t("setup.focusTime")}</span>

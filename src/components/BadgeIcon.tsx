@@ -51,6 +51,14 @@ export function BadgeIcon({ id, earned, size = 48 }: { id: BadgeId; earned: bool
         );
       case "trip-complete": // 지도 위 경로
         return <path d="M12 33l7-4 10 4 7-4V15l-7 4-10-4-7 4ZM19 15v14M29 19v14" {...sw} />;
+      case "goal-day": // 과녁
+        return (
+          <>
+            <circle cx="24" cy="24" r="11" {...sw} />
+            <circle cx="24" cy="24" r="5.5" {...sw} />
+            <circle cx="24" cy="24" r="1.6" fill={INK} />
+          </>
+        );
       case "dex-half": // 또롱 얼굴
         return (
           <>
