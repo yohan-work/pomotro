@@ -70,7 +70,8 @@ The app itself is fully available in English (official English station names and
 
 - **Tickets and highlight videos** — get a ticket on arrival and a 15-second video of the bridges and moments of your ride to share
 - **My Seoul map** — the sections you rode and stations you visited build up on a map drawn from official coordinates, with progress per line, total time, distance and streaks
-- **11 badges** — first transfer, five bridges, a full Line 2 loop, a finished long trip…
+- **Daily goal · weekly recap** — a progress ring for "4 rides today", and this week's rides, focus time and new stations on one shareable card
+- **12 badges** — first transfer, five bridges, a full Line 2 loop, a finished long trip, daily goal…
 - **Surprises** — now and then a passenger with a danso flute sits across from you, or swan boats and a hot-air balloon pass outside. Very rarely, the Han River monster (?). Everything you spot goes into your collection
 
 ### For everyone
