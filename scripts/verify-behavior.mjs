@@ -8,7 +8,10 @@ import { mkdirSync } from "node:fs";
 const base = process.argv[2] ?? "http://localhost:3123";
 mkdirSync(".verify", { recursive: true });
 const browser = await chromium.launch({ channel: "chrome", headless: true });
-const page = await (await browser.newContext({ locale: "ko-KR", viewport: { width: 1440, height: 900 }, acceptDownloads: true })).newPage();
+const mainCtx = await browser.newContext({ locale: "ko-KR", viewport: { width: 1440, height: 900 }, acceptDownloads: true });
+// 검증 세션은 '지금 타는 사람' 신호를 보내지 않는다 (실제 집계·무료 한도 보호) — 매 페이지 로드마다 다시 표시
+await mainCtx.addInitScript(() => localStorage.setItem("metro-verify", "1"));
+const page = await mainCtx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 // 외부 날씨 API(Open-Meteo) 장애는 앱이 계절 기본값으로 넘기므로 경고만 (우리 오류가 아니다)
@@ -327,6 +330,42 @@ check((await page.locator("[data-testid=cabin-passenger]").count()) === 1, "forc
     s.state.trip = null;
     localStorage.setItem("metro-focus-v1", JSON.stringify(s));
   });
+}
+
+// 같이 타기: 링크를 연 사람은 같은 열차(같은 남은 시간)에 합류, 링크는 주소에서 지워진다
+{
+  const ctx2 = await browser.newContext({ locale: "ko-KR", viewport: { width: 1280, height: 800 } });
+  await ctx2.addInitScript(() => {
+    localStorage.setItem("metro-verify", "1"); // 실제 집계에 신호를 보내지 않는다
+    Object.defineProperty(navigator, "share", { value: undefined });
+  });
+  await ctx2.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(base).origin });
+  const A = await ctx2.newPage();
+  await A.goto(base, { waitUntil: "networkidle" });
+  await A.evaluate(() => localStorage.setItem("metro-focus-v1", JSON.stringify({ version: 2, state: { seenRideTips: true, focusMinutes: 15 } })));
+  await A.reload({ waitUntil: "networkidle" });
+  await A.getByRole("button", { name: /출발하기/ }).click();
+  await A.waitForSelector("[data-testid=timer]");
+  await A.getByRole("button", { name: "같이 타기 링크" }).click();
+  await A.waitForTimeout(400);
+  const link = await A.evaluate(() => navigator.clipboard.readText());
+  const ctx3 = await browser.newContext({ locale: "ko-KR", viewport: { width: 1280, height: 800 } });
+  await ctx3.addInitScript(() => localStorage.setItem("metro-verify", "1"));
+  const B = await ctx3.newPage();
+  await B.goto(link, { waitUntil: "networkidle" });
+  await B.waitForSelector("[data-testid=timer]");
+  const ta = await A.locator("[data-testid=timer]").textContent();
+  const tb = await B.locator("[data-testid=timer]").textContent();
+  const sec = (x) => x.split(":").reduce((a, v) => a * 60 + Number(v), 0);
+  // 두 화면을 읽는 사이 초가 넘어갈 수 있어 1초까지 허용
+  check(/\?ride=/.test(link) && Math.abs(sec(ta) - sec(tb)) <= 1 && !B.url().includes("ride="), `ride-together link joins the same train (${ta} / ${tb})`);
+  const ctx4 = await browser.newContext({ locale: "ko-KR" });
+  const bad = await ctx4.newPage();
+  await bad.goto(`${base}/?ride=garbage`, { waitUntil: "networkidle" });
+  check((await bad.getByText("열 수 없는 같이 타기 링크예요").count()) === 1, "invalid ride link is explained");
+  await ctx2.close();
+  await ctx3.close();
+  await ctx4.close();
 }
 
 // 하루 목표: 출발 화면 진행 고리, 주행 중 몇 번째, 완료 화면 달성
