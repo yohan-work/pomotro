@@ -54,6 +54,14 @@ describe("배지·노선 진행", () => {
     expect(newlyEarned(recs, xfer.id, NOW)).not.toContain("first-ride");
   });
 
+  it("하루 목표: 같은 날 목표만큼 끝까지 달리면 (목표 0 이면 없음)", () => {
+    const day = (k: number) => ride(["dangsan", "hapjeong"], { completedAt: NOW - 3600e3 * k });
+    const recs = [day(1), day(2), day(3)];
+    expect(badges(recs, NOW, 3).find((x) => x.id === "goal-day")!.earned).toBe(true);
+    expect(badges(recs, NOW, 4).find((x) => x.id === "goal-day")!.earned).toBe(false);
+    expect(badges(recs, NOW, 0).find((x) => x.id === "goal-day")!.earned).toBe(false);
+  });
+
   it("호선별 진행: 지선·순환은 묶고 같은 이름은 한 역", () => {
     const p = lineProgress([ride(stationsBetween("l5m-gangdong", "l5m-macheon").map((s) => s.id))]);
     const five = p.find((x) => x.id === "5")!;

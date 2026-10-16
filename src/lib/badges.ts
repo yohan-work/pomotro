@@ -5,7 +5,7 @@ import { LINES, getStation, type LineDef } from "../data/lines";
 import { middleSections, type WaterVariant } from "../data/scenery";
 import type { RideRecord } from "../store/useAppStore";
 import { EVENT_KINDS } from "../sim/rideEvents";
-import { focusRecords, totals, visited } from "./stats";
+import { focusRecords, kstDay, totals, visited } from "./stats";
 
 /** 같은 호선의 지선·순환은 한 묶음으로 */
 const GROUPS: Array<{ id: string; lines: string[] }> = [
@@ -63,9 +63,10 @@ export type BadgeId =
   | "km-100"
   | "streak-7"
   | "dex-half"
-  | "trip-complete";
+  | "trip-complete"
+  | "goal-day";
 
-export const BADGE_IDS: readonly BadgeId[] = ["first-ride", "han-river", "first-transfer", "five-bridges", "loop2", "line-complete", "trip-complete", "focus-10h", "km-100", "streak-7", "dex-half"];
+export const BADGE_IDS: readonly BadgeId[] = ["first-ride", "han-river", "first-transfer", "five-bridges", "loop2", "line-complete", "trip-complete", "goal-day", "focus-10h", "km-100", "streak-7", "dex-half"];
 
 export interface Badge {
   id: BadgeId;
@@ -74,7 +75,15 @@ export interface Badge {
   progress?: { n: number; total: number };
 }
 
-export function badges(records: RideRecord[], now = Date.now()): Badge[] {
+/** 하루 목표를 채운 날이 있는지 (기록 기준, 목표는 지금 설정값) */
+function goalReached(done: RideRecord[], goal: number): boolean {
+  if (goal <= 0) return false;
+  const byDay = new Map<number, number>();
+  for (const r of done) byDay.set(kstDay(r.completedAt), (byDay.get(kstDay(r.completedAt)) ?? 0) + 1);
+  return [...byDay.values()].some((n) => n >= goal);
+}
+
+export function badges(records: RideRecord[], now = Date.now(), goal = 4): Badge[] {
   const done = focusRecords(records).filter((r) => !r.partial);
   const tot = totals(records, now);
   const bridges = bridgesCrossed(records).size;
@@ -92,6 +101,7 @@ export function badges(records: RideRecord[], now = Date.now()): Badge[] {
     b("loop2", loop2, 43),
     b("line-complete", complete, 1),
     b("trip-complete", done.some((r) => r.trip?.done) ? 1 : 0, 1),
+    b("goal-day", goalReached(done, goal) ? 1 : 0, 1),
     b("focus-10h", Math.floor(tot.focusSec / 3600), 10),
     b("km-100", Math.floor(tot.km), 100),
     b("streak-7", tot.streak, 7),
@@ -100,9 +110,9 @@ export function badges(records: RideRecord[], now = Date.now()): Badge[] {
 }
 
 /** 이 기록으로 새로 얻은 배지 */
-export function newlyEarned(records: RideRecord[], recordId: string, now = Date.now()): BadgeId[] {
-  const before = new Set(badges(records.filter((r) => r.id !== recordId), now).filter((x) => x.earned).map((x) => x.id));
-  return badges(records, now)
+export function newlyEarned(records: RideRecord[], recordId: string, now = Date.now(), goal = 4): BadgeId[] {
+  const before = new Set(badges(records.filter((r) => r.id !== recordId), now, goal).filter((x) => x.earned).map((x) => x.id));
+  return badges(records, now, goal)
     .filter((x) => x.earned && !before.has(x.id))
     .map((x) => x.id);
 }
