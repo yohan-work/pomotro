@@ -45,6 +45,7 @@
     "visual:diff": "node scripts/visual-diff.mjs"
   },
   "dependencies": {
+    "@upstash/redis": "1.39.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
