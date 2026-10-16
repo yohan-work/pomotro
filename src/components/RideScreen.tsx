@@ -14,7 +14,9 @@ import { buildJourney, runX, sampleJourney, type Journey, type JourneyEvent, typ
 import { cabinEventAt, planRideEvents, seedOf, seenEvents, type RideEvent, type RideEventKind } from "@/sim/rideEvents";
 import { createTicker, notifyIfHidden } from "@/lib/background";
 import { useAppStore, type ActiveSession } from "@/store/useAppStore";
-import { IconExit, IconExpand, IconMute, IconPause, IconPip, IconPlay, IconSettings, IconVolume, Mascot } from "./Icons";
+import { IconExit, IconExpand, IconMute, IconPause, IconPip, IconPlay, IconSettings, IconShare, IconVolume, Mascot } from "./Icons";
+import { usePresence } from "@/lib/usePresence";
+import { encodeRide, roomOf } from "@/lib/together";
 import { miniWindowSupported, openMiniWindow } from "./miniWindow";
 import { SoundSettings, ViewSettings } from "./Panels";
 import { CabinPassenger } from "./Passengers";
@@ -123,6 +125,8 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const { t, name, lang } = useT();
   const surprisesOn = useAppStore((s) => s.surprises);
   const goal = useAppStore((s) => s.dailyGoal);
+  const presenceOn = useAppStore((s) => s.presence);
+  const [toast, setToast] = useState("");
   // 이 여행이 오늘 몇 번째인지 (출발 시점 기준 — 여행 중에는 바뀌지 않는다)
   const [doneTodayAtStart] = useState(() => todayDone(useAppStore.getState().records));
   const plannedEvents = useMemo(() => {
@@ -445,6 +449,33 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
     setAudioOn(true);
   };
 
+  /** 같이 타기: 지금 여행의 링크 — 받은 사람은 같은 출발 시각 기준으로 같은 열차에 탄다 */
+  const shareRide = async () => {
+    const s = useAppStore.getState().activeSession;
+    if (!s) return;
+    const code = encodeRide({ stationIds: s.stationIds, startMs: s.startedAt + s.pausedAccumMs, totalSec: s.totalSec });
+    useAppStore.getState().setSessionRoom(roomOf(code));
+    const url = `${location.origin}/?ride=${code}`;
+    const text = t("together.shareText", { from: name(journey.stations[0]), to: name(journey.stations[journey.stations.length - 1]) });
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "METRO", text, url });
+        setToast(t("together.shared"));
+      } else {
+        await navigator.clipboard.writeText(url);
+        setToast(t("together.copied"));
+      }
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url);
+        setToast(t("together.copied"));
+      } catch {
+        /* 공유 취소 */
+      }
+    }
+    setTimeout(() => setToast(""), 4000);
+  };
+
   /** 미니 창: 다른 앱에서 일하는 동안 창밖·남은 시간·다음 역을 작은 창으로 */
   const toggleMini = async () => {
     if (closeMini.current) {
@@ -521,6 +552,19 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
   const line = lineOf(stations[sample.nextIndex].id);
   const legLines = [...new Set(stations.map((st) => st.line))].map((id) => lineOf(stations.find((st) => st.line === id)!.id));
   const xfer = journey.transfers.find((tp) => sample.t >= tp.t0 && sample.t < tp.t1);
+  // 지금 타는 사람 (익명): 검증용 자동 시작 세션은 신호를 보내지 않는다 (실제 집계·무료 한도 보호)
+  const presence = usePresence({
+    enabled: presenceOn && !isBreak,
+    send: !paused && !debug.scripted,
+    line: line.id,
+    room: session.room,
+  });
+  const presenceText =
+    session.room && presence?.room
+      ? t("together.inRoom", { n: presence.room })
+      : presence && (presence.lines[line.id.replace(/[ML]$/, "")] ?? 0) > 1
+        ? t("presence.line", { line: lineName(line, lang), n: presence.lines[line.id.replace(/[ML]$/, "")] })
+        : null;
   const focusMode = (idle || zen) && !paused && panel === "none";
   const ledParts = led.split("  ·  ");
   const ledShown = ledParts[ledPart % ledParts.length];
@@ -677,6 +721,7 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
       </header>
       <div className={styles.topRight}>
         {session.task && <span className={styles.task}>{session.task}</span>}
+        {presenceText && <span className={styles.weatherChip}>{presenceText}</span>}
         {session.mode === "focus" && goal > 0 && (
           <span className={styles.weatherChip}>{t("goal.rideChip", { n: doneTodayAtStart + 1, goal })}</span>
         )}
@@ -746,6 +791,11 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
         <button className={styles.ctrl} onClick={() => setPanel(panel === "settings" ? "none" : "settings")} aria-label={t("ride.viewSettings")}>
           <IconSettings />
         </button>
+        {!isBreak && (
+          <button className={`${styles.ctrl} ${styles.ctrlWide}`} onClick={shareRide} aria-label={t("together.share")} title={t("together.share")}>
+            <IconShare />
+          </button>
+        )}
         {canMini && (
           <button className={`${styles.ctrl} ${styles.ctrlWide}`} onClick={toggleMini} aria-label={t("ride.miniWindow")} aria-pressed={miniOpen} title={t("ride.miniWindow")}>
             <IconPip />
@@ -804,6 +854,12 @@ export default function RideScreen({ session, debug }: { session: ActiveSession;
               {t("ride.getOff")}
             </button>
           </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={styles.tips} role="status">
+          <span>{toast}</span>
         </div>
       )}
 

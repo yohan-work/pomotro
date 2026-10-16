@@ -111,3 +111,13 @@ export const IconPip = (p: SVGProps<SVGSVGElement>) => (
     <rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor" stroke="none" />
   </svg>
 );
+
+/** 같이 타기 (링크 공유) */
+export const IconShare = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <circle cx="18" cy="5.5" r="2.5" />
+    <circle cx="6" cy="12" r="2.5" />
+    <circle cx="18" cy="18.5" r="2.5" />
+    <path d="M8.2 10.9l7.6-4.2M8.2 13.1l7.6 4.2" />
+  </svg>
+);

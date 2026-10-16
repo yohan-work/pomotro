@@ -21,6 +21,7 @@ import { StationSearch } from "./StationSearch";
 import { TripPanel } from "./TripPanel";
 import { GoalRing } from "./GoalRing";
 import { kstWeek, todayDone, weekSummary } from "@/lib/goals";
+import { usePresence } from "@/lib/usePresence";
 import { nextLeg, tripDone, tripSummary } from "@/lib/trips";
 import styles from "./SetupScreen.module.css";
 
@@ -132,6 +133,9 @@ export default function SetupScreen() {
   const thisWeek = kstWeek(Date.now());
   const lastWeek = useMemo(() => weekSummary(records, thisWeek - 1, goal), [records, thisWeek, goal]);
   const showRecap = !firstVisit && recapSeenWeek < thisWeek && lastWeek.rides > 0;
+  const presenceOn = useAppStore((s) => s.presence);
+  const presence = usePresence({ enabled: presenceOn, send: false });
+  const joinNotice = useAppStore((s) => s.joinNotice);
 
   const picked = useMemo(() => {
     if (!pickFrom || !pickTo) return null;
@@ -215,6 +219,20 @@ export default function SetupScreen() {
           {t("setup.title2")}
         </h1>
         <p className={styles.sub}>{t("setup.sub")}</p>
+        {presence && presence.total > 0 && (
+          <p className={styles.presence}>
+            <span className={styles.presenceDot} aria-hidden />
+            {t("presence.now", { n: presence.total })}
+          </p>
+        )}
+        {joinNotice && (
+          <p className={styles.longHint} role="status">
+            {t(joinNotice === "ended" ? "together.ended" : "together.invalid")}{" "}
+            <button className={styles.goalEdit} onClick={() => useAppStore.getState().setJoinNotice(null)}>
+              {t("common.close")}
+            </button>
+          </p>
+        )}
 
         {showRecap && (
           <div className={styles.recapBanner} role="status">

@@ -56,6 +56,8 @@ export interface ActiveSession extends SessionTiming {
   breakKind?: BreakKind;
   /** 장거리 여행의 한 구간이면 그 여행과 이 구간의 끝(코스 경로 index) */
   trip?: { id: TripId; to: number };
+  /** 함께 타기 방 (같은 링크로 탄 사람들) */
+  room?: string;
 }
 
 /** 진행 중인 장거리 여행 */
@@ -147,7 +149,15 @@ export interface AppState {
   /** 방금 도착한 역에서 휴식 시작 */
   startBreak: (stationId: string) => void;
 
-  startSession: (s: { mode: SessionMode; stationIds: string[]; totalSec: number; task: string; seekSec?: number; trip?: { id: TripId; to: number } }) => void;
+  startSession: (s: { mode: SessionMode; stationIds: string[]; totalSec: number; task: string; seekSec?: number; trip?: { id: TripId; to: number }; room?: string }) => void;
+  /** 지금 여행을 함께 타기 방으로 */
+  setSessionRoom: (room: string) => void;
+  /** 지금 타는 사람 (익명 신호 보내기·보기) */
+  presence: boolean;
+  setPresence: (on: boolean) => void;
+  /** 함께 타기 링크로 들어왔는데 이미 도착한 열차였는지 (출발 화면 안내, 저장 안 함) */
+  joinNotice: "ended" | "invalid" | null;
+  setJoinNotice: (n: "ended" | "invalid" | null) => void;
   trip: TripState | null;
   /** 하루 목표 (끝까지 달린 집중 여행 수, 0 = 끔) */
   dailyGoal: number;
@@ -246,7 +256,16 @@ export const useAppStore = create<AppState>()(
       startTrip: (id) => set({ trip: { id, progress: 0, startedAt: Date.now() } }),
       quitTrip: () => set({ trip: null }),
 
-      startSession: ({ mode, stationIds, totalSec, task, seekSec = 0, trip }) =>
+      setSessionRoom: (room) => {
+        const s = get().activeSession;
+        if (s) set({ activeSession: { ...s, room } });
+      },
+      presence: true,
+      setPresence: (on) => set({ presence: on }),
+      joinNotice: null,
+      setJoinNotice: (n) => set({ joinNotice: n }),
+
+      startSession: ({ mode, stationIds, totalSec, task, seekSec = 0, trip, room }) =>
         set({
           lastRecordId: null,
           breakJustEnded: false,
@@ -257,6 +276,7 @@ export const useAppStore = create<AppState>()(
             totalSec,
             task,
             ...(trip ? { trip } : {}),
+            ...(room ? { room } : {}),
             startedAt: epochNow() - seekSec * 1000,
             pausedAccumMs: 0,
             pausedAt: null,
@@ -409,6 +429,7 @@ export const useAppStore = create<AppState>()(
         breakJustEnded: s.breakJustEnded,
         trip: s.trip,
         dailyGoal: s.dailyGoal,
+        presence: s.presence,
         recapSeenWeek: s.recapSeenWeek,
       }),
     },
