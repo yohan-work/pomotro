@@ -149,6 +149,12 @@ export interface AppState {
 
   startSession: (s: { mode: SessionMode; stationIds: string[]; totalSec: number; task: string; seekSec?: number; trip?: { id: TripId; to: number } }) => void;
   trip: TripState | null;
+  /** 하루 목표 (끝까지 달린 집중 여행 수, 0 = 끔) */
+  dailyGoal: number;
+  setDailyGoal: (n: number) => void;
+  /** 주간 회고 알림을 본 주 (kstWeek) */
+  recapSeenWeek: number;
+  setRecapSeenWeek: (w: number) => void;
   startTrip: (id: TripId) => void;
   quitTrip: () => void;
   pause: () => void;
@@ -233,6 +239,10 @@ export const useAppStore = create<AppState>()(
       },
 
       trip: null,
+      dailyGoal: 4,
+      setDailyGoal: (n) => set({ dailyGoal: Math.max(0, Math.min(12, Math.round(n))) }),
+      recapSeenWeek: 0,
+      setRecapSeenWeek: (w) => set({ recapSeenWeek: Math.max(get().recapSeenWeek, w) }),
       startTrip: (id) => set({ trip: { id, progress: 0, startedAt: Date.now() } }),
       quitTrip: () => set({ trip: null }),
 
@@ -398,6 +408,8 @@ export const useAppStore = create<AppState>()(
         nextOriginId: s.nextOriginId,
         breakJustEnded: s.breakJustEnded,
         trip: s.trip,
+        dailyGoal: s.dailyGoal,
+        recapSeenWeek: s.recapSeenWeek,
       }),
     },
   ),
