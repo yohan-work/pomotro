@@ -7,6 +7,7 @@ import { DEMO_ROUTE } from "@/lib/recommend";
 import { minJourneySec } from "@/sim/journey";
 import { EVENT_KINDS } from "@/sim/rideEvents";
 import { setCalendarDate } from "@/lib/calendar";
+import { decodeRide, roomOf } from "@/lib/together";
 import { tr, useLang } from "@/i18n";
 import { useAppStore } from "@/store/useAppStore";
 import CompleteScreen from "./CompleteScreen";
@@ -25,6 +26,7 @@ import SetupScreen from "./SetupScreen";
  *   ?debug=1               FPS·시뮬레이션 상태 표시
  *   ?still=45              시뮬레이션·애니메이션 시간을 45초에 고정 (시각 비교 테스트용)
  *   ?date=2026-12-24       달력 기준 날짜 (봄 단계·크리스마스 장식·인사 — 타이머는 실제 시각)
+ *   ?ride=<코드>           같이 타기 링크 (같은 열차에 합류)
  *   ?crowd=1               혼잡도 고정 (0..1, 기본은 한국 시간 출퇴근에 따라)
  *   ?event=danso           깜짝 이벤트 하나를 강제 (URL 자동 시작 세션은 기본적으로 깜짝 이벤트 없음)
  */
@@ -74,6 +76,28 @@ export default function ClientApp() {
       })(),
       crowd: p.get("crowd") !== null ? Math.min(1, Math.max(0, Number(p.get("crowd")) || 0)) : undefined,
     });
+    // 같이 타기 링크: 같은 경로를 같은 출발 시각 기준으로 (이미 지난 시간만큼 앞당겨 탄다)
+    const rideCode = p.get("ride");
+    if (rideCode) {
+      const shared = decodeRide(rideCode);
+      const st = useAppStore.getState();
+      if (!shared) st.setJoinNotice("invalid");
+      else {
+        const elapsed = (Date.now() - shared.startMs) / 1000;
+        if (elapsed >= shared.totalSec) st.setJoinNotice("ended");
+        else
+          st.startSession({
+            mode: "focus",
+            stationIds: shared.stationIds,
+            totalSec: shared.totalSec,
+            task: st.task.trim(),
+            seekSec: Math.max(0, elapsed),
+            room: roomOf(rideCode),
+          });
+      }
+      // 새로고침하면 진행 중 세션이 이어지므로 링크는 주소에서 지운다
+      history.replaceState(null, "", location.pathname);
+    }
     const routeParam = p.get("route");
     if (p.get("autostart") === "route" && routeParam) {
       const [from, to] = routeParam.split(",");
