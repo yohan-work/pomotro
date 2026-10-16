@@ -1,5 +1,5 @@
 /** 기록 통계 — 집중(focus) 기록만 센다. 체험 운행·휴식은 제외 */
-import { ALL_STATIONS, getStation, isTransferPair, stationsBetween } from "../data/lines";
+import { ALL_STATIONS, getStation, isTransferPair, stationsBetween, type Station } from "../data/lines";
 import type { RideRecord } from "../store/useAppStore";
 
 const DAY = 86400000;
@@ -10,19 +10,23 @@ export function focusRecords(records: RideRecord[]): RideRecord[] {
   return records.filter((r) => r.mode === "focus");
 }
 
+/** 기록의 경로 — 환승 여행은 기록에 있고, 한 노선 여행은 출발·도착역으로 복원 (알 수 없으면 null) */
+export function recordRoute(r: RideRecord): Station[] | null {
+  try {
+    return r.stationIds ? r.stationIds.map(getStation) : stationsBetween(r.fromId, r.toId);
+  } catch {
+    return null;
+  }
+}
+
 /** 끝까지 달린 기록의 구간·역 (중도 하차는 위치를 알 수 없어 제외) */
 export function visited(records: RideRecord[]): { segments: Set<string>; stations: Set<string> } {
   const segments = new Set<string>();
   const stations = new Set<string>();
   for (const r of focusRecords(records)) {
     if (r.partial) continue;
-    let route;
-    try {
-      // 환승 여행은 경로가 기록에 있다 (한 노선 여행은 출발·도착역으로 복원)
-      route = r.stationIds ? r.stationIds.map(getStation) : stationsBetween(r.fromId, r.toId);
-    } catch {
-      continue;
-    }
+    const route = recordRoute(r);
+    if (!route) continue;
     route.forEach((s, i) => {
       stations.add(s.id);
       if (i > 0 && !isTransferPair(route[i - 1], s)) segments.add(`${route[i - 1].id}__${s.id}`);
