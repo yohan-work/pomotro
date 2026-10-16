@@ -25,7 +25,7 @@ npm run verify:behavior -- http://localhost:3000 [--pwa]           # 일시정�
 
 검증 스크립트는 로컬 Google Chrome(`channel: "chrome"`)을 headless 로 띄운다. 결과 이미지는 `.verify/`(gitignore).
 
-개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?weather=clear|cloudy|rain|snow|fog` `?season=spring|summer|autumn|winter` `?debug=1` `?still=45`(시간 고정) `?crowd=0..1`(혼잡도 고정) `?date=2026-12-24`(달력 기준 날짜 — 봄 단계·장식·인사) `?event=danso|vendor|puppy|sleeper|hiker|balloon|duckboat|cat|monster|ttorong`(깜짝 이벤트 강제 — URL 자동 시작 세션은 기본적으로 깜짝 이벤트 없음)
+개발용 URL 파라미터: `?autostart=demo` `?autostart=route&route=gangbyeon,jamsillaru&total=150[&mode=focus]` `?seek=40` `?tod=day|sunset|night` `?weather=clear|cloudy|rain|snow|fog` `?season=spring|summer|autumn|winter` `?debug=1` `?still=45`(시간 고정) `?crowd=0..1`(혼잡도 고정) `?date=2026-12-24`(달력 기준 날짜 — 봄 단계·장식·인사) `?ride=<코드>`(같이 타기 링크) `?event=danso|vendor|puppy|sleeper|hiker|balloon|duckboat|cat|monster|ttorong`(깜짝 이벤트 강제 — URL 자동 시작 세션은 기본적으로 깜짝 이벤트 없음)
 
 ## 구조
 
@@ -60,6 +60,8 @@ docs/                  plan / architecture / design-system / phase-01
 - 모션 감소(`prefers-reduced-motion` + 설정) 시 흔들림·손잡이 진자·주변 애니메이션을 끈다. 번쩍임 금지.
 - 작동하지 않는 버튼을 실제 기능처럼 두지 않는다.
 - 숨겨진 탭에서 돌아야 하는 판정은 `createTicker`(Worker) 로. 알림 권한은 사용자 클릭 안에서만 요청한다.
+- "지금 타는 사람"(`/api/presence`, Upstash Redis 무료 플랜·자동 업그레이드 꺼짐)은 익명 id·노선·방만 보낸다. 개인정보 금지. 호출 수를 아낀다(신호 1분 1회, 조회는 CDN 30초 캐시). Redis 가 없거나 실패하면 표시만 숨긴다
+- 검증 스크립트 세션은 신호를 보내지 않는다 — URL 자동 시작 세션, 또는 localStorage `metro-verify=1`
 - 서비스 워커는 프로덕션에서만 등록된다. `public/sw.js` 캐시 정책을 바꾸면 `VERSION` 을 올린다.
 
 ## 다국어

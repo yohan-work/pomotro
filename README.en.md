@@ -35,7 +35,7 @@ METRO turns a focus session into **a small trip across Seoul**.
 Pick 25 minutes and it suggests a real subway route that takes about that long. Then you sit by the window: the doors close, the train accelerates smoothly, crosses the Han River, slips through tunnels and brakes into the next station. When you arrive, your session is done and you get a ticket.
 
 - **Real data** — station order, run times, distances, coordinates and transfer walks for 278 stations on 9 lines come straight from Seoul Metro, the Seoul Metropolitan Government and the Korea National Railway open data.
-- **Just the browser** — Canvas 2D parallax and synthesized WebAudio. No external images, audio or servers; it is a static site.
+- **Just the browser** — Canvas 2D parallax and synthesized WebAudio, no external images or audio. A server is used only for the anonymous "who's riding now" count (everything else works without it).
 - **A pure function of time** — the train's position depends only on elapsed time. Switch tabs or reload and the same moment shows the same scene.
 
 The app itself is fully available in English (official English station names and English announcements).
@@ -57,6 +57,11 @@ The app itself is fully available in English (official English station names and
 - **Neighborhoods** — red-brick Seongsu, glass offices of the Guro Digital Complex, Paldang Lake and greenhouses along the Gyeongui–Jungang Line
 - **Underground, never dull** — box, round (shield) and pillared tunnels, passing trains, "Transfer" signs at interchange stations, passengers reflected in the glass
 - **Real sky and seasons** — sunsets at Seoul's actual sunset time, live Seoul weather (rain, snow, fog), forsythia → cherry blossoms → fresh green, December decorations
+
+### Ride together
+
+- **Ride-together links** — send a link and whoever opens it boards the same line at the same departure time; since the simulation is a pure function of time, everyone sees the same view. "Riding together · 3"
+- **Who's riding now** — "12 focusing on Line 2 now". Only an anonymous beat (a random per-tab id, the line and the room) is sent once a minute and deleted after 150 seconds. No names or device info are stored, and you can turn it off
 
 ### A daily focus tool
 

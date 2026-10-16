@@ -15,6 +15,12 @@ The source code is MIT-licensed. The data below is open data published by the re
 | RAFIS 역 정보 (영문 역명) | 국가철도공단 — [15132601](https://www.data.go.kr/data/15132601/fileData.do) | 이용허락범위 제한 없음 | `krna-rafis-stations.csv` |
 | 실시간 날씨 (앱 실행 중 조회) | [Open-Meteo](https://open-meteo.com) | CC BY 4.0 | — |
 
+## 지금 타는 사람 (익명 집계) / Anonymous presence
+
+"지금 타는 사람"과 "같이 타기" 인원은 [Upstash Redis](https://upstash.com)(Vercel Marketplace, 무료 플랜)에 잠깐 저장됩니다. 저장하는 것은 탭마다 임의로 만든 id, 지금 탄 노선, 같이 타기 방 이름뿐이며 150초 뒤 자동으로 지워집니다. 이름·이메일·기기 정보·위치·할 일은 보내지 않습니다. 설정 → "지금 타는 사람 보기"를 끄면 아무것도 보내지 않습니다.
+
+Only a random per-tab id, the current line and the ride-together room are stored, for 150 seconds. Turn it off in Settings to send nothing.
+
 출처표시: 이 저작물은 서울교통공사와 서울특별시가 공공누리 제1유형으로 개방한 「서울교통공사_역간거리 및 소요시간」, 「서울시 역사마스터 정보」, 「서울시 지하철 노선별 역 정보」를 이용하였습니다.
 
 글꼴 [Pretendard](https://github.com/orioncactus/pretendard)는 SIL Open Font License 1.1이며 CDN에서 불러옵니다.
