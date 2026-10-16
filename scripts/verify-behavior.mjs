@@ -329,6 +329,23 @@ check((await page.locator("[data-testid=cabin-passenger]").count()) === 1, "forc
   });
 }
 
+// 하루 목표: 출발 화면 진행 고리, 주행 중 몇 번째, 완료 화면 달성
+{
+  const r = (i, off) => ({ id: "g" + i, mode: "focus", fromId: "dangsan", toId: "hapjeong", stationCount: 1, focusSec: 1500, completedAt: Date.now() - off, task: "", partial: false, distanceKm: 2 });
+  await page.evaluate((recs) => localStorage.setItem("metro-focus-v1", JSON.stringify({ version: 2, state: { seenRideTips: true, dailyGoal: 2, records: recs } })), [r(1, 3600e3), r(2, 8 * 86400e3)]);
+  await page.reload({ waitUntil: "networkidle" });
+  check(/오늘 목표\s*1\/2번/.test(await page.locator("[class*=goalRow]").textContent()), "daily goal ring on setup (1/2)");
+  check((await page.getByText(/지난주 회고가 준비됐어요/).count()) === 1, "new week: last week's recap banner");
+  await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=150&mode=focus&seek=146`, { waitUntil: "networkidle" });
+  await page.waitForSelector("text=/오늘 목표 2번 달성/", { timeout: 20000 }).catch(() => {});
+  check((await page.getByText(/오늘 목표 2번 달성/).count()) === 1, "completion: daily goal reached");
+  await page.getByRole("button", { name: /노선도/ }).first().click();
+  const recap = page.getByRole("region", { name: "주간 회고" });
+  check(/완주\s*2/.test(await recap.textContent()), "weekly recap shows this week's rides");
+  await page.goto(base, { waitUntil: "networkidle" });
+  check((await page.getByText(/지난주 회고가 준비됐어요/).count()) === 0, "recap banner hidden after viewing");
+}
+
 // 하이라이트 영상: 완료 화면에서 만들어 내려받기 (MediaRecorder, mp4 또는 webm)
 {
   await page.goto(`${base}/?autostart=route&route=dangsan,hapjeong&total=150&mode=focus&seek=146`, { waitUntil: "networkidle" });
