@@ -9,6 +9,8 @@ import { IconArrow, IconDownload, IconPlay } from "./Icons";
 import { EncounterIcon } from "./Passengers";
 import { BadgeIcon } from "./BadgeIcon";
 import { newlyEarned } from "@/lib/badges";
+import { todayDone } from "@/lib/goals";
+import { GoalRing } from "./GoalRing";
 import { tripDone, tripSummary } from "@/lib/trips";
 import styles from "./CompleteScreen.module.css";
 import { TICKET_H, TICKET_W, drawTicket, ticketBlob } from "./ticket";
@@ -18,6 +20,7 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
   const { t, name, lang } = useT();
   const records = useAppStore((s) => s.records);
   const trip = useAppStore((s) => s.trip);
+  const goal = useAppStore((s) => s.dailyGoal);
   const cycleCount = useAppStore((s) => s.cycleCount);
   const prefs = useAppStore((s) => s.pomodoro);
   const rec = records.find((r) => r.id === recordId);
@@ -38,7 +41,8 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
   }, [rec, today, lang]);
 
   if (!rec) return null;
-  const fresh = rec.mode === "focus" && !rec.partial ? newlyEarned(records, rec.id) : [];
+  const fresh = rec.mode === "focus" && !rec.partial ? newlyEarned(records, rec.id, Date.now(), goal) : [];
+  const doneToday = todayDone(records);
   const to = getStation(rec.toId);
   const late = Date.now() - rec.completedAt > LATE_COMPLETION_MS;
   const canBreak = rec.mode === "focus" && !rec.partial && !late;
@@ -188,6 +192,12 @@ export default function CompleteScreen({ recordId }: { recordId: string }) {
             ))}
             <span>{breakKind === "long" ? t("done.cycleLong", { n: prefs.longEvery }) : t("done.cycle", { n: cycleCount, every: prefs.longEvery })}</span>
           </div>
+        )}
+        {rec.mode === "focus" && !rec.partial && goal > 0 && (
+          <p className={styles.goal} role="status">
+            <GoalRing done={doneToday} goal={goal} size={24} />
+            {doneToday >= goal ? <b>{t("done.goalReached", { goal })}</b> : t("done.goalProgress", { n: doneToday, goal })}
+          </p>
         )}
         {rec.mode === "focus" && summary.count > 0 && (
           <p className={styles.today}>

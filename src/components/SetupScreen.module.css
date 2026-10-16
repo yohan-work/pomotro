@@ -676,3 +676,70 @@
 .sources[open] summary {
   margin-right: 4px;
 }
+
+/* 하루 목표 */
+.goalRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 16px;
+  font-size: 13.5px;
+  color: var(--c-text-3);
+}
+
+.goalRow b {
+  color: var(--c-text);
+}
+
+.goalEdit {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  color: var(--c-text-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 지난주 회고 알림 */
+.recapBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  background: rgba(233, 167, 91, 0.14);
+  font-size: 13px;
+  color: var(--c-text-2);
+}
+
+.recapBanner span {
+  flex: 1;
+  min-width: 0;
+}
+
+.recapOpen {
+  flex: none;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--c-btn);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.recapClose {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--c-text-3);
+}
